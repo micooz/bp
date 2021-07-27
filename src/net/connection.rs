@@ -43,8 +43,10 @@ impl Connection {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<ConnectionEvent>(32);
         let tx2 = tx.clone();
 
-        self.inbound.start_recv(tx);
-        self.outbound.start_recv(tx2);
+        let inbound_recv_handle = self.inbound.start_recv(tx);
+        let outbound_recv_handle = self.outbound.start_recv(tx2);
+
+        // TODO: add timeout mechanism for bound recv
 
         while let Some(event) = rx.recv().await {
             log::debug!("recv event {:?}", event);
@@ -70,6 +72,9 @@ impl Connection {
                 }
             }
         }
+
+        inbound_recv_handle.await??;
+        outbound_recv_handle.await??;
 
         Ok(())
     }

@@ -1,12 +1,8 @@
 use super::proto::Protocol;
-use crate::Result;
+use crate::{net::address::ProxyAddr, utils::ToHex, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::net::SocketAddr;
-use tokio::{
-    io::{ReadHalf, WriteHalf},
-    net::TcpStream,
-};
+use tokio::io::AsyncReadExt;
 
 pub struct Plain {}
 
@@ -22,15 +18,24 @@ impl Protocol for Plain {
         "plain".into()
     }
 
-    async fn parse_proxy_address(
-        &self,
-        _reader: &mut ReadHalf<TcpStream>,
-        _writer: &mut WriteHalf<TcpStream>,
-    ) -> Result<SocketAddr> {
-        Ok("127.0.0.1:8080".parse().unwrap())
+    async fn resolve_proxy_address(
+        &mut self,
+        reader: &mut TcpStreamReader,
+        _writer: &mut TcpStreamWriter,
+    ) -> Result<ProxyAddr> {
+        let mut buf = vec![0u8; 0];
+        reader.read(&mut buf).await?;
+
+        log::debug!("{}", ToHex(buf));
+
+        todo!()
     }
 
-    async fn encode_data(&self, buf: Bytes) -> Result<Bytes> {
+    async fn pack(&self, buf: Bytes) -> Result<Bytes> {
+        Ok(buf)
+    }
+
+    async fn unpack(&self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

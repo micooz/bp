@@ -1,8 +1,7 @@
 use super::proto::Protocol;
-use crate::Result;
+use crate::{net::address::ProxyAddr, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::net::SocketAddr;
 use tokio::{
     io::{ReadHalf, WriteHalf},
     net::TcpStream,
@@ -22,15 +21,19 @@ impl Protocol for Transparent {
         "transparent".into()
     }
 
-    async fn parse_proxy_address(
-        &self,
+    async fn resolve_proxy_address(
+        &mut self,
         _reader: &mut ReadHalf<TcpStream>,
         _writer: &mut WriteHalf<TcpStream>,
-    ) -> Result<SocketAddr> {
+    ) -> Result<ProxyAddr> {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 
-    async fn encode_data(&self, buf: Bytes) -> Result<Bytes> {
+    async fn pack(&self, buf: Bytes) -> Result<Bytes> {
+        Ok(buf)
+    }
+
+    async fn unpack(&self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

@@ -52,8 +52,7 @@ async fn main() {
             match conn.handle(service_type).await {
                 Ok(_) => {}
                 Err(err) => {
-                    log::error!("{:?}", err);
-                    tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+                    log::error!("{}", err);
                 }
             }
 

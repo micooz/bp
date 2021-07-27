@@ -16,6 +16,6 @@ pub enum ServiceType {
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
-pub type TcpSteamReader = ReadHalf<TcpStream>;
+pub type TcpStreamReader = ReadHalf<TcpStream>;
 pub type TcpStreamWriter = WriteHalf<TcpStream>;
 pub type Proto = Box<dyn Protocol + Send + Sync + 'static>;

@@ -1,10 +1,11 @@
+use super::address::ProxyAddr;
 use crate::options::Options;
 use std::net::SocketAddr;
 
 /// The context shared inside Connection
 pub struct Context {
     pub opts: Option<Options>,
-    pub proxy_address: Option<SocketAddr>,
+    pub proxy_address: Option<ProxyAddr>,
     pub peer_address: Option<SocketAddr>,
 }
 

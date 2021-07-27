@@ -1,6 +1,6 @@
-use super::context::Context;
+use super::{address::ProxyAddr, context::Context};
 use crate::{
-    net::ConnectionEvent, utils, Proto, Protocol, Result, TcpSteamReader, TcpStreamWriter,
+    net::ConnectionEvent, utils, Proto, Protocol, Result, TcpStreamReader, TcpStreamWriter,
 };
 use bytes::{Bytes, BytesMut};
 use std::{
@@ -13,6 +13,7 @@ use tokio::{
     net::TcpStream,
     sync::mpsc::Sender,
     sync::Mutex,
+    task::JoinHandle,
 };
 
 #[derive(Clone)]
@@ -33,7 +34,7 @@ impl Display for BoundType {
 
 struct RecvArgs {
     tx: Sender<ConnectionEvent>,
-    reader: Arc<Mutex<TcpSteamReader>>,
+    reader: Arc<Mutex<TcpStreamReader>>,
     bound_type: BoundType,
 }
 
@@ -42,7 +43,7 @@ pub struct Bound {
     bound_type: BoundType,
 
     /// The read half of current stream
-    reader: Option<Arc<Mutex<TcpSteamReader>>>,
+    reader: Option<Arc<Mutex<TcpStreamReader>>>,
 
     /// The write half of current stream
     writer: Option<Arc<Mutex<TcpStreamWriter>>>,
@@ -134,7 +135,7 @@ impl Bound {
         Ok(())
     }
 
-    pub fn start_recv(&mut self, tx: Sender<ConnectionEvent>) {
+    pub fn start_recv(&mut self, tx: Sender<ConnectionEvent>) -> JoinHandle<Result<()>> {
         let reader = self.reader.as_ref().unwrap().clone();
         let bound_type = self.bound_type.clone();
 
@@ -145,20 +146,31 @@ impl Bound {
                 bound_type,
             })
             .await
-            .unwrap();
-        });
+        })
     }
 
     /// send data to remote
     pub async fn write(&mut self, buf: Bytes) -> Result<()> {
-        let mut writer = self.writer.as_ref().unwrap().lock().await;
-        let proto = self.protocol.as_ref().unwrap();
-
-        let mut buf = match self.bound_type {
-            BoundType::In => proto.encode_data(buf).await?,
-            BoundType::Out => proto.encode_data(buf).await?,
+        let opts = {
+            let ctx = self.get_context();
+            ctx.opts.as_ref().unwrap().clone()
         };
 
+        let proto = self.protocol.as_ref().unwrap();
+
+        let mut buf = if opts.client {
+            match self.bound_type {
+                BoundType::In => proto.unpack(buf).await?,
+                BoundType::Out => proto.pack(buf).await?,
+            }
+        } else {
+            match self.bound_type {
+                BoundType::In => proto.pack(buf).await?,
+                BoundType::Out => proto.unpack(buf).await?,
+            }
+        };
+
+        let mut writer = self.writer.as_ref().unwrap().lock().await;
         writer.write_buf(&mut buf).await?;
         writer.flush().await?;
 
@@ -180,20 +192,16 @@ impl Bound {
     }
 
     /// resolve proxy address
-    async fn resolve_addr(&mut self) -> Result<SocketAddr> {
+    async fn resolve_addr(&mut self) -> Result<ProxyAddr> {
         let mut reader = self.reader.as_ref().unwrap().lock().await;
         let mut writer = self.writer.as_ref().unwrap().lock().await;
 
-        let proto = self.protocol.as_ref().unwrap();
+        let proto = self.protocol.as_mut().unwrap();
 
-        let proxy_address = match proto.parse_proxy_address(&mut reader, &mut writer).await {
+        let proxy_address = match proto.resolve_proxy_address(&mut reader, &mut writer).await {
             Ok(addr) => addr,
             Err(err) => {
-                log::error!(
-                    "parse proxy address failed({:?}), drop all buffered data",
-                    err
-                );
-                return Err("parse proxy address failed".into());
+                return Err(format!("resolve proxy address failed: {}", err).into());
             }
         };
 
@@ -201,7 +209,7 @@ impl Bound {
     }
 
     /// connect to addr
-    async fn connect(&mut self, addr: &SocketAddr) -> Result<()> {
+    async fn connect(&mut self, addr: &ProxyAddr) -> Result<()> {
         let peer_addr = self.get_peer_addr().unwrap();
         let proto_name = self.protocol.as_ref().unwrap().get_name();
 
@@ -213,7 +221,7 @@ impl Bound {
             addr
         );
 
-        let stream = TcpStream::connect(addr).await?;
+        let stream = TcpStream::connect(addr.to_string()).await?;
 
         log::info!(
             "[{}] [{}] [{}] connected to {}",
@@ -235,8 +243,8 @@ impl Bound {
         self.get_context().peer_address
     }
 
-    fn get_proxy_address(&self) -> Option<SocketAddr> {
-        self.get_context().proxy_address
+    fn get_proxy_address(&self) -> Option<ProxyAddr> {
+        self.get_context().proxy_address.clone()
     }
 
     fn get_context(&self) -> MutexGuard<Context> {

@@ -1,96 +1,34 @@
 use super::proto::Protocol;
-use crate::Result;
+use crate::{
+    net::address::{Address, ProxyAddr},
+    utils::ToHex,
+    Result, TcpStreamReader, TcpStreamWriter,
+};
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::net::SocketAddr;
-use tokio::{
-    io::{AsyncWriteExt, ReadHalf, WriteHalf},
-    net::TcpStream,
+use std::{
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    vec,
 };
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-// Socks4 Request Message
-// +----+-----+----------+--------+----------+--------+
-// |VER | CMD | DST.PORT | DST.IP | USER.ID  |  NULL  |
-// +----+-----+----------+--------+----------+--------+
-// | 1  |  1  |    2     |   4    | Variable |  X'00' |
-// +----+-----+----------+--------+----------+--------+
-
-// Socks4a Request Message
-// +----+-----+----------+--------+----------+--------+------------+--------+
-// |VER | CMD | DST.PORT | DST.IP | USER.ID  |  NULL  |  DST.ADDR  |  NULL  |
-// +----+-----+----------+--------+----------+--------+------------+--------+
-// | 1  |  1  |    2     |   4    | Variable |  X'00' |  Variable  |  X'00' |
-// +----+-----+----------+--------+----------+--------+------------+--------+
-//                        0.0.0.!0
-
-// Socks4 Reply Message
-// +----+-----+----------+--------+
-// |VER | CMD | DST.PORT | DST.IP |
-// +----+-----+----------+--------+
-// | 1  |  1  |    2     |   4    |
-// +----+-----+----------+--------+
-
-// ------------------------------------------------------ //
-
-// Socks5 Identifier Message
-// +----+----------+----------+
-// |VER | NMETHODS | METHODS  |
-// +----+----------+----------+
-// | 1  |    1     | 1 to 255 |
-// +----+----------+----------+
-
-// Socks5 Select Message
-// +----+--------+
-// |VER | METHOD |
-// +----+--------+
-// | 1  |   1    |
-// +----+--------+
-
-// Socks5 Initial negotiation(only when METHOD is 0x02)
-// +----+------+----------+------+----------+
-// |VER | ULEN |  UNAME   | PLEN |  PASSWD  |
-// +----+------+----------+------+----------+
-// | 1  |  1   | 1 to 255 |  1   | 1 to 255 |
-// +----+------+----------+------+----------+
-
-// Socks5 Request Message
-// +----+-----+-------+------+----------+----------+
-// |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
-// +----+-----+-------+------+----------+----------+
-// | 1  |  1  | X'00' |  1   | Variable |    2     |
-// +----+-----+-------+------+----------+----------+
-
-// Socks5 Reply Message
-// +----+-----+-------+------+----------+----------+
-// |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-// +----+-----+-------+------+----------+----------+
-// | 1  |  1  | X'00' |  1   | Variable |    2     |
-// +----+-----+-------+------+----------+----------+
-
-// Socks5 UDP Request/Response
-// +----+------+------+----------+----------+----------+
-// |RSV | FRAG | ATYP | DST.ADDR | DST.PORT |   DATA   |
-// +----+------+------+----------+----------+----------+
-// | 2  |  1   |  1   | Variable |    2     | Variable |
-// +----+------+------+----------+----------+----------+
-
-// const NOOP: u8 = 0x00;
+const NOOP: u8 = 0x00;
 // const SOCKS_VERSION_V4: u8 = 0x04;
-// const SOCKS_VERSION_V5: u8 = 0x05;
-// const METHOD_NO_AUTH: u8 = 0x00;
+const SOCKS_VERSION_V5: u8 = 0x05;
+const METHOD_NO_AUTH: u8 = 0x00;
 // const METHOD_USERNAME_PASSWORD: u8 = 0x02;
 // const METHOD_NOT_ACCEPTABLE: u8 = 0xff;
 
-// const REQUEST_COMMAND_CONNECT: u8 = 0x01;
+const REQUEST_COMMAND_CONNECT: u8 = 0x01;
 // const REQUEST_COMMAND_BIND: u8 = 0x02;
 // const REQUEST_COMMAND_UDP: u8 = 0x03;
 
-// const ATYP_V4: u8 = 0x01;
-// const ATYP_DOMAIN: u8 = 0x03;
-// const ATYP_V6: u8 = 0x04;
+const ATYP_V4: u8 = 0x01;
+const ATYP_DOMAIN: u8 = 0x03;
+const ATYP_V6: u8 = 0x04;
 
 // const REPLY_GRANTED: u8 = 0x5a;
-// const REPLY_SUCCEEDED: u8 = 0x00;
+const REPLY_SUCCEEDED: u8 = 0x00;
 // const REPLY_FAILURE: u8 = 0x01;
 // const REPLY_NOT_ALLOWED: u8 = 0x02;
 // const REPLY_NETWORK_UNREACHABLE: u8 = 0x03;
@@ -101,22 +39,18 @@ use tokio::{
 // const REPLY_ADDRESS_TYPE_NOT_SUPPORTED: u8 = 0x08;
 // const REPLY_UNASSIGNED: u8 = 0xff;
 
-#[derive(Debug)]
-enum Stage {
-    Init,
-    // Negotiation,
-    // Request,
-    // Done,
-}
-
-#[derive(Debug)]
 pub struct Socks5 {
-    stage: Stage,
+    header_sent: bool,
+
+    proxy_address: Option<ProxyAddr>,
 }
 
 impl Socks5 {
     pub fn new() -> Self {
-        Socks5 { stage: Stage::Init }
+        Socks5 {
+            header_sent: false,
+            proxy_address: None,
+        }
     }
 }
 
@@ -126,19 +60,204 @@ impl Protocol for Socks5 {
         "socks5".into()
     }
 
-    async fn parse_proxy_address(
-        &self,
-        _reader: &mut ReadHalf<TcpStream>,
-        writer: &mut WriteHalf<TcpStream>,
-    ) -> Result<SocketAddr> {
-        writer.write_u8(b'x').await?;
+    async fn resolve_proxy_address(
+        &mut self,
+        reader: &mut TcpStreamReader,
+        writer: &mut TcpStreamWriter,
+    ) -> Result<ProxyAddr> {
+        // 1. Parse Socks5 Identifier Message
 
-        let addr = "127.0.0.1:8080".parse().unwrap();
+        // Socks5 Identifier Message
+        // +----+----------+----------+
+        // |VER | NMETHODS | METHODS  |
+        // +----+----------+----------+
+        // | 1  |    1     | 1 to 255 |
+        // +----+----------+----------+
+
+        // check the first two bytes
+        let mut buf = vec![0u8; 2];
+        reader.read_exact(&mut buf).await?;
+
+        let n_methods = buf[1] as usize;
+
+        if buf[0] != SOCKS_VERSION_V5 || n_methods < 1 {
+            return Err(format!(
+                "message is invalid when parsing socks5 identifier message: {}",
+                ToHex(buf)
+            )
+            .into());
+        }
+
+        // select one method
+        let mut buf = vec![0u8; n_methods];
+        reader.read_exact(&mut buf).await?;
+
+        let mut method = None;
+        let mut n = 0usize;
+
+        // TODO: now only support METHOD_NO_AUTH
+        while n < n_methods as usize {
+            if buf[n] == METHOD_NO_AUTH {
+                method = Some(METHOD_NO_AUTH);
+                break;
+            }
+            n += 1;
+        }
+
+        if method.is_none() {
+            return Err(format!(
+                "METHOD only support {:#04x} but it's not found in socks5 identifier message",
+                METHOD_NO_AUTH
+            )
+            .into());
+        }
+
+        // 2. Reply Socks5 Select Message
+
+        // Socks5 Select Message
+        // +----+--------+
+        // |VER | METHOD |
+        // +----+--------+
+        // | 1  |   1    |
+        // +----+--------+
+
+        writer.write(&[SOCKS_VERSION_V5, METHOD_NO_AUTH]).await?;
+
+        // 3. Parse Socks5 Request Message
+
+        // Socks5 Request Message
+        // +----+-----+-------+------+----------+----------+
+        // |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
+        // +----+-----+-------+------+----------+----------+
+        // | 1  |  1  | X'00' |  1   | Variable |    2     |
+        // +----+-----+-------+------+----------+----------+
+
+        let mut buf = vec![0u8; 4];
+        reader.read_exact(&mut buf).await?;
+
+        if buf[0] != SOCKS_VERSION_V5 {
+            return Err(format!(
+                "VER should be {:#04x} but got {:#04x}",
+                SOCKS_VERSION_V5, buf[0]
+            )
+            .into());
+        }
+
+        // TODO: only support REQUEST_COMMAND_CONNECT
+        if buf[1] != REQUEST_COMMAND_CONNECT {
+            return Err(format!(
+                "CMD only support {:#04x} but got {:#04x}",
+                REQUEST_COMMAND_CONNECT, buf[1]
+            )
+            .into());
+        }
+
+        if buf[2] != NOOP {
+            return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
+        }
+
+        let addr = match buf[3] {
+            ATYP_V4 => {
+                // read ipv4 address and port
+                buf.resize(4 + 2, 0);
+                reader.read_exact(&mut buf).await?;
+
+                let ip = IpAddr::V4(Ipv4Addr::new(buf[0], buf[1], buf[2], buf[3]));
+                let port: u16 = u16::from_be_bytes([buf[4], buf[5]]);
+
+                Some(ProxyAddr::new(Address::Ip(ip), port))
+            }
+            ATYP_DOMAIN => {
+                // read hostname length
+                let mut buf = vec![0u8; 1];
+                reader.read_exact(&mut buf).await?;
+                let len = buf[0];
+
+                // read hostname
+                buf.resize(len as usize, 0);
+                reader.read_exact(&mut buf).await?;
+
+                let hostname = String::from_utf8(buf).unwrap();
+
+                // read port
+                let mut buf = vec![0u8; 2];
+                reader.read_exact(&mut buf).await?;
+                let port: u16 = u16::from_be_bytes([buf[0], buf[1]]);
+
+                Some(ProxyAddr::new(Address::HostName(hostname), port))
+            }
+            ATYP_V6 => {
+                // read ipv6 and port
+                buf.resize(16 + 2, 0);
+                reader.read_exact(&mut buf).await?;
+
+                let ip = IpAddr::V6(Ipv6Addr::new(
+                    u16::from_be_bytes([buf[0], buf[1]]),
+                    u16::from_be_bytes([buf[2], buf[3]]),
+                    u16::from_be_bytes([buf[4], buf[5]]),
+                    u16::from_be_bytes([buf[6], buf[7]]),
+                    u16::from_be_bytes([buf[8], buf[9]]),
+                    u16::from_be_bytes([buf[10], buf[11]]),
+                    u16::from_be_bytes([buf[12], buf[13]]),
+                    u16::from_be_bytes([buf[14], buf[15]]),
+                ));
+
+                let port: u16 = u16::from_be_bytes([buf[16], buf[17]]);
+
+                Some(ProxyAddr::new(Address::Ip(ip), port))
+            }
+            _ => {
+                return Err(format!(
+                    "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
+                    ATYP_V4, ATYP_DOMAIN, ATYP_V6, buf[3]
+                )
+                .into());
+            }
+        };
+
+        if addr.is_none() {
+            return Err(format!("couldn't resolve DST.ADDR").into());
+        }
+
+        // 4. Reply Socks5 Reply Message
+
+        // Socks5 Reply Message
+        // +----+-----+-------+------+----------+----------+
+        // |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
+        // +----+-----+-------+------+----------+----------+
+        // | 1  |  1  | X'00' |  1   | Variable |    2     |
+        // +----+-----+-------+------+----------+----------+
+        writer
+            .write(&[
+                SOCKS_VERSION_V5,
+                REPLY_SUCCEEDED,
+                NOOP,
+                ATYP_V4,
+                NOOP,
+                NOOP,
+                NOOP,
+                NOOP,
+                NOOP,
+                NOOP,
+            ])
+            .await?;
+
+        let addr = addr.unwrap();
+
+        self.proxy_address = Some(addr.clone());
 
         Ok(addr)
     }
 
-    async fn encode_data(&self, buf: Bytes) -> Result<Bytes> {
+    async fn pack(&self, buf: Bytes) -> Result<Bytes> {
+        // let mut buf = buf;
+
+        if !self.header_sent {}
+
         Ok(buf)
+    }
+
+    async fn unpack(&self, _buf: Bytes) -> Result<Bytes> {
+        unimplemented!()
     }
 }

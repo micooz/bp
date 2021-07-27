@@ -2,6 +2,7 @@ use bytes::Bytes;
 use std::net::SocketAddr;
 use tokio::net::TcpStream;
 
+pub mod address;
 pub mod bound;
 pub mod connection;
 pub mod service;
