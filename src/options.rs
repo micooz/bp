@@ -1,6 +1,5 @@
-use crate::{net::address::ProxyAddr, ServiceType};
+use crate::{net::address::NetAddr, ServiceType};
 use clap::{crate_version, Clap};
-use std::net::SocketAddr;
 
 /// Lightweight and efficient proxy written in pure Rust
 #[derive(Clap, Debug, Clone)]
@@ -37,12 +36,12 @@ pub struct Options {
 
 impl Options {
     /// Return combination of host and port
-    pub fn get_local_addr(&self) -> SocketAddr {
+    pub fn get_local_addr(&self) -> NetAddr {
         format!("{}:{}", self.host, self.port).parse().unwrap()
     }
 
     /// Return combination of remote_host and remote_port
-    pub fn get_remote_addr(&self) -> ProxyAddr {
+    pub fn get_remote_addr(&self) -> NetAddr {
         format!(
             "{}:{}",
             self.remote_host.as_ref().unwrap(),

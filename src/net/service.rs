@@ -1,10 +1,8 @@
-use std::net::SocketAddr;
+use super::{address::NetAddr, AcceptResult};
 use tokio::{net::TcpListener, sync::mpsc};
 
-use super::AcceptResult;
-
-pub async fn bootstrap(local_addr: SocketAddr, sender: mpsc::Sender<AcceptResult>) {
-    let listener = match TcpListener::bind(&local_addr).await {
+pub async fn bootstrap(local_addr: NetAddr, sender: mpsc::Sender<AcceptResult>) {
+    let listener = match TcpListener::bind(&local_addr.to_string()).await {
         Ok(value) => {
             log::info!(
                 "service running at {}, waiting for connection...",

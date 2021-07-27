@@ -20,14 +20,14 @@ impl ToString for Address {
 }
 
 #[derive(Clone)]
-pub struct ProxyAddr {
+pub struct NetAddr {
     address: Address,
     port: u16,
 }
 
-impl ProxyAddr {
+impl NetAddr {
     pub fn new(address: Address, port: u16) -> Self {
-        ProxyAddr { address, port }
+        NetAddr { address, port }
     }
 
     pub fn to_string(&self) -> String {
@@ -35,7 +35,7 @@ impl ProxyAddr {
     }
 }
 
-impl Display for ProxyAddr {
+impl Display for NetAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (address_type, addr) = match &self.address {
             Address::Ip(ip) => ("Ip", ip.to_string()),
@@ -45,7 +45,7 @@ impl Display for ProxyAddr {
     }
 }
 
-impl FromStr for ProxyAddr {
+impl FromStr for NetAddr {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

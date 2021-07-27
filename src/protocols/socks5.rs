@@ -1,6 +1,6 @@
 use super::proto::Protocol;
 use crate::{
-    net::address::{Address, ProxyAddr},
+    net::address::{Address, NetAddr},
     utils::ToHex,
     Result, TcpStreamReader, TcpStreamWriter,
 };
@@ -42,7 +42,7 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 pub struct Socks5 {
     header_sent: bool,
 
-    proxy_address: Option<ProxyAddr>,
+    proxy_address: Option<NetAddr>,
 }
 
 impl Socks5 {
@@ -64,7 +64,7 @@ impl Protocol for Socks5 {
         &mut self,
         reader: &mut TcpStreamReader,
         writer: &mut TcpStreamWriter,
-    ) -> Result<ProxyAddr> {
+    ) -> Result<NetAddr> {
         // 1. Parse Socks5 Identifier Message
 
         // Socks5 Identifier Message
@@ -165,7 +165,7 @@ impl Protocol for Socks5 {
                 let ip = IpAddr::V4(Ipv4Addr::new(buf[0], buf[1], buf[2], buf[3]));
                 let port: u16 = u16::from_be_bytes([buf[4], buf[5]]);
 
-                Some(ProxyAddr::new(Address::Ip(ip), port))
+                Some(NetAddr::new(Address::Ip(ip), port))
             }
             ATYP_DOMAIN => {
                 // read hostname length
@@ -184,7 +184,7 @@ impl Protocol for Socks5 {
                 reader.read_exact(&mut buf).await?;
                 let port: u16 = u16::from_be_bytes([buf[0], buf[1]]);
 
-                Some(ProxyAddr::new(Address::HostName(hostname), port))
+                Some(NetAddr::new(Address::HostName(hostname), port))
             }
             ATYP_V6 => {
                 // read ipv6 and port
@@ -204,7 +204,7 @@ impl Protocol for Socks5 {
 
                 let port: u16 = u16::from_be_bytes([buf[16], buf[17]]);
 
-                Some(ProxyAddr::new(Address::Ip(ip), port))
+                Some(NetAddr::new(Address::Ip(ip), port))
             }
             _ => {
                 return Err(format!(

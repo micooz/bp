@@ -1,5 +1,5 @@
 use super::proto::Protocol;
-use crate::{net::address::ProxyAddr, Result};
+use crate::{net::address::NetAddr, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::{
@@ -25,7 +25,7 @@ impl Protocol for Transparent {
         &mut self,
         _reader: &mut ReadHalf<TcpStream>,
         _writer: &mut WriteHalf<TcpStream>,
-    ) -> Result<ProxyAddr> {
+    ) -> Result<NetAddr> {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 

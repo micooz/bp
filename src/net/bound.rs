@@ -1,4 +1,4 @@
-use super::{address::ProxyAddr, context::Context};
+use super::{address::NetAddr, context::Context};
 use crate::{
     net::ConnectionEvent, utils, Proto, Protocol, Result, TcpStreamReader, TcpStreamWriter,
 };
@@ -192,7 +192,7 @@ impl Bound {
     }
 
     /// resolve proxy address
-    async fn resolve_addr(&mut self) -> Result<ProxyAddr> {
+    async fn resolve_addr(&mut self) -> Result<NetAddr> {
         let mut reader = self.reader.as_ref().unwrap().lock().await;
         let mut writer = self.writer.as_ref().unwrap().lock().await;
 
@@ -209,7 +209,7 @@ impl Bound {
     }
 
     /// connect to addr
-    async fn connect(&mut self, addr: &ProxyAddr) -> Result<()> {
+    async fn connect(&mut self, addr: &NetAddr) -> Result<()> {
         let peer_addr = self.get_peer_addr().unwrap();
         let proto_name = self.protocol.as_ref().unwrap().get_name();
 
@@ -243,7 +243,7 @@ impl Bound {
         self.get_context().peer_address
     }
 
-    fn get_proxy_address(&self) -> Option<ProxyAddr> {
+    fn get_proxy_address(&self) -> Option<NetAddr> {
         self.get_context().proxy_address.clone()
     }
 

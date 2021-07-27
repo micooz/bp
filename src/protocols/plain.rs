@@ -1,5 +1,5 @@
 use super::proto::Protocol;
-use crate::{net::address::ProxyAddr, utils::ToHex, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{net::address::NetAddr, utils::ToHex, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::io::AsyncReadExt;
@@ -22,7 +22,7 @@ impl Protocol for Plain {
         &mut self,
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
-    ) -> Result<ProxyAddr> {
+    ) -> Result<NetAddr> {
         let mut buf = vec![0u8; 0];
         reader.read(&mut buf).await?;
 

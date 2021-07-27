@@ -1,4 +1,4 @@
-use crate::{net::address::ProxyAddr, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 
@@ -10,7 +10,7 @@ pub trait Protocol {
         &mut self,
         reader: &mut TcpStreamReader,
         writer: &mut TcpStreamWriter,
-    ) -> Result<ProxyAddr>;
+    ) -> Result<NetAddr>;
 
     async fn pack(&self, buf: Bytes) -> Result<Bytes>;
 
