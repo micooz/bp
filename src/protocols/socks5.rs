@@ -250,11 +250,17 @@ impl Protocol for Socks5 {
     }
 
     async fn pack(&self, buf: Bytes) -> Result<Bytes> {
-        // let mut buf = buf;
+        let mut frame = BytesMut::new();
 
-        if !self.header_sent {}
+        if !self.header_sent {
+            let addr = self.proxy_address.as_ref().unwrap();
+            let header = ProxyHeader::new(addr.host.clone(), addr.port);
+            frame.put(header.encode());
+        } else {
+            frame.put(buf);
+        }
 
-        Ok(buf)
+        Ok(frame.freeze())
     }
 
     async fn unpack(&self, _buf: Bytes) -> Result<Bytes> {
