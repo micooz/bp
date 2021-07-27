@@ -1,7 +1,7 @@
 use super::proto::Protocol;
-use crate::{net::address::NetAddr, utils::ToHex, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use tokio::io::AsyncReadExt;
 
 pub struct Plain {}
@@ -23,10 +23,10 @@ impl Protocol for Plain {
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
     ) -> Result<NetAddr> {
-        let mut buf = vec![0u8; 0];
-        reader.read(&mut buf).await?;
+        let mut buf = BytesMut::new();
+        let n = reader.read_exact(&mut buf).await?;
 
-        log::debug!("{}", ToHex(buf));
+        log::debug!("{:?}", &buf[0..n]);
 
         todo!()
     }

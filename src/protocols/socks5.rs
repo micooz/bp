@@ -1,11 +1,11 @@
-use super::proto::Protocol;
+use super::proto::{Protocol, ProxyHeader};
 use crate::{
-    net::address::{Address, NetAddr},
+    net::address::{Host, NetAddr},
     utils::ToHex,
     Result, TcpStreamReader, TcpStreamWriter,
 };
 use async_trait::async_trait;
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     vec,
@@ -165,7 +165,7 @@ impl Protocol for Socks5 {
                 let ip = IpAddr::V4(Ipv4Addr::new(buf[0], buf[1], buf[2], buf[3]));
                 let port: u16 = u16::from_be_bytes([buf[4], buf[5]]);
 
-                Some(NetAddr::new(Address::Ip(ip), port))
+                Some(NetAddr::new(Host::Ip(ip), port))
             }
             ATYP_DOMAIN => {
                 // read hostname length
@@ -184,7 +184,7 @@ impl Protocol for Socks5 {
                 reader.read_exact(&mut buf).await?;
                 let port: u16 = u16::from_be_bytes([buf[0], buf[1]]);
 
-                Some(NetAddr::new(Address::HostName(hostname), port))
+                Some(NetAddr::new(Host::Name(hostname), port))
             }
             ATYP_V6 => {
                 // read ipv6 and port
@@ -204,7 +204,7 @@ impl Protocol for Socks5 {
 
                 let port: u16 = u16::from_be_bytes([buf[16], buf[17]]);
 
-                Some(NetAddr::new(Address::Ip(ip), port))
+                Some(NetAddr::new(Host::Ip(ip), port))
             }
             _ => {
                 return Err(format!(

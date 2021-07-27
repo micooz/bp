@@ -170,6 +170,8 @@ impl Bound {
             }
         };
 
+        log::debug!("[{}] write buf {:?}", self.bound_type, buf);
+
         let mut writer = self.writer.as_ref().unwrap().lock().await;
         writer.write_buf(&mut buf).await?;
         writer.flush().await?;
