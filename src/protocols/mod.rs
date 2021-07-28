@@ -2,6 +2,7 @@ use super::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 
+pub mod erp;
 pub mod plain;
 pub mod socks5;
 pub mod transparent;

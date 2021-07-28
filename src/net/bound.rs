@@ -1,5 +1,5 @@
 use super::{
-    super::{protocols::Protocol, utils, Proto, Result, TcpStreamReader, TcpStreamWriter},
+    super::{utils, Proto, Result, TcpStreamReader, TcpStreamWriter},
     address::NetAddr,
     context::Context,
     ConnectionEvent,
@@ -85,10 +85,7 @@ impl Bound {
         }
     }
 
-    pub async fn use_proto<T>(&mut self, proto: T) -> Result<()>
-    where
-        T: Protocol + Send + Sync + 'static,
-    {
+    pub async fn use_proto(&mut self, proto: Proto) -> Result<()> {
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
@@ -97,7 +94,7 @@ impl Bound {
         );
 
         // store protocol
-        self.protocol = Some(Box::new(proto));
+        self.protocol = Some(proto);
 
         match self.get_proxy_address() {
             Some(addr) => {

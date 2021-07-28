@@ -10,7 +10,7 @@ pub struct Transparent {}
 
 impl Transparent {
     pub fn new() -> Self {
-        Transparent {}
+        Self {}
     }
 }
 

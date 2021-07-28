@@ -48,7 +48,7 @@ pub struct Socks5 {
 
 impl Socks5 {
     pub fn new() -> Self {
-        Socks5 {
+        Self {
             header_sent: Mutex::new(Cell::new(false)),
             proxy_address: None,
         }

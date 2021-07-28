@@ -1,13 +1,9 @@
-use super::{
-    super::{
-        options::Options,
-        protocols::{plain::Plain, socks5::Socks5, transparent::Transparent},
-        Result, ServiceType,
-    },
-    bound::Bound,
-    context::Context,
-    ConnectionEvent,
+use super::super::{
+    options::{Options, Protocol},
+    protocols::{erp::Erp, plain::Plain, socks5::Socks5, transparent::Transparent},
+    Proto, Result, ServiceType,
 };
+use super::{bound::Bound, context::Context, ConnectionEvent};
 use std::sync::{Arc, Mutex};
 use tokio::net::TcpStream;
 
@@ -31,23 +27,34 @@ impl Connection {
     }
 
     pub async fn handle(&mut self, service_type: ServiceType) -> Result<()> {
-        let socks5 = Socks5::new();
-        let plain = Plain::new();
+        // select a protocol
+        let protocol: Proto = match self
+            .opts
+            .protocol
+            .as_ref()
+            .unwrap_or(&Protocol::EncryptRandomPadding)
+        {
+            Protocol::Plain => Box::new(Plain::new()),
+            Protocol::EncryptRandomPadding => Box::new(Erp::new()),
+        };
 
-        // program <---> socks5|plain <---> plain|transparent <---> target
+        // apply protocol for inbound and outbound
         match service_type {
             ServiceType::Client => {
+                let socks5 = Box::new(Socks5::new());
+
                 self.inbound.use_proto(socks5).await?;
-                self.outbound.use_proto(plain).await?;
+                self.outbound.use_proto(protocol).await?;
             }
             ServiceType::Server => {
-                let transparent = Transparent::new();
+                let transparent = Box::new(Transparent::new());
 
-                self.inbound.use_proto(plain).await?;
+                self.inbound.use_proto(protocol).await?;
                 self.outbound.use_proto(transparent).await?;
             }
         }
 
+        // construct recv channel
         let (tx, mut rx) = tokio::sync::mpsc::channel::<ConnectionEvent>(32);
         let tx2 = tx.clone();
 

@@ -1,5 +1,6 @@
 use super::{net::address::NetAddr, ServiceType};
 use clap::{crate_version, Clap};
+use std::str::FromStr;
 
 /// Lightweight and efficient proxy written in pure Rust
 #[derive(Clap, Debug, Clone)]
@@ -32,6 +33,10 @@ pub struct Options {
     /// remote service port, client only
     #[clap(long)]
     pub remote_port: Option<u16>,
+
+    /// protocol used for transport layer between client and server
+    #[clap(long)]
+    pub protocol: Option<Protocol>,
 }
 
 impl Options {
@@ -60,5 +65,26 @@ impl Options {
             return Ok(ServiceType::Server);
         }
         Err("cannot determine service type".into())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Protocol {
+    Plain,
+    EncryptRandomPadding,
+}
+
+impl FromStr for Protocol {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "plain" => Ok(Protocol::Plain),
+            "erp" => Ok(Protocol::EncryptRandomPadding),
+            _ => Err(format!(
+                "{} is not supported, available protocols are: plain, erp",
+                s
+            )),
+        }
     }
 }
