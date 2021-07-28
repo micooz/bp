@@ -2,6 +2,12 @@ use super::{NetAddr, Protocol, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 
+/// # Protocol
+/// +------+----------+----------+-------------+
+/// | ATYP | DST.ADDR | DST.PORT |    Data     |
+/// +------+----------+----------+-------------+
+/// |  1   | Variable |    2     |  Variable   |
+/// +------+----------+----------+-------------+
 pub struct Plain {}
 
 impl Plain {
