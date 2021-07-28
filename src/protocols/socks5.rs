@@ -217,7 +217,7 @@ impl Protocol for Socks5 {
         };
 
         if addr.is_none() {
-            return Err(format!("couldn't resolve DST.ADDR").into());
+            return Err("couldn't resolve DST.ADDR".into());
         }
 
         // 4. Reply Socks5 Reply Message
@@ -255,7 +255,7 @@ impl Protocol for Socks5 {
 
         let header_sent = &self.header_sent.lock().unwrap();
 
-        if header_sent.get() == false {
+        if !header_sent.get() {
             let addr = self.proxy_address.as_ref().unwrap();
             let header = NetAddr::new(addr.host.clone(), addr.port);
             frame.put(header.as_bytes());

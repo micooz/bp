@@ -215,7 +215,7 @@ impl Bound {
             addr
         );
 
-        let stream = TcpStream::connect(addr.to_string()).await?;
+        let stream = TcpStream::connect(addr.as_string()).await?;
 
         log::info!(
             "[{}] [{}] [{}] connected to {}",

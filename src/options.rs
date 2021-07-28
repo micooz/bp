@@ -53,10 +53,10 @@ impl Options {
 
     /// Return local service type
     pub fn get_service_type(&self) -> Result<ServiceType, String> {
-        if self.server == false && self.client == true {
+        if !self.server && self.client {
             return Ok(ServiceType::Client);
         }
-        if self.server == true && self.client == false {
+        if self.server && !self.client {
             return Ok(ServiceType::Server);
         }
         Err("cannot determine service type".into())

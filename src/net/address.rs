@@ -1,7 +1,7 @@
 use super::super::{Result, TcpStreamReader};
 use bytes::{BufMut, Bytes, BytesMut};
 use std::{
-    convert::TryFrom,
+    convert::TryInto,
     fmt::Display,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     str::FromStr,
@@ -15,25 +15,25 @@ pub enum AddressType {
     HostName,
 }
 
-impl TryFrom<u8> for AddressType {
-    type Error = String;
-
-    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+impl From<AddressType> for u8 {
+    fn from(value: AddressType) -> u8 {
         match value {
-            1 => Ok(AddressType::V4),
-            4 => Ok(AddressType::V6),
-            3 => Ok(AddressType::HostName),
-            _ => Err(format!("cannot parse {} to AddressType", value).into()),
+            AddressType::V4 => 1,
+            AddressType::V6 => 4,
+            AddressType::HostName => 3,
         }
     }
 }
 
-impl Into<u8> for AddressType {
-    fn into(self) -> u8 {
+impl TryInto<AddressType> for u8 {
+    type Error = String;
+
+    fn try_into(self) -> std::result::Result<AddressType, Self::Error> {
         match self {
-            AddressType::V4 => 1,
-            AddressType::V6 => 4,
-            AddressType::HostName => 3,
+            1 => Ok(AddressType::V4),
+            4 => Ok(AddressType::V6),
+            3 => Ok(AddressType::HostName),
+            _ => Err(format!("cannot parse {} to AddressType", self)),
         }
     }
 }
@@ -69,7 +69,7 @@ impl NetAddr {
         Self { host, port }
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn as_string(&self) -> String {
         format!("{}:{}", self.host.to_string(), self.port)
     }
 
@@ -102,7 +102,7 @@ impl NetAddr {
         let mut buf = vec![0u8; 1];
         reader.read_exact(&mut buf).await.unwrap();
 
-        let atyp = AddressType::try_from(buf[0])?;
+        let atyp: AddressType = buf[0].try_into()?;
 
         match atyp {
             AddressType::V4 => {
