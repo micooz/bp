@@ -1,8 +1,7 @@
 use bp::{bootstrap, options::Options};
 use clap::Clap;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     env_logger::init();
 
     let opts: Options = Clap::parse();
@@ -28,5 +27,12 @@ async fn main() {
         return;
     }
 
-    bootstrap(opts).await;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("create tokio runtime");
+
+    runtime.block_on(async {
+        bootstrap(opts).await;
+    });
 }

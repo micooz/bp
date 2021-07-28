@@ -1,13 +1,17 @@
 [package]
 name = "bp"
 version = "0.1.0"
+authors = ["Micooz Lee <micooz@hotmail.com>"]
+description = "bp is a lightweight and efficient proxy written in pure Rust."
+repository = "https://github.com/micooz/bp"
+readme = "README.md"
+keywords = ["bp", "proxy", "socks", "socks5", "firewall"]
+license = "MIT"
 edition = "2018"
 
 [[bin]]
 name = "bp"
 path = "bin/bp.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 async-trait = "0.1.50"
@@ -15,4 +19,4 @@ bytes = "1.0.1"
 clap = "3.0.0-beta.2"
 env_logger = "0.9.0"
 log = "0.4.0"
-tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros", "net", "sync", "io-util", "time"]}
+tokio = { version = "1.8.2", features = ["rt-multi-thread", "net", "sync", "io-util"]}
