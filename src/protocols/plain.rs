@@ -1,5 +1,4 @@
-use super::proto::Protocol;
-use crate::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
+use super::{NetAddr, Protocol, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 

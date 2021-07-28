@@ -1,4 +1,4 @@
-use crate::{net::address::NetAddr, ServiceType};
+use super::{net::address::NetAddr, ServiceType};
 use clap::{crate_version, Clap};
 
 /// Lightweight and efficient proxy written in pure Rust

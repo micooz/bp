@@ -1,6 +1,8 @@
-use super::{address::NetAddr, context::Context};
-use crate::{
-    net::ConnectionEvent, utils, Proto, Protocol, Result, TcpStreamReader, TcpStreamWriter,
+use super::{
+    super::{protocols::Protocol, utils, Proto, Result, TcpStreamReader, TcpStreamWriter},
+    address::NetAddr,
+    context::Context,
+    ConnectionEvent,
 };
 use bytes::{Bytes, BytesMut};
 use std::{

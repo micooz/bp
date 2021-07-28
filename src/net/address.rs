@@ -1,4 +1,4 @@
-use crate::{Result, TcpStreamReader};
+use super::super::{Result, TcpStreamReader};
 use bytes::{BufMut, Bytes, BytesMut};
 use std::{
     convert::TryFrom,

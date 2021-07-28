@@ -1,0 +1,36 @@
+use super::{
+    net::{connection::Connection, service, AcceptResult},
+    options::Options,
+};
+use tokio::sync::mpsc;
+
+pub async fn bootstrap(opts: Options) {
+    let (tx, mut rx) = mpsc::channel::<AcceptResult>(32);
+
+    let local_addr = opts.get_local_addr();
+
+    // start local service
+    tokio::spawn(async move {
+        service::bootstrap(local_addr, tx).await;
+    });
+
+    // handle connections
+    while let Some(accept) = rx.recv().await {
+        let addr = accept.socket.peer_addr().unwrap();
+        let mut conn = Connection::new(accept.socket, opts.clone());
+        let service_type = opts.get_service_type().unwrap();
+
+        tokio::spawn(async move {
+            log::info!("[{}] connected", addr);
+
+            match conn.handle(service_type).await {
+                Ok(_) => {}
+                Err(err) => {
+                    log::error!("{}", err);
+                }
+            }
+
+            log::info!("[{}] disconnected, in/out = {}/{}", addr, 0, 0);
+        });
+    }
+}

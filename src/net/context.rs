@@ -1,5 +1,4 @@
-use super::address::NetAddr;
-use crate::options::Options;
+use super::{super::options::Options, address::NetAddr};
 use std::net::SocketAddr;
 
 /// The context shared inside Connection

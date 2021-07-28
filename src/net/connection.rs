@@ -1,9 +1,12 @@
-use super::{bound::Bound, context::Context};
-use crate::{
-    net::ConnectionEvent,
-    options::Options,
-    protocols::{plain::Plain, socks5::Socks5, transparent::Transparent},
-    Result, ServiceType,
+use super::{
+    super::{
+        options::Options,
+        protocols::{plain::Plain, socks5::Socks5, transparent::Transparent},
+        Result, ServiceType,
+    },
+    bound::Bound,
+    context::Context,
+    ConnectionEvent,
 };
 use std::sync::{Arc, Mutex};
 use tokio::net::TcpStream;

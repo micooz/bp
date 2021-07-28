@@ -1,8 +1,7 @@
-use super::proto::Protocol;
-use crate::{
-    net::address::{Host, NetAddr},
-    utils::ToHex,
-    Result, TcpStreamReader, TcpStreamWriter,
+use super::{
+    super::net::address::{Host, NetAddr},
+    super::utils::ToHex,
+    Protocol, Result, TcpStreamReader, TcpStreamWriter,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
