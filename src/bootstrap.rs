@@ -30,7 +30,7 @@ pub async fn bootstrap(opts: Options) {
                 }
             }
 
-            log::info!("[{}] disconnected, in/out = {}/{}", addr, 0, 0);
+            log::info!("[{}] disconnected", addr);
         });
     }
 }
