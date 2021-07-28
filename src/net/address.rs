@@ -1,8 +1,42 @@
+use crate::{Result, TcpStreamReader};
+use bytes::{BufMut, Bytes, BytesMut};
 use std::{
+    convert::TryFrom,
     fmt::Display,
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     str::FromStr,
 };
+use tokio::io::AsyncReadExt;
+
+// The same as ATYP in Socks5 Protocol
+pub enum AddressType {
+    V4,
+    V6,
+    HostName,
+}
+
+impl TryFrom<u8> for AddressType {
+    type Error = String;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            1 => Ok(AddressType::V4),
+            4 => Ok(AddressType::V6),
+            3 => Ok(AddressType::HostName),
+            _ => Err(format!("cannot parse {} to AddressType", value).into()),
+        }
+    }
+}
+
+impl Into<u8> for AddressType {
+    fn into(self) -> u8 {
+        match self {
+            AddressType::V4 => 1,
+            AddressType::V6 => 4,
+            AddressType::HostName => 3,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum Host {
@@ -19,6 +53,11 @@ impl ToString for Host {
     }
 }
 
+// +------+----------+----------+
+// | ATYP | DST.ADDR | DST.PORT |
+// +------+----------+----------+
+// |  1   | Variable |    2     |
+// +------+----------+----------+
 #[derive(Clone)]
 pub struct NetAddr {
     pub host: Host,
@@ -27,11 +66,85 @@ pub struct NetAddr {
 
 impl NetAddr {
     pub fn new(host: Host, port: u16) -> Self {
-        NetAddr { host, port }
+        Self { host, port }
     }
 
     pub fn to_string(&self) -> String {
         format!("{}:{}", self.host.to_string(), self.port)
+    }
+
+    pub fn as_bytes(&self) -> Bytes {
+        let mut buf = BytesMut::new();
+
+        match &self.host {
+            Host::Ip(ip) => match ip {
+                IpAddr::V4(v4) => {
+                    buf.put_u8(AddressType::V4.into());
+                    buf.put_slice(&v4.octets()[..]);
+                }
+                IpAddr::V6(v6) => {
+                    buf.put_u8(AddressType::V6.into());
+                    buf.put_slice(&v6.octets()[..]);
+                }
+            },
+            Host::Name(name) => {
+                buf.put_u8(AddressType::HostName.into());
+                buf.put_u8(name.len() as u8); // length of hostname
+                buf.put_slice(name.as_str().as_bytes());
+            }
+        }
+
+        buf.put_u16(self.port);
+        buf.freeze()
+    }
+
+    pub async fn decode(reader: &mut TcpStreamReader) -> Result<Self> {
+        let mut buf = vec![0u8; 1];
+        reader.read_exact(&mut buf).await.unwrap();
+
+        let atyp = AddressType::try_from(buf[0])?;
+
+        match atyp {
+            AddressType::V4 => {
+                buf.resize(4 + 2, 0);
+                reader.read_exact(&mut buf).await.unwrap();
+
+                let host = Host::Ip(IpAddr::V4(Ipv4Addr::from([buf[0], buf[1], buf[2], buf[3]])));
+                let port = u16::from_be_bytes([buf[4], buf[5]]);
+
+                Ok(Self::new(host, port))
+            }
+            AddressType::V6 => {
+                buf.resize(16 + 2, 0);
+                reader.read_exact(&mut buf).await.unwrap();
+
+                let host = Host::Ip(IpAddr::V6(Ipv6Addr::from([
+                    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9],
+                    buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+                ])));
+                let port = u16::from_be_bytes([buf[16], buf[17]]);
+
+                Ok(Self::new(host, port))
+            }
+            AddressType::HostName => {
+                buf.resize(1, 0);
+                reader.read_exact(&mut buf).await.unwrap();
+
+                let len = buf[0] as usize;
+
+                buf.resize(len, 0);
+                reader.read_exact(&mut buf).await.unwrap();
+
+                let host = Host::Name(String::from_utf8(buf.clone())?);
+
+                buf.resize(2, 0);
+                reader.read_exact(&mut buf).await.unwrap();
+
+                let port = u16::from_be_bytes([buf[0], buf[1]]);
+
+                Ok(Self::new(host, port))
+            }
+        }
     }
 }
 
@@ -48,7 +161,7 @@ impl Display for NetAddr {
 impl FromStr for NetAddr {
     type Err = &'static str;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let v: Vec<&str> = s.split(':').collect();
 
         if v.len() != 2 {

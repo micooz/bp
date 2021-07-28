@@ -1,4 +1,4 @@
-use super::proto::{Protocol, ProxyHeader};
+use super::proto::Protocol;
 use crate::{
     net::address::{Host, NetAddr},
     utils::ToHex,
@@ -7,7 +7,9 @@ use crate::{
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
 use std::{
+    cell::Cell,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    sync::Mutex,
     vec,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -40,7 +42,7 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 // const REPLY_UNASSIGNED: u8 = 0xff;
 
 pub struct Socks5 {
-    header_sent: bool,
+    header_sent: Mutex<Cell<bool>>,
 
     proxy_address: Option<NetAddr>,
 }
@@ -48,7 +50,7 @@ pub struct Socks5 {
 impl Socks5 {
     pub fn new() -> Self {
         Socks5 {
-            header_sent: false,
+            header_sent: Mutex::new(Cell::new(false)),
             proxy_address: None,
         }
     }
@@ -249,21 +251,25 @@ impl Protocol for Socks5 {
         Ok(addr)
     }
 
-    async fn pack(&self, buf: Bytes) -> Result<Bytes> {
+    fn pack(&self, buf: Bytes) -> Result<Bytes> {
         let mut frame = BytesMut::new();
 
-        if !self.header_sent {
+        let header_sent = &self.header_sent.lock().unwrap();
+
+        if header_sent.get() == false {
             let addr = self.proxy_address.as_ref().unwrap();
-            let header = ProxyHeader::new(addr.host.clone(), addr.port);
-            frame.put(header.encode());
-        } else {
-            frame.put(buf);
+            let header = NetAddr::new(addr.host.clone(), addr.port);
+            frame.put(header.as_bytes());
+
+            header_sent.set(true);
         }
+
+        frame.put(buf);
 
         Ok(frame.freeze())
     }
 
-    async fn unpack(&self, _buf: Bytes) -> Result<Bytes> {
+    fn unpack(&self, _buf: Bytes) -> Result<Bytes> {
         unimplemented!()
     }
 }

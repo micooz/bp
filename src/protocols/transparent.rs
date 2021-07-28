@@ -29,11 +29,11 @@ impl Protocol for Transparent {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 
-    async fn pack(&self, buf: Bytes) -> Result<Bytes> {
+    fn pack(&self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    async fn unpack(&self, buf: Bytes) -> Result<Bytes> {
+    fn unpack(&self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

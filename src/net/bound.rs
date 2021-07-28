@@ -151,29 +151,9 @@ impl Bound {
 
     /// send data to remote
     pub async fn write(&mut self, buf: Bytes) -> Result<()> {
-        let opts = {
-            let ctx = self.get_context();
-            ctx.opts.as_ref().unwrap().clone()
-        };
-
-        let proto = self.protocol.as_ref().unwrap();
-
-        let mut buf = if opts.client {
-            match self.bound_type {
-                BoundType::In => proto.unpack(buf).await?,
-                BoundType::Out => proto.pack(buf).await?,
-            }
-        } else {
-            match self.bound_type {
-                BoundType::In => proto.pack(buf).await?,
-                BoundType::Out => proto.unpack(buf).await?,
-            }
-        };
-
-        log::debug!("[{}] write buf {:?}", self.bound_type, buf);
-
         let mut writer = self.writer.as_ref().unwrap().lock().await;
-        writer.write_buf(&mut buf).await?;
+
+        writer.write_all(&buf).await?;
         writer.flush().await?;
 
         Ok(())
@@ -191,6 +171,16 @@ impl Bound {
         }
 
         Ok(())
+    }
+
+    pub fn pack(&self, buf: Bytes) -> Result<Bytes> {
+        let proto = self.protocol.as_ref().unwrap();
+        proto.pack(buf)
+    }
+
+    pub fn unpack(&self, buf: Bytes) -> Result<Bytes> {
+        let proto = self.protocol.as_ref().unwrap();
+        proto.unpack(buf)
     }
 
     /// resolve proxy address

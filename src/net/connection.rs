@@ -11,15 +11,20 @@ use tokio::net::TcpStream;
 pub struct Connection {
     inbound: Bound,
     outbound: Bound,
+    opts: Options,
 }
 
 impl Connection {
     pub fn new(socket: TcpStream, opts: Options) -> Self {
-        let ctx = Arc::new(Mutex::new(Context::new(opts)));
+        let ctx = Arc::new(Mutex::new(Context::new(opts.clone())));
         let inbound = Bound::new(Some(socket), ctx.clone());
         let outbound = Bound::new(None, ctx);
 
-        Connection { inbound, outbound }
+        Connection {
+            inbound,
+            outbound,
+            opts,
+        }
     }
 
     pub async fn handle(&mut self, service_type: ServiceType) -> Result<()> {
@@ -49,15 +54,25 @@ impl Connection {
         // TODO: add timeout mechanism for bound recv
 
         while let Some(event) = rx.recv().await {
-            log::debug!("recv event {:?}", event);
+            // log::debug!("recv event {:?}", event);
 
             match event {
                 // pipe data from inbound to outbound
                 ConnectionEvent::InboundRecv(data) => {
+                    let data = if self.opts.client {
+                        self.inbound.pack(data)?
+                    } else {
+                        self.inbound.unpack(data)?
+                    };
                     self.outbound.write(data).await?;
                 }
                 // pipe data from outbound to inbound
                 ConnectionEvent::OutboundRecv(data) => {
+                    let data = if self.opts.client {
+                        self.outbound.unpack(data)?
+                    } else {
+                        self.outbound.pack(data)?
+                    };
                     self.inbound.write(data).await?;
                 }
                 // inbound closed cause outbound close

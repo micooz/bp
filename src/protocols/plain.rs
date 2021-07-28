@@ -1,8 +1,7 @@
 use super::proto::Protocol;
 use crate::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
-use bytes::{Bytes, BytesMut};
-use tokio::io::AsyncReadExt;
+use bytes::Bytes;
 
 pub struct Plain {}
 
@@ -23,19 +22,15 @@ impl Protocol for Plain {
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
     ) -> Result<NetAddr> {
-        let mut buf = BytesMut::new();
-        let n = reader.read_exact(&mut buf).await?;
-
-        log::debug!("{:?}", &buf[0..n]);
-
-        todo!()
+        let header = NetAddr::decode(reader).await?;
+        Ok(header)
     }
 
-    async fn pack(&self, buf: Bytes) -> Result<Bytes> {
+    fn pack(&self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    async fn unpack(&self, buf: Bytes) -> Result<Bytes> {
+    fn unpack(&self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }
