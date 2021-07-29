@@ -1,4 +1,4 @@
-use super::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 
@@ -17,7 +17,7 @@ pub trait Protocol {
         writer: &mut TcpStreamWriter,
     ) -> Result<NetAddr>;
 
-    fn pack(&self, buf: Bytes) -> Result<Bytes>;
+    fn pack(&mut self, buf: Bytes) -> Result<Bytes>;
 
-    fn unpack(&self, buf: Bytes) -> Result<Bytes>;
+    fn unpack(&mut self, buf: Bytes) -> Result<Bytes>;
 }

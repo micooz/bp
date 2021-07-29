@@ -1,4 +1,4 @@
-use super::{super::net::address::NetAddr, Protocol, Result};
+use crate::{net::address::NetAddr, Protocol, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::{
@@ -28,11 +28,11 @@ impl Protocol for Transparent {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 
-    fn pack(&self, buf: Bytes) -> Result<Bytes> {
+    fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    fn unpack(&self, buf: Bytes) -> Result<Bytes> {
+    fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

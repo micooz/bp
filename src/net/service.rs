@@ -1,4 +1,4 @@
-use super::{address::NetAddr, AcceptResult};
+use crate::net::{address::NetAddr, AcceptResult};
 use tokio::{net::TcpListener, sync::mpsc};
 
 pub async fn bootstrap(local_addr: NetAddr, sender: mpsc::Sender<AcceptResult>) {

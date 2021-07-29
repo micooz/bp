@@ -1,9 +1,9 @@
-use super::super::{
+use crate::{
+    net::{bound::Bound, context::Context, ConnectionEvent},
     options::{Options, Protocol},
     protocols::{erp::Erp, plain::Plain, socks5::Socks5, transparent::Transparent},
     Proto, Result, ServiceType,
 };
-use super::{bound::Bound, context::Context, ConnectionEvent};
 use std::sync::{Arc, Mutex};
 use tokio::net::TcpStream;
 
@@ -35,7 +35,7 @@ impl Connection {
             .unwrap_or(&Protocol::EncryptRandomPadding)
         {
             Protocol::Plain => Box::new(Plain::new()),
-            Protocol::EncryptRandomPadding => Box::new(Erp::new()),
+            Protocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone())),
         };
 
         // apply protocol for inbound and outbound

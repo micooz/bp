@@ -1,4 +1,4 @@
-use super::{NetAddr, Protocol, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{net::address::NetAddr, Protocol, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::Bytes;
 
@@ -31,11 +31,11 @@ impl Protocol for Plain {
         Ok(header)
     }
 
-    fn pack(&self, buf: Bytes) -> Result<Bytes> {
+    fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    fn unpack(&self, buf: Bytes) -> Result<Bytes> {
+    fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

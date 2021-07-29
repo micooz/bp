@@ -1,14 +1,11 @@
-use super::{
-    super::net::address::{Host, NetAddr},
-    super::utils::ToHex,
-    Protocol, Result, TcpStreamReader, TcpStreamWriter,
+use crate::{
+    net::address::{Host, NetAddr},
+    utils, Protocol, Result, TcpStreamReader, TcpStreamWriter,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
 use std::{
-    cell::Cell,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    sync::Mutex,
     vec,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -41,7 +38,7 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 // const REPLY_UNASSIGNED: u8 = 0xff;
 
 pub struct Socks5 {
-    header_sent: Mutex<Cell<bool>>,
+    header_sent: bool,
 
     proxy_address: Option<NetAddr>,
 }
@@ -49,7 +46,7 @@ pub struct Socks5 {
 impl Socks5 {
     pub fn new() -> Self {
         Self {
-            header_sent: Mutex::new(Cell::new(false)),
+            header_sent: false,
             proxy_address: None,
         }
     }
@@ -84,7 +81,7 @@ impl Protocol for Socks5 {
         if buf[0] != SOCKS_VERSION_V5 || n_methods < 1 {
             return Err(format!(
                 "message is invalid when parsing socks5 identifier message: {}",
-                ToHex(buf)
+                utils::fmt::ToHex(buf)
             )
             .into());
         }
@@ -250,17 +247,13 @@ impl Protocol for Socks5 {
         Ok(addr)
     }
 
-    fn pack(&self, buf: Bytes) -> Result<Bytes> {
+    fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
         let mut frame = BytesMut::new();
 
-        let header_sent = &self.header_sent.lock().unwrap();
-
-        if !header_sent.get() {
-            let addr = self.proxy_address.as_ref().unwrap();
-            let header = NetAddr::new(addr.host.clone(), addr.port);
+        if !self.header_sent {
+            let header = self.proxy_address.as_ref().unwrap();
             frame.put(header.as_bytes());
-
-            header_sent.set(true);
+            self.header_sent = true;
         }
 
         frame.put(buf);
@@ -268,7 +261,7 @@ impl Protocol for Socks5 {
         Ok(frame.freeze())
     }
 
-    fn unpack(&self, _buf: Bytes) -> Result<Bytes> {
+    fn unpack(&mut self, _buf: Bytes) -> Result<Bytes> {
         unimplemented!()
     }
 }

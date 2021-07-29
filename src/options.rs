@@ -1,4 +1,4 @@
-use super::{net::address::NetAddr, ServiceType};
+use crate::{net::address::NetAddr, ServiceType};
 use clap::{crate_version, Clap};
 use std::str::FromStr;
 

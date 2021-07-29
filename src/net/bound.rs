@@ -1,8 +1,6 @@
-use super::{
-    super::{utils, Proto, Result, TcpStreamReader, TcpStreamWriter},
-    address::NetAddr,
-    context::Context,
-    ConnectionEvent,
+use crate::{
+    net::{address::NetAddr, context::Context, ConnectionEvent},
+    utils, Proto, Result, TcpStreamReader, TcpStreamWriter,
 };
 use bytes::{Bytes, BytesMut};
 use std::{
@@ -67,7 +65,7 @@ impl Bound {
             // store peer_address
             ctx.lock().unwrap().peer_address = Some(socket.peer_addr().unwrap());
 
-            let split = utils::split_tcp_stream(socket);
+            let split = utils::net::split_tcp_stream(socket);
             reader = Some(split.0);
             writer = Some(split.1);
 
@@ -172,13 +170,13 @@ impl Bound {
         Ok(())
     }
 
-    pub fn pack(&self, buf: Bytes) -> Result<Bytes> {
-        let proto = self.protocol.as_ref().unwrap();
+    pub fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
+        let proto = self.protocol.as_mut().unwrap();
         proto.pack(buf)
     }
 
-    pub fn unpack(&self, buf: Bytes) -> Result<Bytes> {
-        let proto = self.protocol.as_ref().unwrap();
+    pub fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
+        let proto = self.protocol.as_mut().unwrap();
         proto.unpack(buf)
     }
 
@@ -222,7 +220,7 @@ impl Bound {
             addr
         );
 
-        let split = utils::split_tcp_stream(stream);
+        let split = utils::net::split_tcp_stream(stream);
 
         self.reader = Some(split.0);
         self.writer = Some(split.1);
