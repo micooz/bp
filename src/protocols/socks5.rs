@@ -1,13 +1,7 @@
-use crate::{
-    net::address::{Host, NetAddr},
-    utils, Protocol, Result, TcpStreamReader, TcpStreamWriter,
-};
+use crate::{net::address::NetAddr, utils, Protocol, Result, TcpStreamReader, TcpStreamWriter};
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
-use std::{
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    vec,
-};
+use std::vec;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const NOOP: u8 = 0x00;
@@ -22,8 +16,8 @@ const REQUEST_COMMAND_CONNECT: u8 = 0x01;
 // const REQUEST_COMMAND_UDP: u8 = 0x03;
 
 const ATYP_V4: u8 = 0x01;
-const ATYP_DOMAIN: u8 = 0x03;
-const ATYP_V6: u8 = 0x04;
+// const ATYP_DOMAIN: u8 = 0x03;
+// const ATYP_V6: u8 = 0x04;
 
 // const REPLY_GRANTED: u8 = 0x5a;
 const REPLY_SUCCEEDED: u8 = 0x00;
@@ -58,11 +52,19 @@ impl Protocol for Socks5 {
         "socks5".into()
     }
 
+    fn set_proxy_address(&mut self, addr: NetAddr) {
+        self.proxy_address = Some(addr);
+    }
+
+    fn get_proxy_address(&self) -> Option<NetAddr> {
+        self.proxy_address.clone()
+    }
+
     async fn resolve_proxy_address(
         &mut self,
         reader: &mut TcpStreamReader,
         writer: &mut TcpStreamWriter,
-    ) -> Result<NetAddr> {
+    ) -> Result<(NetAddr, Option<Bytes>)> {
         // 1. Parse Socks5 Identifier Message
 
         // Socks5 Identifier Message
@@ -130,7 +132,7 @@ impl Protocol for Socks5 {
         // | 1  |  1  | X'00' |  1   | Variable |    2     |
         // +----+-----+-------+------+----------+----------+
 
-        let mut buf = vec![0u8; 4];
+        let mut buf = vec![0u8; 3];
         reader.read_exact(&mut buf).await?;
 
         if buf[0] != SOCKS_VERSION_V5 {
@@ -154,68 +156,7 @@ impl Protocol for Socks5 {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = match buf[3] {
-            ATYP_V4 => {
-                // read ipv4 address and port
-                buf.resize(4 + 2, 0);
-                reader.read_exact(&mut buf).await?;
-
-                let ip = IpAddr::V4(Ipv4Addr::new(buf[0], buf[1], buf[2], buf[3]));
-                let port: u16 = u16::from_be_bytes([buf[4], buf[5]]);
-
-                Some(NetAddr::new(Host::Ip(ip), port))
-            }
-            ATYP_DOMAIN => {
-                // read hostname length
-                let mut buf = vec![0u8; 1];
-                reader.read_exact(&mut buf).await?;
-                let len = buf[0];
-
-                // read hostname
-                buf.resize(len as usize, 0);
-                reader.read_exact(&mut buf).await?;
-
-                let hostname = String::from_utf8(buf).unwrap();
-
-                // read port
-                let mut buf = vec![0u8; 2];
-                reader.read_exact(&mut buf).await?;
-                let port: u16 = u16::from_be_bytes([buf[0], buf[1]]);
-
-                Some(NetAddr::new(Host::Name(hostname), port))
-            }
-            ATYP_V6 => {
-                // read ipv6 and port
-                buf.resize(16 + 2, 0);
-                reader.read_exact(&mut buf).await?;
-
-                let ip = IpAddr::V6(Ipv6Addr::new(
-                    u16::from_be_bytes([buf[0], buf[1]]),
-                    u16::from_be_bytes([buf[2], buf[3]]),
-                    u16::from_be_bytes([buf[4], buf[5]]),
-                    u16::from_be_bytes([buf[6], buf[7]]),
-                    u16::from_be_bytes([buf[8], buf[9]]),
-                    u16::from_be_bytes([buf[10], buf[11]]),
-                    u16::from_be_bytes([buf[12], buf[13]]),
-                    u16::from_be_bytes([buf[14], buf[15]]),
-                ));
-
-                let port: u16 = u16::from_be_bytes([buf[16], buf[17]]);
-
-                Some(NetAddr::new(Host::Ip(ip), port))
-            }
-            _ => {
-                return Err(format!(
-                    "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
-                    ATYP_V4, ATYP_DOMAIN, ATYP_V6, buf[3]
-                )
-                .into());
-            }
-        };
-
-        if addr.is_none() {
-            return Err("couldn't resolve DST.ADDR".into());
-        }
+        let addr = NetAddr::from_reader(reader).await?;
 
         // 4. Reply Socks5 Reply Message
 
@@ -240,14 +181,12 @@ impl Protocol for Socks5 {
             ])
             .await?;
 
-        let addr = addr.unwrap();
+        // self.set_proxy_address(addr);
 
-        self.proxy_address = Some(addr.clone());
-
-        Ok(addr)
+        Ok((addr, None))
     }
 
-    fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
         let mut frame = BytesMut::new();
 
         if !self.header_sent {
@@ -261,7 +200,15 @@ impl Protocol for Socks5 {
         Ok(frame.freeze())
     }
 
-    fn unpack(&mut self, _buf: Bytes) -> Result<Bytes> {
+    fn client_decode(&mut self, _buf: Bytes) -> Result<Bytes> {
         unimplemented!()
+    }
+
+    fn server_encode(&mut self, _buf: Bytes) -> Result<Bytes> {
+        todo!()
+    }
+
+    fn server_decode(&mut self, _buf: Bytes) -> Result<Bytes> {
+        todo!()
     }
 }

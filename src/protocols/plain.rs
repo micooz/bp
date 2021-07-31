@@ -22,20 +22,36 @@ impl Protocol for Plain {
         "plain".into()
     }
 
+    fn set_proxy_address(&mut self, _addr: NetAddr) {
+        unimplemented!()
+    }
+
+    fn get_proxy_address(&self) -> Option<NetAddr> {
+        unimplemented!()
+    }
+
     async fn resolve_proxy_address(
         &mut self,
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
-    ) -> Result<NetAddr> {
-        let header = NetAddr::decode(reader).await?;
-        Ok(header)
+    ) -> Result<(NetAddr, Option<Bytes>)> {
+        let header = NetAddr::from_reader(reader).await?;
+        Ok((header, None))
     }
 
-    fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn client_decode(&mut self, buf: Bytes) -> Result<Bytes> {
+        Ok(buf)
+    }
+
+    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
+        Ok(buf)
+    }
+
+    fn server_decode(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

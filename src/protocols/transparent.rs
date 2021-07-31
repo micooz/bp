@@ -20,19 +20,35 @@ impl Protocol for Transparent {
         "transparent".into()
     }
 
+    fn set_proxy_address(&mut self, _addr: NetAddr) {
+        // unimplemented!()
+    }
+
+    fn get_proxy_address(&self) -> Option<NetAddr> {
+        unimplemented!()
+    }
+
     async fn resolve_proxy_address(
         &mut self,
         _reader: &mut ReadHalf<TcpStream>,
         _writer: &mut WriteHalf<TcpStream>,
-    ) -> Result<NetAddr> {
+    ) -> Result<(NetAddr, Option<Bytes>)> {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 
-    fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn client_decode(&mut self, buf: Bytes) -> Result<Bytes> {
+        Ok(buf)
+    }
+
+    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
+        Ok(buf)
+    }
+
+    fn server_decode(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 }

@@ -32,10 +32,10 @@ pub fn num_to_buf_be(num: u64, nbytes: usize) -> Bytes {
     buf.freeze()
 }
 
-pub fn num_to_buf_le(num: u64, nbytes: usize) -> Bytes {
+pub fn num_to_buf_le(num: u128, nbytes: usize) -> Bytes {
     let mut buf = BytesMut::with_capacity(nbytes);
-    buf.put_uint_le(num, nbytes);
-    buf.freeze()
+    buf.put_u128_le(num);
+    buf.freeze().slice(0..12)
 }
 
 #[test]
@@ -53,4 +53,16 @@ fn test_get_chunks() {
 fn test_get_chunks_panic() {
     let data = Bytes::from_static(&[1, 2, 3, 4, 5]);
     get_chunks(data, 0);
+}
+
+#[test]
+fn test_num_to_buf_le() {
+    let buf = num_to_buf_le(0xf0ffffffffffffffffffffff, 12);
+
+    assert_eq!(
+        buf,
+        Bytes::from_static(&[
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf0
+        ])
+    );
 }

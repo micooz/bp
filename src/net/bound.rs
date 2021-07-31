@@ -1,13 +1,10 @@
 use crate::{
-    net::{address::NetAddr, context::Context, ConnectionEvent},
+    net::{address::NetAddr, BoundEvent},
+    options::Options,
     utils, Proto, Result, TcpStreamReader, TcpStreamWriter,
 };
 use bytes::{Bytes, BytesMut};
-use std::{
-    fmt::Display,
-    net::SocketAddr,
-    sync::{Arc, MutexGuard},
-};
+use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -15,6 +12,8 @@ use tokio::{
     sync::Mutex,
     task::JoinHandle,
 };
+
+type BoundEventSender = Sender<BoundEvent>;
 
 #[derive(Clone)]
 pub enum BoundType {
@@ -33,12 +32,14 @@ impl Display for BoundType {
 }
 
 struct RecvArgs {
-    tx: Sender<ConnectionEvent>,
+    tx: BoundEventSender,
     reader: Arc<Mutex<TcpStreamReader>>,
     bound_type: BoundType,
 }
 
 pub struct Bound {
+    opts: Options,
+
     /// The bound type
     bound_type: BoundType,
 
@@ -51,20 +52,17 @@ pub struct Bound {
     /// The associate protocol
     protocol: Option<Proto>,
 
-    /// The context from Connection
-    ctx: Arc<std::sync::Mutex<Context>>,
+    /// The peer address
+    peer_address: SocketAddr,
 }
 
 impl Bound {
-    pub fn new(socket: Option<TcpStream>, ctx: Arc<std::sync::Mutex<Context>>) -> Bound {
+    pub fn new(socket: Option<TcpStream>, opts: Options, peer_address: SocketAddr) -> Bound {
         let mut reader = None;
         let mut writer = None;
         let bound_type;
 
         if let Some(socket) = socket {
-            // store peer_address
-            ctx.lock().unwrap().peer_address = Some(socket.peer_addr().unwrap());
-
             let split = utils::net::split_tcp_stream(socket);
             reader = Some(split.0);
             writer = Some(split.1);
@@ -75,64 +73,62 @@ impl Bound {
         }
 
         Bound {
+            opts,
             bound_type,
             reader,
             writer,
             protocol: None,
-            ctx,
+            peer_address,
         }
     }
 
-    pub async fn use_proto(&mut self, proto: Proto) -> Result<()> {
+    pub async fn use_proto_inbound(
+        &mut self,
+        proto: Proto,
+        tx: BoundEventSender,
+    ) -> Result<NetAddr> {
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
-            self.get_peer_addr().unwrap(),
+            self.peer_address,
             proto.get_name(),
         );
 
-        // store protocol
         self.protocol = Some(proto);
 
-        match self.get_proxy_address() {
-            Some(addr) => {
-                let remote_addr = {
-                    let ctx = self.get_context();
-                    let opts = ctx.opts.as_ref().unwrap();
+        let addr = self.resolve_proxy_address(tx).await?;
 
-                    if opts.client {
-                        // on client side, make connection to bp server
-                        opts.get_remote_addr()
-                    } else {
-                        // on server side, make connection to target host
-                        addr
-                    }
-                };
+        Ok(addr)
+    }
 
-                self.connect(&remote_addr).await?;
+    pub async fn use_proto_outbound(&mut self, mut proto: Proto, addr: NetAddr) -> Result<()> {
+        log::info!(
+            "[{}] [{}] use {} protocol",
+            self.bound_type,
+            self.peer_address,
+            proto.get_name(),
+        );
+
+        proto.set_proxy_address(addr.clone());
+
+        self.protocol = Some(proto);
+
+        let remote_addr = {
+            if self.opts.client {
+                // on client side, make connection to bp server
+                self.opts.get_remote_addr()
+            } else {
+                // on server side, make connection to target host
+                addr
             }
-            None => {
-                // parse incoming stream to get proxy address
-                let proxy_address = self.resolve_addr().await?;
-                let peer_addr = self.get_peer_addr().unwrap();
+        };
 
-                log::info!(
-                    "[{}] [{}] resolved target address {}",
-                    self.bound_type,
-                    peer_addr,
-                    proxy_address
-                );
-
-                let mut ctx = self.get_context();
-                ctx.proxy_address = Some(proxy_address);
-                ctx.peer_address = Some(peer_addr);
-            }
-        }
+        self.connect(&remote_addr).await?;
 
         Ok(())
     }
 
-    pub fn start_recv(&mut self, tx: Sender<ConnectionEvent>) -> JoinHandle<Result<()>> {
+    pub fn start_recv(&mut self, tx: BoundEventSender) -> JoinHandle<Result<()>> {
         let reader = self.reader.as_ref().unwrap().clone();
         let bound_type = self.bound_type.clone();
 
@@ -160,9 +156,8 @@ impl Bound {
     pub async fn close(&mut self) -> tokio::io::Result<()> {
         if let Some(writer) = &self.writer {
             let mut writer = writer.lock().await;
-            let peer_addr = self.get_peer_addr().unwrap();
 
-            log::debug!("[{}] [{}] close", self.bound_type, peer_addr);
+            log::debug!("[{}] [{}] close", self.bound_type, self.peer_address);
             // only close the write half
             writer.shutdown().await?;
         }
@@ -170,42 +165,60 @@ impl Bound {
         Ok(())
     }
 
-    pub fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
-        let proto = self.protocol.as_mut().unwrap();
-        proto.pack(buf)
-    }
-
-    pub fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
-        let proto = self.protocol.as_mut().unwrap();
-        proto.unpack(buf)
-    }
-
-    /// resolve proxy address
-    async fn resolve_addr(&mut self) -> Result<NetAddr> {
+    // parse incoming stream to get proxy address
+    async fn resolve_proxy_address(&mut self, tx: BoundEventSender) -> Result<NetAddr> {
         let mut reader = self.reader.as_ref().unwrap().lock().await;
         let mut writer = self.writer.as_ref().unwrap().lock().await;
 
         let proto = self.protocol.as_mut().unwrap();
 
-        let proxy_address = match proto.resolve_proxy_address(&mut reader, &mut writer).await {
-            Ok(addr) => addr,
-            Err(err) => {
-                return Err(format!("resolve proxy address failed: {}", err).into());
-            }
-        };
+        let (proxy_address, rest) = proto
+            .resolve_proxy_address(&mut reader, &mut writer)
+            .await
+            .map_err(|err| format!("resolve proxy address failed: {}", err))?;
+
+        log::info!(
+            "[{}] [{}] resolved target address {}",
+            self.bound_type,
+            self.peer_address,
+            proxy_address
+        );
+
+        if let Some(buf) = rest {
+            tx.send(BoundEvent::InboundPendingData(buf)).await?;
+        }
 
         Ok(proxy_address)
     }
 
+    pub fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
+        let proto = self.protocol.as_mut().unwrap();
+
+        if self.opts.client {
+            proto.client_encode(buf)
+        } else {
+            proto.server_encode(buf)
+        }
+    }
+
+    pub fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
+        let proto = self.protocol.as_mut().unwrap();
+
+        if self.opts.client {
+            proto.client_decode(buf)
+        } else {
+            proto.server_decode(buf)
+        }
+    }
+
     /// connect to addr
     async fn connect(&mut self, addr: &NetAddr) -> Result<()> {
-        let peer_addr = self.get_peer_addr().unwrap();
         let proto_name = self.protocol.as_ref().unwrap().get_name();
 
         log::info!(
             "[{}] [{}] [{}] connecting to {}",
             self.bound_type,
-            peer_addr,
+            self.peer_address,
             proto_name,
             addr
         );
@@ -215,7 +228,7 @@ impl Bound {
         log::info!(
             "[{}] [{}] [{}] connected to {}",
             self.bound_type,
-            peer_addr,
+            self.peer_address,
             proto_name,
             addr
         );
@@ -226,18 +239,6 @@ impl Bound {
         self.writer = Some(split.1);
 
         Ok(())
-    }
-
-    fn get_peer_addr(&self) -> Option<SocketAddr> {
-        self.get_context().peer_address
-    }
-
-    fn get_proxy_address(&self) -> Option<NetAddr> {
-        self.get_context().proxy_address.clone()
-    }
-
-    fn get_context(&self) -> MutexGuard<Context> {
-        self.ctx.as_ref().lock().unwrap()
     }
 }
 
@@ -251,8 +252,8 @@ async fn recv(args: RecvArgs) -> Result<()> {
             log::debug!("[{}] read_buf return 0", args.bound_type);
 
             let event = match args.bound_type {
-                BoundType::In => ConnectionEvent::InboundClose,
-                BoundType::Out => ConnectionEvent::OutboundClose,
+                BoundType::In => BoundEvent::InboundClose,
+                BoundType::Out => BoundEvent::OutboundClose,
             };
 
             args.tx.send(event).await?;
@@ -267,8 +268,8 @@ async fn recv(args: RecvArgs) -> Result<()> {
         let buf = buffer.freeze();
 
         let event = match args.bound_type {
-            BoundType::In => ConnectionEvent::InboundRecv(buf),
-            BoundType::Out => ConnectionEvent::OutboundRecv(buf),
+            BoundType::In => BoundEvent::InboundRecv(buf),
+            BoundType::Out => BoundEvent::OutboundRecv(buf),
         };
 
         args.tx.send(event).await?;

@@ -15,9 +15,17 @@ pub trait Protocol {
         &mut self,
         reader: &mut TcpStreamReader,
         writer: &mut TcpStreamWriter,
-    ) -> Result<NetAddr>;
+    ) -> Result<(NetAddr, Option<Bytes>)>;
 
-    fn pack(&mut self, buf: Bytes) -> Result<Bytes>;
+    fn set_proxy_address(&mut self, addr: NetAddr);
 
-    fn unpack(&mut self, buf: Bytes) -> Result<Bytes>;
+    fn get_proxy_address(&self) -> Option<NetAddr>;
+
+    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes>;
+
+    fn client_decode(&mut self, buf: Bytes) -> Result<Bytes>;
+
+    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes>;
+
+    fn server_decode(&mut self, buf: Bytes) -> Result<Bytes>;
 }

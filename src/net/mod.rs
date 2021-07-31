@@ -7,7 +7,6 @@ pub mod connection;
 pub mod service;
 
 mod bound;
-mod context;
 
 #[derive(Debug)]
 pub struct AcceptResult {
@@ -19,9 +18,10 @@ pub struct AcceptResult {
 }
 
 #[derive(Debug)]
-pub enum ConnectionEvent {
+pub enum BoundEvent {
     InboundRecv(Bytes),
     InboundClose,
+    InboundPendingData(Bytes),
     OutboundRecv(Bytes),
     OutboundClose,
 }

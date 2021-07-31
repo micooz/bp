@@ -1,5 +1,5 @@
 use crate::{Result, TcpStreamReader};
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::{
     convert::TryInto,
     fmt::Display,
@@ -38,7 +38,7 @@ impl TryInto<AddressType> for u8 {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Host {
     Ip(IpAddr),
     Name(String),
@@ -58,7 +58,7 @@ impl ToString for Host {
 // +------+----------+----------+
 // |  1   | Variable |    2     |
 // +------+----------+----------+
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NetAddr {
     pub host: Host,
     pub port: u16,
@@ -98,11 +98,19 @@ impl NetAddr {
         buf.freeze()
     }
 
-    pub async fn decode(reader: &mut TcpStreamReader) -> Result<Self> {
+    pub async fn from_reader(reader: &mut TcpStreamReader) -> Result<Self> {
         let mut buf = vec![0u8; 1];
         reader.read_exact(&mut buf).await.unwrap();
 
-        let atyp: AddressType = buf[0].try_into()?;
+        let atyp: AddressType = buf[0].try_into().map_err(|_| {
+            format!(
+                "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
+                u8::from(AddressType::V4),
+                u8::from(AddressType::HostName),
+                u8::from(AddressType::V6),
+                buf[0]
+            )
+        })?;
 
         match atyp {
             AddressType::V4 => {
@@ -145,6 +153,56 @@ impl NetAddr {
                 Ok(Self::new(host, port))
             }
         }
+    }
+
+    pub fn from_bytes(mut buf: Bytes) -> Result<(Self, Option<Bytes>)> {
+        let atyp: AddressType = buf[0].try_into().map_err(|_| {
+            format!(
+                "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
+                u8::from(AddressType::V4),
+                u8::from(AddressType::HostName),
+                u8::from(AddressType::V6),
+                buf[0]
+            )
+        })?;
+
+        buf.advance(1);
+
+        let addr = match atyp {
+            AddressType::V4 => {
+                let host = Host::Ip(IpAddr::V4(Ipv4Addr::from([buf[0], buf[1], buf[2], buf[3]])));
+                let port = u16::from_be_bytes([buf[4], buf[5]]);
+
+                buf.advance(4 + 2);
+
+                Self::new(host, port)
+            }
+            AddressType::V6 => {
+                let host = Host::Ip(IpAddr::V6(Ipv6Addr::from([
+                    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9],
+                    buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+                ])));
+                let port = u16::from_be_bytes([buf[16], buf[17]]);
+
+                buf.advance(16 + 2);
+
+                Self::new(host, port)
+            }
+            AddressType::HostName => {
+                let len = buf[0] as usize;
+                buf.advance(1);
+
+                let host = Host::Name(String::from_utf8(buf.slice(0..len).to_vec())?);
+                buf.advance(len);
+
+                let port = u16::from_be_bytes([buf[0], buf[1]]);
+                buf.advance(2);
+
+                Self::new(host, port)
+            }
+        };
+
+        Ok((addr, if !buf.is_empty() { Some(buf) } else { None }))
     }
 }
 
