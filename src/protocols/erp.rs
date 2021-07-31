@@ -96,9 +96,11 @@ impl Erp {
         let nonce = utils::buffer::num_to_buf_le(self.encrypt_nonce as u128, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
-        log::debug!("encrypt key = {}", ToHex(key.to_vec()));
-        log::debug!("encrypt nonce = {}", ToHex(nonce.to_vec()));
-        log::debug!("encrypt plain_text = {}", ToHex(plain_text.to_vec()));
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!("encrypt key = {}", ToHex(key.to_vec()));
+            log::debug!("encrypt nonce = {}", ToHex(nonce.to_vec()));
+            log::debug!("encrypt plain_text = {}", ToHex(plain_text.to_vec()));
+        }
 
         let plain_text = Payload::from(&plain_text[..]);
 
@@ -120,9 +122,11 @@ impl Erp {
         let nonce = utils::buffer::num_to_buf_le(self.decrypt_nonce as u128, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
-        log::debug!("decrypt key = {}", ToHex(key.to_vec()));
-        log::debug!("decrypt nonce = {}", ToHex(nonce.to_vec()));
-        log::debug!("decrypt cipher_text = {}", ToHex(cipher_text.to_vec()));
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!("decrypt key = {}", ToHex(key.to_vec()));
+            log::debug!("decrypt nonce = {}", ToHex(nonce.to_vec()));
+            log::debug!("decrypt cipher_text = {}", ToHex(cipher_text.to_vec()));
+        }
 
         let cipher_text = Payload::from(&cipher_text[..]);
 
@@ -153,7 +157,7 @@ impl Erp {
         }
     }
 
-    fn encode(&mut self, buf: Bytes) -> Bytes {
+    fn encode(&mut self, buf: Bytes) -> Result<Bytes> {
         let chunks = utils::buffer::get_chunks(buf, MAX_CHUNK_SIZE);
 
         let chunks: Vec<Bytes> = chunks
@@ -191,7 +195,7 @@ impl Erp {
             })
             .collect();
 
-        Bytes::from(chunks.concat())
+        Ok(Bytes::from(chunks.concat()))
     }
 
     fn decode(&mut self, mut buf: Bytes) -> Result<Bytes> {
@@ -288,7 +292,7 @@ impl Protocol for Erp {
 
         data.put(buf);
 
-        let data = self.encode(data.freeze());
+        let data = self.encode(data.freeze())?;
 
         if self.header_sent {
             Ok(data)
@@ -309,7 +313,7 @@ impl Protocol for Erp {
     }
 
     fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        Ok(self.encode(buf))
+        self.encode(buf)
     }
 
     fn server_decode(&mut self, buf: Bytes) -> Result<Bytes> {

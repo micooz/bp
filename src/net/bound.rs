@@ -133,13 +133,47 @@ impl Bound {
         let bound_type = self.bound_type.clone();
 
         tokio::spawn(async {
-            recv(RecvArgs {
+            Self::recv(RecvArgs {
                 tx,
                 reader,
                 bound_type,
             })
             .await
         })
+    }
+
+    async fn recv(args: RecvArgs) -> Result<()> {
+        let mut reader = args.reader.lock().await;
+
+        loop {
+            let mut buffer = BytesMut::with_capacity(4 * 1024);
+
+            if 0 == reader.read_buf(&mut buffer).await? {
+                log::debug!("[{}] read_buf return 0", args.bound_type);
+
+                let event = match args.bound_type {
+                    BoundType::In => BoundEvent::InboundClose,
+                    BoundType::Out => BoundEvent::OutboundClose,
+                };
+
+                args.tx.send(event).await?;
+
+                if buffer.is_empty() {
+                    return Ok(());
+                } else {
+                    return Err("connection reset by peer".into());
+                }
+            }
+
+            let buf = buffer.clone().freeze();
+
+            let event = match args.bound_type {
+                BoundType::In => BoundEvent::InboundRecv(buf),
+                BoundType::Out => BoundEvent::OutboundRecv(buf),
+            };
+
+            args.tx.send(event).await?;
+        }
     }
 
     /// send data to remote
@@ -239,39 +273,5 @@ impl Bound {
         self.writer = Some(split.1);
 
         Ok(())
-    }
-}
-
-async fn recv(args: RecvArgs) -> Result<()> {
-    let mut reader = args.reader.lock().await;
-
-    loop {
-        let mut buffer = BytesMut::with_capacity(4 * 1024);
-
-        if 0 == reader.read_buf(&mut buffer).await? {
-            log::debug!("[{}] read_buf return 0", args.bound_type);
-
-            let event = match args.bound_type {
-                BoundType::In => BoundEvent::InboundClose,
-                BoundType::Out => BoundEvent::OutboundClose,
-            };
-
-            args.tx.send(event).await?;
-
-            if buffer.is_empty() {
-                return Ok(());
-            } else {
-                return Err("connection reset by peer".into());
-            }
-        }
-
-        let buf = buffer.freeze();
-
-        let event = match args.bound_type {
-            BoundType::In => BoundEvent::InboundRecv(buf),
-            BoundType::Out => BoundEvent::OutboundRecv(buf),
-        };
-
-        args.tx.send(event).await?;
     }
 }
