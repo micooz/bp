@@ -2,6 +2,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, Error>;
 
 mod bootstrap;
+mod config;
 mod net;
 mod options;
 mod protocols;

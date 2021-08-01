@@ -1,4 +1,5 @@
 use crate::{
+    config::RECV_BUFFER_SIZE,
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
     protocols::{DecodeStatus, DynProtocol},
     utils, Options, Result,
@@ -124,10 +125,10 @@ impl Bound {
         let mut reader = args.reader.lock().await;
 
         loop {
-            let mut buffer = BytesMut::with_capacity(4 * 1024);
+            let mut buffer = BytesMut::with_capacity(RECV_BUFFER_SIZE);
 
             if 0 == reader.read_buf(&mut buffer).await? {
-                log::debug!("[{}] read_buf return 0", args.bound_type);
+                // log::debug!("[{}] read_buf return 0", args.bound_type);
 
                 let event = match args.bound_type {
                     BoundType::In => BoundEvent::InboundClose,
@@ -227,8 +228,9 @@ impl Bound {
             buf.clone()
         } else {
             log::debug!(
-                "[decode] carry previous stashed {} bytes data",
-                self.decode_pending_data.len()
+                "[decode] carry previous stashed {} bytes data, total = {}",
+                self.decode_pending_data.len(),
+                self.decode_pending_data.len() + buf.len(),
             );
             [self.decode_pending_data.clone().freeze(), buf.clone()].concat().into()
         };
@@ -241,7 +243,7 @@ impl Bound {
 
         match res {
             DecodeStatus::Pending => {
-                log::debug!("[decodeStatus::Pending] stashed {} bytes data", buf.len());
+                log::debug!("[decode] got Pending, stashed {} bytes data", buf.len());
                 self.decode_pending_data.put(buf);
             }
             DecodeStatus::Fulfil(_) => {

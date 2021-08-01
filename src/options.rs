@@ -1,10 +1,13 @@
-use crate::net::NetAddr;
+use crate::{
+    config::{CRATE_AUTHOR, DEFAULT_SERVICE_HOST, DEFAULT_SERVICE_PORT},
+    net::NetAddr,
+};
 use clap::{crate_version, Clap};
 use std::str::FromStr;
 
 /// Lightweight and efficient proxy written in pure Rust
 #[derive(Clap, Debug, Clone)]
-#[clap(version = crate_version!(), author = "Micooz Lee <micooz@hotmail.com>")]
+#[clap(version = crate_version!(), author = CRATE_AUTHOR)]
 pub struct Options {
     /// run as server
     #[clap(short)]
@@ -19,11 +22,11 @@ pub struct Options {
     pub key: String,
 
     /// local service host, default 127.0.0.1
-    #[clap(short, default_value = "127.0.0.1")]
+    #[clap(short, default_value = DEFAULT_SERVICE_HOST)]
     pub host: String,
 
     /// local service port, default 1080
-    #[clap(short, default_value = "1080")]
+    #[clap(short, default_value = DEFAULT_SERVICE_PORT)]
     pub port: u16,
 
     /// remote service host, client only

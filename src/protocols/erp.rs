@@ -43,7 +43,7 @@ const HKDF_INFO: &str = "bp-subkey";
 ///
 /// * Salt is randomly generated, and is to derive the per-session subkey in HKDF.
 /// * AEAD cipher ChaCha20Poly1305 (RFC 8439) is used to encrypt all DataFrames.
-/// * Nonce is little-endian and counting from 0, each chunk increases the nonce twice.
+/// * Nonce is little-endian and counting from 0, each chunk increases the nonce three times.
 /// * The HMAC-based Extract-and-Expand Key Derivation Function(HKDF) is used for key derivation.
 /// * The HKDF use SHA256 hash function.
 /// * The random salt and info = "bp-subkey" is used to HKDF.
@@ -61,9 +61,9 @@ pub struct Erp {
 
     derived_key: Option<Bytes>,
 
-    encrypt_nonce: u64,
+    encrypt_nonce: u128,
 
-    decrypt_nonce: u64,
+    decrypt_nonce: u128,
 
     proxy_address: Option<NetAddr>,
 }
@@ -197,46 +197,58 @@ impl Erp {
     }
 
     fn decode(&mut self, mut buf: Bytes) -> Result<DecodeStatus> {
-        log::debug!("decoding {} bytes buf", buf.len());
+        let mut chunks = vec![];
+        let mut total_nonce_inc = 0usize;
 
-        if buf.len() < 1 + TAG_SIZE {
-            return Ok(DecodeStatus::Pending);
+        while !buf.is_empty() {
+            log::debug!("decoding {} bytes buf", buf.len());
+
+            if buf.len() < 1 + TAG_SIZE {
+                return Ok(DecodeStatus::Pending);
+            }
+
+            // PaddingLen
+            let enc_pad_len = buf.slice(0..(1 + TAG_SIZE));
+            let pad_len = self.decrypt(enc_pad_len)?;
+            let pad_len = u8::from_be_bytes([pad_len[0]]);
+
+            total_nonce_inc += 1;
+            buf.advance(1 + TAG_SIZE);
+
+            // Padding
+            buf.advance(pad_len as usize);
+
+            if buf.len() < 2 + TAG_SIZE {
+                self.decrypt_nonce -= total_nonce_inc as u128;
+                return Ok(DecodeStatus::Pending);
+            }
+
+            // ChunkLen
+            let enc_chunk_len = buf.slice(0..(2 + TAG_SIZE));
+            let chunk_len = self.decrypt(enc_chunk_len)?;
+            let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]) as usize;
+
+            total_nonce_inc += 1;
+            buf.advance(2 + TAG_SIZE);
+
+            if buf.len() < chunk_len + TAG_SIZE {
+                self.decrypt_nonce -= total_nonce_inc as u128;
+                return Ok(DecodeStatus::Pending);
+            }
+
+            // Chunk
+            let enc_chunk = buf.slice(0..(chunk_len + TAG_SIZE));
+            let chunk = self.decrypt(enc_chunk)?;
+
+            total_nonce_inc += 1;
+            chunks.push(chunk);
+
+            buf.advance(chunk_len + TAG_SIZE);
         }
 
-        // PaddingLen
-        let enc_pad_len = buf.slice(0..(1 + TAG_SIZE));
-        let pad_len = self.decrypt(enc_pad_len)?;
-        let pad_len = u8::from_be_bytes([pad_len[0]]);
+        let buf: Bytes = chunks.concat().into();
 
-        buf.advance(1 + TAG_SIZE);
-
-        // Padding
-        buf.advance(pad_len as usize);
-
-        if buf.len() < 2 + TAG_SIZE {
-            self.decrypt_nonce -= 1;
-            return Ok(DecodeStatus::Pending);
-        }
-
-        // ChunkLen
-        let enc_chunk_len = buf.slice(0..(2 + TAG_SIZE));
-        let chunk_len = self.decrypt(enc_chunk_len)?;
-        let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]) as usize;
-
-        buf.advance(2 + TAG_SIZE);
-
-        if buf.len() < chunk_len + TAG_SIZE {
-            self.decrypt_nonce -= 2;
-            return Ok(DecodeStatus::Pending);
-        }
-
-        // Chunk
-        let enc_chunk = buf.slice(0..(chunk_len + TAG_SIZE));
-        let chunk = self.decrypt(enc_chunk)?;
-
-        // buf.advance(chunk_len + TAG_SIZE);
-
-        Ok(DecodeStatus::Fulfil(chunk))
+        Ok(DecodeStatus::Fulfil(buf))
     }
 }
 

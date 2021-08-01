@@ -103,7 +103,6 @@ impl Connection {
                 }
                 // inbound closed cause outbound close
                 BoundEvent::InboundClose => {
-                    log::debug!("trigger outbound close");
                     self.outbound.close().await?;
 
                     if self.inbound.is_closed() {
@@ -113,7 +112,6 @@ impl Connection {
                 }
                 // outbound closed cause inbound close
                 BoundEvent::OutboundClose => {
-                    log::debug!("trigger inbound close");
                     self.inbound.close().await?;
 
                     if self.outbound.is_closed() {
