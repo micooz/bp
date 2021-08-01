@@ -1,5 +1,8 @@
-use crate::utils::fmt::ToHex;
-use crate::{net::address::NetAddr, utils, Protocol, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{
+    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    protocols::{DecodeStatus, Protocol},
+    utils, Result,
+};
 use async_trait::async_trait;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use chacha20poly1305::aead::{Aead, NewAead, Payload};
@@ -81,25 +84,27 @@ impl Erp {
         if self.derived_key.is_some() {
             return;
         }
-        self.derived_key = Some(utils::crypto::hkdf_sha256(
-            self.raw_key.clone().into(),
-            salt,
-            HKDF_INFO.as_bytes().into(),
-            KEY_SIZE,
-        ));
+
+        let derived_key =
+            utils::crypto::hkdf_sha256(self.raw_key.clone().into(), salt, HKDF_INFO.as_bytes().into(), KEY_SIZE);
+
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!("encrypt/decrypt key = {}", utils::fmt::ToHex(derived_key.to_vec()));
+        }
+
+        self.derived_key = Some(derived_key);
     }
 
     fn encrypt(&mut self, plain_text: Bytes) -> Result<Bytes> {
-        let key = Key::from_slice(&self.derived_key.as_ref().unwrap());
+        let key = Key::from_slice(self.derived_key.as_ref().unwrap());
         let cipher = ChaCha20Poly1305::new(key);
 
         let nonce = utils::buffer::num_to_buf_le(self.encrypt_nonce as u128, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
         if log::log_enabled!(log::Level::Debug) {
-            log::debug!("encrypt key = {}", ToHex(key.to_vec()));
-            log::debug!("encrypt nonce = {}", ToHex(nonce.to_vec()));
-            log::debug!("encrypt plain_text = {}", ToHex(plain_text.to_vec()));
+            log::debug!("encrypt nonce = {}", utils::fmt::ToHex(nonce.to_vec()));
+            log::debug!("encrypt plain_text = {}", utils::fmt::ToHex(plain_text.to_vec()));
         }
 
         let plain_text = Payload::from(&plain_text[..]);
@@ -107,7 +112,7 @@ impl Erp {
         if let Ok(cipher_text) = cipher.encrypt(nonce, plain_text) {
             self.encrypt_nonce += 1;
 
-            log::debug!("encrypted cipher_text = {}", ToHex(cipher_text.clone()));
+            log::debug!("encrypted cipher_text = {}", utils::fmt::ToHex(cipher_text.clone()));
 
             Ok(cipher_text.into())
         } else {
@@ -116,16 +121,15 @@ impl Erp {
     }
 
     fn decrypt(&mut self, cipher_text: Bytes) -> Result<Bytes> {
-        let key = Key::from_slice(&self.derived_key.as_ref().unwrap());
+        let key = Key::from_slice(self.derived_key.as_ref().unwrap());
         let cipher = ChaCha20Poly1305::new(key);
 
         let nonce = utils::buffer::num_to_buf_le(self.decrypt_nonce as u128, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
         if log::log_enabled!(log::Level::Debug) {
-            log::debug!("decrypt key = {}", ToHex(key.to_vec()));
-            log::debug!("decrypt nonce = {}", ToHex(nonce.to_vec()));
-            log::debug!("decrypt cipher_text = {}", ToHex(cipher_text.to_vec()));
+            log::debug!("decrypt nonce = {}", utils::fmt::ToHex(nonce.to_vec()));
+            log::debug!("decrypt cipher_text = {}", utils::fmt::ToHex(cipher_text.to_vec()));
         }
 
         let cipher_text = Payload::from(&cipher_text[..]);
@@ -133,7 +137,7 @@ impl Erp {
         if let Ok(plain_text) = cipher.decrypt(nonce, cipher_text) {
             self.decrypt_nonce += 1;
 
-            log::debug!("decrypted plain_text = {}", ToHex(plain_text.to_vec()));
+            log::debug!("decrypted plain_text = {}", utils::fmt::ToHex(plain_text.to_vec()));
 
             Ok(plain_text.into())
         } else {
@@ -169,22 +173,16 @@ impl Erp {
                 let pad_len = self.get_random_bytes_len(chunk_buf.len());
                 let pad_buf = utils::crypto::random_bytes(pad_len);
 
-                // prepare chunk
-                let chunk_len = chunk_buf.len();
-
                 // PaddingLen + PaddingLen Tag
-                let enc_pad_len = self
-                    .encrypt(utils::buffer::num_to_buf_be(pad_len as u64, 1))
-                    .unwrap();
+                let enc_pad_len = self.encrypt(utils::buffer::num_to_buf_be(pad_len as u64, 1)).unwrap();
                 buf.put(enc_pad_len);
 
                 // Padding
                 buf.put(pad_buf);
 
                 // ChunkLen + ChunkLen Tag
-                let enc_chunk_len = self
-                    .encrypt(utils::buffer::num_to_buf_be(chunk_len as u64, 2))
-                    .unwrap();
+                let chunk_len = chunk_buf.len();
+                let enc_chunk_len = self.encrypt(utils::buffer::num_to_buf_be(chunk_len as u64, 2)).unwrap();
                 buf.put(enc_chunk_len);
 
                 // Chunk + Chunk Tag
@@ -198,10 +196,15 @@ impl Erp {
         Ok(Bytes::from(chunks.concat()))
     }
 
-    fn decode(&mut self, mut buf: Bytes) -> Result<Bytes> {
+    fn decode(&mut self, mut buf: Bytes) -> Result<DecodeStatus> {
+        log::debug!("decoding {} bytes buf", buf.len());
+
+        if buf.len() < 1 + TAG_SIZE {
+            return Ok(DecodeStatus::Pending);
+        }
+
         // PaddingLen
         let enc_pad_len = buf.slice(0..(1 + TAG_SIZE));
-
         let pad_len = self.decrypt(enc_pad_len)?;
         let pad_len = u8::from_be_bytes([pad_len[0]]);
 
@@ -210,18 +213,30 @@ impl Erp {
         // Padding
         buf.advance(pad_len as usize);
 
+        if buf.len() < 2 + TAG_SIZE {
+            self.decrypt_nonce -= 1;
+            return Ok(DecodeStatus::Pending);
+        }
+
         // ChunkLen
         let enc_chunk_len = buf.slice(0..(2 + TAG_SIZE));
-
         let chunk_len = self.decrypt(enc_chunk_len)?;
-        let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]);
+        let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]) as usize;
 
         buf.advance(2 + TAG_SIZE);
 
-        // Chunk
-        let enc_chunk = buf.slice(0..chunk_len as usize + TAG_SIZE);
+        if buf.len() < chunk_len + TAG_SIZE {
+            self.decrypt_nonce -= 2;
+            return Ok(DecodeStatus::Pending);
+        }
 
-        self.decrypt(enc_chunk)
+        // Chunk
+        let enc_chunk = buf.slice(0..(chunk_len + TAG_SIZE));
+        let chunk = self.decrypt(enc_chunk)?;
+
+        // buf.advance(chunk_len + TAG_SIZE);
+
+        Ok(DecodeStatus::Fulfil(chunk))
     }
 }
 
@@ -308,7 +323,7 @@ impl Protocol for Erp {
         }
     }
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
         self.decode(buf)
     }
 
@@ -316,7 +331,7 @@ impl Protocol for Erp {
         self.encode(buf)
     }
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<Bytes> {
+    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
         self.decode(buf)
     }
 }

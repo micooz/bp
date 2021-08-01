@@ -1,4 +1,4 @@
-use bp::{bootstrap, options::Options};
+use bp::{bootstrap, Options};
 use clap::Clap;
 
 fn main() {

@@ -1,12 +1,20 @@
-use bytes::Bytes;
 use std::net::SocketAddr;
-use tokio::net::TcpStream;
+use tokio::{
+    io::{ReadHalf, WriteHalf},
+    net::TcpStream,
+};
 
-pub mod address;
-pub mod connection;
-pub mod service;
-
+mod address;
 mod bound;
+mod connection;
+mod service;
+
+pub use address::NetAddr;
+pub use connection::Connection;
+pub use service::bootstrap;
+
+pub type TcpStreamReader = ReadHalf<TcpStream>;
+pub type TcpStreamWriter = WriteHalf<TcpStream>;
 
 #[derive(Debug)]
 pub struct AcceptResult {
@@ -15,13 +23,4 @@ pub struct AcceptResult {
 
     /// The incoming address.
     pub addr: SocketAddr,
-}
-
-#[derive(Debug)]
-pub enum BoundEvent {
-    InboundRecv(Bytes),
-    InboundClose,
-    InboundPendingData(Bytes),
-    OutboundRecv(Bytes),
-    OutboundClose,
 }

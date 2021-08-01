@@ -1,4 +1,8 @@
-use crate::{net::address::NetAddr, utils, Protocol, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{
+    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    protocols::{DecodeStatus, Protocol},
+    utils, Result,
+};
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
 use std::vec;
@@ -136,11 +140,7 @@ impl Protocol for Socks5 {
         reader.read_exact(&mut buf).await?;
 
         if buf[0] != SOCKS_VERSION_V5 {
-            return Err(format!(
-                "VER should be {:#04x} but got {:#04x}",
-                SOCKS_VERSION_V5, buf[0]
-            )
-            .into());
+            return Err(format!("VER should be {:#04x} but got {:#04x}", SOCKS_VERSION_V5, buf[0]).into());
         }
 
         // TODO: only support REQUEST_COMMAND_CONNECT
@@ -200,15 +200,15 @@ impl Protocol for Socks5 {
         Ok(frame.freeze())
     }
 
-    fn client_decode(&mut self, _buf: Bytes) -> Result<Bytes> {
+    fn client_decode(&mut self, _buf: Bytes) -> Result<DecodeStatus> {
         unimplemented!()
     }
 
     fn server_encode(&mut self, _buf: Bytes) -> Result<Bytes> {
-        todo!()
+        unimplemented!()
     }
 
-    fn server_decode(&mut self, _buf: Bytes) -> Result<Bytes> {
-        todo!()
+    fn server_decode(&mut self, _buf: Bytes) -> Result<DecodeStatus> {
+        unimplemented!()
     }
 }

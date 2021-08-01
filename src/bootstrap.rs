@@ -1,17 +1,17 @@
 use crate::{
-    net::{connection::Connection, service, AcceptResult},
+    net::{bootstrap, AcceptResult, Connection},
     options::Options,
 };
 use tokio::sync::mpsc;
 
-pub async fn bootstrap(opts: Options) {
+pub async fn boot(opts: Options) {
     let (tx, mut rx) = mpsc::channel::<AcceptResult>(32);
 
     let local_addr = opts.get_local_addr();
 
     // start local service
     tokio::spawn(async move {
-        service::bootstrap(local_addr, tx).await;
+        bootstrap(local_addr, tx).await;
     });
 
     // handle connections

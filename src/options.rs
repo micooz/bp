@@ -1,4 +1,4 @@
-use crate::{net::address::NetAddr, ServiceType};
+use crate::net::NetAddr;
 use clap::{crate_version, Clap};
 use std::str::FromStr;
 
@@ -47,13 +47,9 @@ impl Options {
 
     /// Return combination of remote_host and remote_port
     pub fn get_remote_addr(&self) -> NetAddr {
-        format!(
-            "{}:{}",
-            self.remote_host.as_ref().unwrap(),
-            self.remote_port.unwrap()
-        )
-        .parse()
-        .unwrap()
+        format!("{}:{}", self.remote_host.as_ref().unwrap(), self.remote_port.unwrap())
+            .parse()
+            .unwrap()
     }
 
     /// Return local service type
@@ -81,10 +77,12 @@ impl FromStr for Protocol {
         match s.to_lowercase().as_str() {
             "plain" => Ok(Protocol::Plain),
             "erp" => Ok(Protocol::EncryptRandomPadding),
-            _ => Err(format!(
-                "{} is not supported, available protocols are: plain, erp",
-                s
-            )),
+            _ => Err(format!("{} is not supported, available protocols are: plain, erp", s)),
         }
     }
+}
+
+pub enum ServiceType {
+    Server,
+    Client,
 }

@@ -1,4 +1,8 @@
-use crate::{net::address::NetAddr, Protocol, Result};
+use crate::{
+    net::NetAddr,
+    protocols::{DecodeStatus, Protocol},
+    Result,
+};
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::{
@@ -40,15 +44,15 @@ impl Protocol for Transparent {
         Ok(buf)
     }
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<Bytes> {
-        Ok(buf)
+    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
+        Ok(DecodeStatus::Fulfil(buf))
     }
 
     fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
         Ok(buf)
     }
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<Bytes> {
-        Ok(buf)
+    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
+        Ok(DecodeStatus::Fulfil(buf))
     }
 }

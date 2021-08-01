@@ -1,4 +1,4 @@
-use crate::{Result, TcpStreamReader};
+use crate::{net::TcpStreamReader, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::{
     convert::TryInto,
@@ -127,8 +127,8 @@ impl NetAddr {
                 reader.read_exact(&mut buf).await.unwrap();
 
                 let host = Host::Ip(IpAddr::V6(Ipv6Addr::from([
-                    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9],
-                    buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+                    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11],
+                    buf[12], buf[13], buf[14], buf[15],
                 ])));
                 let port = u16::from_be_bytes([buf[16], buf[17]]);
 
@@ -179,8 +179,8 @@ impl NetAddr {
             }
             AddressType::V6 => {
                 let host = Host::Ip(IpAddr::V6(Ipv6Addr::from([
-                    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9],
-                    buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+                    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11],
+                    buf[12], buf[13], buf[14], buf[15],
                 ])));
                 let port = u16::from_be_bytes([buf[16], buf[17]]);
 

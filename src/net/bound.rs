@@ -1,9 +1,9 @@
 use crate::{
-    net::{address::NetAddr, BoundEvent},
-    options::Options,
-    utils, Proto, Result, TcpStreamReader, TcpStreamWriter,
+    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    protocols::{DecodeStatus, DynProtocol},
+    utils, Options, Result,
 };
-use bytes::{Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -15,29 +15,8 @@ use tokio::{
 
 type BoundEventSender = Sender<BoundEvent>;
 
-#[derive(Clone)]
-pub enum BoundType {
-    In,
-    Out,
-}
-
-impl Display for BoundType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            BoundType::In => "In",
-            BoundType::Out => "Out",
-        };
-        write!(f, "{}", str)
-    }
-}
-
-struct RecvArgs {
-    tx: BoundEventSender,
-    reader: Arc<Mutex<TcpStreamReader>>,
-    bound_type: BoundType,
-}
-
 pub struct Bound {
+    /// The options
     opts: Options,
 
     /// The bound type
@@ -50,10 +29,16 @@ pub struct Bound {
     writer: Option<Arc<Mutex<TcpStreamWriter>>>,
 
     /// The associate protocol
-    protocol: Option<Proto>,
+    protocol: Option<DynProtocol>,
 
     /// The peer address
     peer_address: SocketAddr,
+
+    /// The pending data while decode
+    decode_pending_data: BytesMut,
+
+    /// Whether the bound is closed
+    is_closed: bool,
 }
 
 impl Bound {
@@ -79,14 +64,12 @@ impl Bound {
             writer,
             protocol: None,
             peer_address,
+            decode_pending_data: BytesMut::new(),
+            is_closed: false,
         }
     }
 
-    pub async fn use_proto_inbound(
-        &mut self,
-        proto: Proto,
-        tx: BoundEventSender,
-    ) -> Result<NetAddr> {
+    pub async fn use_proto_inbound(&mut self, proto: DynProtocol, tx: BoundEventSender) -> Result<NetAddr> {
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
@@ -101,7 +84,7 @@ impl Bound {
         Ok(addr)
     }
 
-    pub async fn use_proto_outbound(&mut self, mut proto: Proto, addr: NetAddr) -> Result<()> {
+    pub async fn use_proto_outbound(&mut self, mut proto: DynProtocol, addr: NetAddr) -> Result<()> {
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
@@ -129,17 +112,12 @@ impl Bound {
     }
 
     pub fn start_recv(&mut self, tx: BoundEventSender) -> JoinHandle<Result<()>> {
+        log::info!("[{}] [{}] start piping data", self.bound_type, self.peer_address,);
+
         let reader = self.reader.as_ref().unwrap().clone();
         let bound_type = self.bound_type.clone();
 
-        tokio::spawn(async {
-            Self::recv(RecvArgs {
-                tx,
-                reader,
-                bound_type,
-            })
-            .await
-        })
+        tokio::spawn(async { Self::recv(RecvArgs { tx, reader, bound_type }).await })
     }
 
     async fn recv(args: RecvArgs) -> Result<()> {
@@ -191,12 +169,19 @@ impl Bound {
         if let Some(writer) = &self.writer {
             let mut writer = writer.lock().await;
 
-            log::debug!("[{}] [{}] close", self.bound_type, self.peer_address);
             // only close the write half
             writer.shutdown().await?;
+
+            self.is_closed = true;
+
+            log::debug!("[{}] [{}] closed", self.bound_type, self.peer_address);
         }
 
         Ok(())
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.is_closed
     }
 
     // parse incoming stream to get proxy address
@@ -225,7 +210,7 @@ impl Bound {
         Ok(proxy_address)
     }
 
-    pub fn pack(&mut self, buf: Bytes) -> Result<Bytes> {
+    pub fn encode(&mut self, buf: Bytes) -> Result<Bytes> {
         let proto = self.protocol.as_mut().unwrap();
 
         if self.opts.client {
@@ -235,14 +220,36 @@ impl Bound {
         }
     }
 
-    pub fn unpack(&mut self, buf: Bytes) -> Result<Bytes> {
+    pub fn decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
         let proto = self.protocol.as_mut().unwrap();
 
-        if self.opts.client {
-            proto.client_decode(buf)
+        let full_buf = if self.decode_pending_data.is_empty() {
+            buf.clone()
         } else {
-            proto.server_decode(buf)
+            log::debug!(
+                "[decode] carry previous stashed {} bytes data",
+                self.decode_pending_data.len()
+            );
+            [self.decode_pending_data.clone().freeze(), buf.clone()].concat().into()
+        };
+
+        let res = if self.opts.client {
+            proto.client_decode(full_buf)
+        } else {
+            proto.server_decode(full_buf)
+        }?;
+
+        match res {
+            DecodeStatus::Pending => {
+                log::debug!("[decodeStatus::Pending] stashed {} bytes data", buf.len());
+                self.decode_pending_data.put(buf);
+            }
+            DecodeStatus::Fulfil(_) => {
+                self.decode_pending_data.clear();
+            }
         }
+
+        Ok(res)
     }
 
     /// connect to addr
@@ -274,4 +281,35 @@ impl Bound {
 
         Ok(())
     }
+}
+
+#[derive(Clone)]
+pub enum BoundType {
+    In,
+    Out,
+}
+
+impl Display for BoundType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            BoundType::In => "In",
+            BoundType::Out => "Out",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+struct RecvArgs {
+    tx: BoundEventSender,
+    reader: Arc<Mutex<TcpStreamReader>>,
+    bound_type: BoundType,
+}
+
+#[derive(Debug)]
+pub enum BoundEvent {
+    InboundRecv(Bytes),
+    InboundClose,
+    InboundPendingData(Bytes),
+    OutboundRecv(Bytes),
+    OutboundClose,
 }

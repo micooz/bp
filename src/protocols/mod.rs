@@ -1,11 +1,19 @@
-use crate::{net::address::NetAddr, Result, TcpStreamReader, TcpStreamWriter};
+use crate::{
+    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    Result,
+};
 use async_trait::async_trait;
 use bytes::Bytes;
 
-pub mod erp;
-pub mod plain;
-pub mod socks5;
-pub mod transparent;
+mod erp;
+mod plain;
+mod socks5;
+mod transparent;
+
+pub use erp::Erp;
+pub use plain::Plain;
+pub use socks5::Socks5;
+pub use transparent::Transparent;
 
 #[async_trait]
 pub trait Protocol {
@@ -23,9 +31,16 @@ pub trait Protocol {
 
     fn client_encode(&mut self, buf: Bytes) -> Result<Bytes>;
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<Bytes>;
+    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus>;
 
     fn server_encode(&mut self, buf: Bytes) -> Result<Bytes>;
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<Bytes>;
+    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus>;
+}
+
+pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
+
+pub enum DecodeStatus {
+    Pending,
+    Fulfil(Bytes),
 }

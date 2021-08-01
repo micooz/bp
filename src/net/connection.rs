@@ -1,8 +1,8 @@
 use crate::{
-    net::{bound::Bound, BoundEvent},
-    options::{Options, Protocol},
-    protocols::{erp::Erp, plain::Plain, socks5::Socks5, transparent::Transparent},
-    Proto, Result, ServiceType,
+    net::bound::{Bound, BoundEvent},
+    options::{Options, Protocol, ServiceType},
+    protocols::{DecodeStatus, DynProtocol, Erp, Plain, Socks5, Transparent},
+    Result,
 };
 use tokio::{
     net::TcpStream,
@@ -36,12 +36,7 @@ impl Connection {
 
     pub async fn handle(&mut self, service_type: ServiceType) -> Result<()> {
         // select a protocol for transport layer
-        let protocol: Proto = match self
-            .opts
-            .protocol
-            .as_ref()
-            .unwrap_or(&Protocol::EncryptRandomPadding)
-        {
+        let protocol: DynProtocol = match self.opts.protocol.as_ref().unwrap_or(&Protocol::EncryptRandomPadding) {
             Protocol::Plain => Box::new(Plain::new()),
             Protocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone())),
         };
@@ -50,20 +45,13 @@ impl Connection {
         match service_type {
             ServiceType::Client => {
                 let socks5 = Box::new(Socks5::new());
-                let addr = self
-                    .inbound
-                    .use_proto_inbound(socks5, self.tx.clone())
-                    .await?;
+                let addr = self.inbound.use_proto_inbound(socks5, self.tx.clone()).await?;
 
                 self.outbound.use_proto_outbound(protocol, addr).await?;
             }
             ServiceType::Server => {
                 let transparent = Box::new(Transparent::new());
-
-                let addr = self
-                    .inbound
-                    .use_proto_inbound(protocol, self.tx.clone())
-                    .await?;
+                let addr = self.inbound.use_proto_inbound(protocol, self.tx.clone()).await?;
 
                 self.outbound.use_proto_outbound(transparent, addr).await?;
             }
@@ -72,8 +60,8 @@ impl Connection {
         let tx_inbound = self.tx.clone();
         let tx_outbound = self.tx.clone();
 
-        let inbound_recv_handle = self.inbound.start_recv(tx_inbound);
-        let outbound_recv_handle = self.outbound.start_recv(tx_outbound);
+        self.inbound.start_recv(tx_inbound);
+        self.outbound.start_recv(tx_outbound);
 
         // TODO: add timeout mechanism for bound recv
 
@@ -84,18 +72,28 @@ impl Connection {
                 // pipe data from inbound to outbound
                 BoundEvent::InboundRecv(data) => {
                     let data = if self.opts.client {
-                        self.outbound.pack(data)?
+                        self.outbound.encode(data)?
                     } else {
-                        self.inbound.unpack(data)?
+                        match self.inbound.decode(data)? {
+                            DecodeStatus::Pending => {
+                                continue;
+                            }
+                            DecodeStatus::Fulfil(buf) => buf,
+                        }
                     };
                     self.outbound.write(data).await?;
                 }
                 // pipe data from outbound to inbound
                 BoundEvent::OutboundRecv(data) => {
                     let data = if self.opts.client {
-                        self.outbound.unpack(data)?
+                        match self.outbound.decode(data)? {
+                            DecodeStatus::Pending => {
+                                continue;
+                            }
+                            DecodeStatus::Fulfil(buf) => buf,
+                        }
                     } else {
-                        self.inbound.pack(data)?
+                        self.inbound.encode(data)?
                     };
                     self.inbound.write(data).await?;
                 }
@@ -107,17 +105,24 @@ impl Connection {
                 BoundEvent::InboundClose => {
                     log::debug!("trigger outbound close");
                     self.outbound.close().await?;
+
+                    if self.inbound.is_closed() {
+                        self.rx.close();
+                        break;
+                    }
                 }
                 // outbound closed cause inbound close
                 BoundEvent::OutboundClose => {
                     log::debug!("trigger inbound close");
                     self.inbound.close().await?;
+
+                    if self.outbound.is_closed() {
+                        self.rx.close();
+                        break;
+                    }
                 }
             }
         }
-
-        inbound_recv_handle.await??;
-        outbound_recv_handle.await??;
 
         Ok(())
     }
