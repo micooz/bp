@@ -70,7 +70,8 @@ impl Bound {
         }
     }
 
-    pub async fn use_proto_inbound(&mut self, proto: DynProtocol, tx: BoundEventSender) -> Result<NetAddr> {
+    // parse incoming data from inbound to get proxy address
+    pub async fn resolve_proxy_address(&mut self, proto: DynProtocol, tx: BoundEventSender) -> Result<NetAddr> {
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
@@ -78,14 +79,35 @@ impl Bound {
             proto.get_name(),
         );
 
+        // store protocol for further use
         self.protocol = Some(proto);
 
-        let addr = self.resolve_proxy_address(tx).await?;
+        let mut reader = self.reader.as_ref().unwrap().lock().await;
+        let mut writer = self.writer.as_ref().unwrap().lock().await;
 
-        Ok(addr)
+        let proto = self.protocol.as_mut().unwrap();
+
+        let (proxy_address, rest) = proto
+            .resolve_proxy_address(&mut reader, &mut writer)
+            .await
+            .map_err(|err| format!("resolve proxy address failed: {}", err))?;
+
+        log::info!(
+            "[{}] [{}] resolved target address {}",
+            self.bound_type,
+            self.peer_address,
+            proxy_address
+        );
+
+        if let Some(buf) = rest {
+            tx.send(BoundEvent::InboundPendingData(buf)).await?;
+        }
+
+        Ok(proxy_address)
     }
 
-    pub async fn use_proto_outbound(&mut self, mut proto: DynProtocol, addr: NetAddr) -> Result<()> {
+    // apply protocol and make connection from outbound
+    pub async fn use_protocol(&mut self, mut proto: DynProtocol, addr: NetAddr) -> Result<()> {
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
@@ -93,18 +115,18 @@ impl Bound {
             proto.get_name(),
         );
 
+        // let outbound protocol known proxy address
         proto.set_proxy_address(addr.clone());
 
+        // store protocol for further use
         self.protocol = Some(proto);
 
-        let remote_addr = {
-            if self.opts.client {
-                // on client side, make connection to bp server
-                self.opts.get_remote_addr()
-            } else {
-                // on server side, make connection to target host
-                addr
-            }
+        let remote_addr = if self.opts.client {
+            // on client side, make connection to bp server
+            self.opts.get_remote_addr()
+        } else {
+            // on server side, make connection to target host
+            addr
         };
 
         self.connect(&remote_addr).await?;
@@ -118,10 +140,10 @@ impl Bound {
         let reader = self.reader.as_ref().unwrap().clone();
         let bound_type = self.bound_type.clone();
 
-        tokio::spawn(async { Self::recv(RecvArgs { tx, reader, bound_type }).await })
+        tokio::spawn(async { Self::recv_task(RecvArgs { tx, reader, bound_type }).await })
     }
 
-    async fn recv(args: RecvArgs) -> Result<()> {
+    async fn recv_task(args: RecvArgs) -> Result<()> {
         let mut reader = args.reader.lock().await;
 
         loop {
@@ -185,32 +207,6 @@ impl Bound {
         self.is_closed
     }
 
-    // parse incoming stream to get proxy address
-    async fn resolve_proxy_address(&mut self, tx: BoundEventSender) -> Result<NetAddr> {
-        let mut reader = self.reader.as_ref().unwrap().lock().await;
-        let mut writer = self.writer.as_ref().unwrap().lock().await;
-
-        let proto = self.protocol.as_mut().unwrap();
-
-        let (proxy_address, rest) = proto
-            .resolve_proxy_address(&mut reader, &mut writer)
-            .await
-            .map_err(|err| format!("resolve proxy address failed: {}", err))?;
-
-        log::info!(
-            "[{}] [{}] resolved target address {}",
-            self.bound_type,
-            self.peer_address,
-            proxy_address
-        );
-
-        if let Some(buf) = rest {
-            tx.send(BoundEvent::InboundPendingData(buf)).await?;
-        }
-
-        Ok(proxy_address)
-    }
-
     pub fn encode(&mut self, buf: Bytes) -> Result<Bytes> {
         let proto = self.protocol.as_mut().unwrap();
 
@@ -254,7 +250,7 @@ impl Bound {
         Ok(res)
     }
 
-    /// connect to addr
+    // connect to addr then create self.reader/self.writer
     async fn connect(&mut self, addr: &NetAddr) -> Result<()> {
         let proto_name = self.protocol.as_ref().unwrap().get_name();
 

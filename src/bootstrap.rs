@@ -23,11 +23,8 @@ pub async fn boot(opts: Options) {
         tokio::spawn(async move {
             log::info!("[{}] connected", addr);
 
-            match conn.handle(service_type).await {
-                Ok(_) => {}
-                Err(err) => {
-                    log::error!("{}", err);
-                }
+            if let Err(err) = conn.handle(service_type).await {
+                log::error!("{}", err);
             }
 
             log::info!("[{}] disconnected", addr);

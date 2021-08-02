@@ -41,27 +41,24 @@ impl Connection {
             Protocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone())),
         };
 
-        // apply protocol for inbound and outbound
+        // apply protocols for inbound and outbound
         match service_type {
             ServiceType::Client => {
                 let socks5 = Box::new(Socks5::new());
-                let addr = self.inbound.use_proto_inbound(socks5, self.tx.clone()).await?;
+                let addr = self.inbound.resolve_proxy_address(socks5, self.tx.clone()).await?;
 
-                self.outbound.use_proto_outbound(protocol, addr).await?;
+                self.outbound.use_protocol(protocol, addr).await?;
             }
             ServiceType::Server => {
                 let transparent = Box::new(Transparent::new());
-                let addr = self.inbound.use_proto_inbound(protocol, self.tx.clone()).await?;
+                let addr = self.inbound.resolve_proxy_address(protocol, self.tx.clone()).await?;
 
-                self.outbound.use_proto_outbound(transparent, addr).await?;
+                self.outbound.use_protocol(transparent, addr).await?;
             }
         }
 
-        let tx_inbound = self.tx.clone();
-        let tx_outbound = self.tx.clone();
-
-        self.inbound.start_recv(tx_inbound);
-        self.outbound.start_recv(tx_outbound);
+        self.inbound.start_recv(self.tx.clone());
+        self.outbound.start_recv(self.tx.clone());
 
         // TODO: add timeout mechanism for bound recv
 
