@@ -1,6 +1,7 @@
 use crate::{
     config::{CRATE_AUTHOR, DEFAULT_SERVICE_HOST, DEFAULT_SERVICE_PORT},
     net::NetAddr,
+    protocol::{DynProtocol, Erp, Plain},
 };
 use clap::{crate_version, Clap};
 use std::str::FromStr;
@@ -44,26 +45,33 @@ pub struct Options {
 
 impl Options {
     /// Return combination of host and port
-    pub fn get_local_addr(&self) -> NetAddr {
-        format!("{}:{}", self.host, self.port).parse().unwrap()
+    pub fn get_local_addr(&self) -> Result<NetAddr, &'static str> {
+        format!("{}:{}", self.host, self.port).parse()
     }
 
     /// Return combination of remote_host and remote_port
-    pub fn get_remote_addr(&self) -> NetAddr {
-        format!("{}:{}", self.remote_host.as_ref().unwrap(), self.remote_port.unwrap())
-            .parse()
-            .unwrap()
+    pub fn get_remote_addr(&self) -> Result<NetAddr, &'static str> {
+        format!("{}:{}", self.remote_host.as_ref().unwrap(), self.remote_port.unwrap()).parse()
     }
 
     /// Return local service type
-    pub fn get_service_type(&self) -> Result<ServiceType, String> {
+    pub fn get_service_type(&self) -> Result<ServiceType, &'static str> {
         if !self.server && self.client {
             return Ok(ServiceType::Client);
         }
         if self.server && !self.client {
             return Ok(ServiceType::Server);
         }
-        Err("cannot determine service type".into())
+        Err("cannot determine service type")
+    }
+
+    /// Return initialize protocol object
+    pub fn get_protocol(&self) -> Result<DynProtocol, &'static str> {
+        let proto: DynProtocol = match self.protocol.as_ref().unwrap_or(&Protocol::EncryptRandomPadding) {
+            Protocol::Plain => Box::new(Plain::new()),
+            Protocol::EncryptRandomPadding => Box::new(Erp::new(self.key.clone(), self.get_service_type()?)),
+        };
+        Ok(proto)
     }
 }
 
@@ -76,7 +84,7 @@ pub enum Protocol {
 impl FromStr for Protocol {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "plain" => Ok(Protocol::Plain),
             "erp" => Ok(Protocol::EncryptRandomPadding),

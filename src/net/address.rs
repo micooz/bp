@@ -100,7 +100,7 @@ impl NetAddr {
 
     pub async fn from_reader(reader: &mut TcpStreamReader) -> Result<Self> {
         let mut buf = vec![0u8; 1];
-        reader.read_exact(&mut buf).await.unwrap();
+        reader.read_exact(&mut buf).await?;
 
         let atyp: AddressType = buf[0].try_into().map_err(|_| {
             format!(
@@ -115,7 +115,7 @@ impl NetAddr {
         match atyp {
             AddressType::V4 => {
                 buf.resize(4 + 2, 0);
-                reader.read_exact(&mut buf).await.unwrap();
+                reader.read_exact(&mut buf).await?;
 
                 let host = Host::Ip(IpAddr::V4(Ipv4Addr::from([buf[0], buf[1], buf[2], buf[3]])));
                 let port = u16::from_be_bytes([buf[4], buf[5]]);
@@ -124,7 +124,7 @@ impl NetAddr {
             }
             AddressType::V6 => {
                 buf.resize(16 + 2, 0);
-                reader.read_exact(&mut buf).await.unwrap();
+                reader.read_exact(&mut buf).await?;
 
                 let host = Host::Ip(IpAddr::V6(Ipv6Addr::from([
                     buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11],
@@ -136,17 +136,17 @@ impl NetAddr {
             }
             AddressType::HostName => {
                 buf.resize(1, 0);
-                reader.read_exact(&mut buf).await.unwrap();
+                reader.read_exact(&mut buf).await?;
 
                 let len = buf[0] as usize;
 
                 buf.resize(len, 0);
-                reader.read_exact(&mut buf).await.unwrap();
+                reader.read_exact(&mut buf).await?;
 
                 let host = Host::Name(String::from_utf8(buf.clone())?);
 
                 buf.resize(2, 0);
-                reader.read_exact(&mut buf).await.unwrap();
+                reader.read_exact(&mut buf).await?;
 
                 let port = u16::from_be_bytes([buf[0], buf[1]]);
 
@@ -227,7 +227,7 @@ impl FromStr for NetAddr {
         }
 
         let host = v[0];
-        let port: u16 = v[1].parse().unwrap();
+        let port: u16 = v[1].parse().map_err(|_| "cannot parse port")?;
 
         let addr = format!("{}:{}", host, port);
 

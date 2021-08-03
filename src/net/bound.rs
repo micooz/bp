@@ -1,7 +1,7 @@
 use crate::{
     event::{Event, EventSender},
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::DynProtocol,
+    protocol::DynProtocol,
     utils, Options, Result,
 };
 use bytes::Bytes;
@@ -142,7 +142,7 @@ impl Bound {
 
         let remote_addr = if self.opts.client {
             // on client side, make connection to bp server
-            self.opts.get_remote_addr()
+            self.opts.get_remote_addr()?
         } else {
             // on server side, make connection to target host
             in_proto.get_proxy_address().unwrap()

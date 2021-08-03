@@ -6,7 +6,7 @@ mod config;
 mod event;
 mod net;
 mod options;
-mod protocols;
+mod protocol;
 mod utils;
 
 pub use bootstrap::boot as bootstrap;

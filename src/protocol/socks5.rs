@@ -1,7 +1,7 @@
 use crate::{
     event::EventSender,
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::Protocol,
+    protocol::Protocol,
     utils, Result,
 };
 use async_trait::async_trait;

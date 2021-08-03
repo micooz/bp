@@ -7,11 +7,11 @@ use tokio::{
 mod address;
 mod bound;
 mod connection;
-mod service;
+mod local;
 
 pub use address::NetAddr;
 pub use connection::Connection;
-pub use service::bootstrap;
+pub use local::bootstrap;
 
 pub type TcpStreamReader = ReadHalf<TcpStream>;
 pub type TcpStreamWriter = WriteHalf<TcpStream>;

@@ -1,24 +1,26 @@
 use crate::{
     net::{bootstrap, AcceptResult, Connection},
     options::Options,
+    Result,
 };
 use tokio::sync::mpsc;
 
-pub async fn boot(opts: Options) {
+pub async fn boot(opts: Options) -> Result<()> {
     let (tx, mut rx) = mpsc::channel::<AcceptResult>(32);
-
-    let local_addr = opts.get_local_addr();
+    let local_addr = opts.get_local_addr()?;
 
     // start local service
     tokio::spawn(async move {
-        bootstrap(local_addr, tx).await;
+        if let Err(err) = bootstrap(local_addr, tx).await {
+            log::error!("service bootstrap failed due to: {}", err);
+        }
     });
 
     // handle connections
     while let Some(accept) = rx.recv().await {
-        let addr = accept.socket.peer_addr().unwrap();
+        let addr = accept.socket.peer_addr()?;
+        let service_type = opts.get_service_type()?;
         let mut conn = Connection::new(accept.socket, opts.clone());
-        let service_type = opts.get_service_type().unwrap();
 
         tokio::spawn(async move {
             log::info!("[{}] connected", addr);
@@ -30,4 +32,6 @@ pub async fn boot(opts: Options) {
             log::info!("[{}] disconnected", addr);
         });
     }
+
+    Ok(())
 }

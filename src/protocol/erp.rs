@@ -1,7 +1,8 @@
 use crate::{
     event::{Event, EventSender},
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::Protocol,
+    options::ServiceType,
+    protocol::Protocol,
     utils, Result,
 };
 use async_trait::async_trait;
@@ -15,7 +16,7 @@ const SALT_SIZE: usize = 32;
 const KEY_SIZE: usize = 32;
 const NONCE_SIZE: usize = 12;
 const TAG_SIZE: usize = 16;
-const HKDF_INFO: &str = "bp-subkey";
+const HKDF_INFO: &str = "bp-subkey1";
 
 /// # Protocol
 ///
@@ -72,16 +73,22 @@ pub struct Erp {
 }
 
 impl Erp {
-    pub fn new(key: String) -> Self {
-        // TODO: only client side can generate salt and derived_key
-        // generate on server side will take no effect.
-        let salt = utils::crypto::random_bytes(SALT_SIZE);
-        let derived_key = Self::derive_key(key.clone(), salt.clone());
+    pub fn new(key: String, service_type: ServiceType) -> Self {
+        let (salt, derived_key) = match service_type {
+            ServiceType::Server => (None, None),
+            // only client side can generate salt and derived_key
+            // generate on server side will take no effect.
+            ServiceType::Client => {
+                let salt = utils::crypto::random_bytes(SALT_SIZE);
+                let derived_key = Self::derive_key(key.clone(), salt.clone());
+                (Some(salt), Some(derived_key))
+            }
+        };
 
         Self {
             raw_key: key,
-            salt: Some(salt),
-            derived_key: Some(derived_key),
+            salt,
+            derived_key,
             encrypt_nonce: 0,
             decrypt_nonce: 0,
             header_sent: false,
@@ -165,37 +172,35 @@ impl Erp {
 
     fn encode(&mut self, buf: Bytes) -> Result<Bytes> {
         let chunks = utils::buffer::get_chunks(buf, MAX_CHUNK_SIZE);
+        let mut enc_chunks = vec![];
 
-        let chunks: Vec<Bytes> = chunks
-            .iter()
-            .map(|chunk_buf| {
-                let mut buf = BytesMut::new();
+        for chunk_buf in chunks {
+            let mut buf = BytesMut::new();
 
-                // generate random padding
-                let pad_len = self.get_random_bytes_len(chunk_buf.len());
-                let pad_buf = utils::crypto::random_bytes(pad_len);
+            // generate random padding
+            let pad_len = self.get_random_bytes_len(chunk_buf.len());
+            let pad_buf = utils::crypto::random_bytes(pad_len);
 
-                // PaddingLen + PaddingLen Tag
-                let enc_pad_len = self.encrypt(utils::buffer::num_to_buf_be(pad_len as u64, 1)).unwrap();
-                buf.put(enc_pad_len);
+            // PaddingLen + PaddingLen Tag
+            let enc_pad_len = self.encrypt(utils::buffer::num_to_buf_be(pad_len as u64, 1))?;
+            buf.put(enc_pad_len);
 
-                // Padding
-                buf.put(pad_buf);
+            // Padding
+            buf.put(pad_buf);
 
-                // ChunkLen + ChunkLen Tag
-                let chunk_len = chunk_buf.len();
-                let enc_chunk_len = self.encrypt(utils::buffer::num_to_buf_be(chunk_len as u64, 2)).unwrap();
-                buf.put(enc_chunk_len);
+            // ChunkLen + ChunkLen Tag
+            let chunk_len = chunk_buf.len();
+            let enc_chunk_len = self.encrypt(utils::buffer::num_to_buf_be(chunk_len as u64, 2))?;
+            buf.put(enc_chunk_len);
 
-                // Chunk + Chunk Tag
-                let enc_chunk = self.encrypt(chunk_buf.clone()).unwrap();
-                buf.put(enc_chunk);
+            // Chunk + Chunk Tag
+            let enc_chunk = self.encrypt(chunk_buf.clone())?;
+            buf.put(enc_chunk);
 
-                buf.freeze()
-            })
-            .collect();
+            enc_chunks.push(buf.freeze());
+        }
 
-        Ok(Bytes::from(chunks.concat()))
+        Ok(Bytes::from(enc_chunks.concat()))
     }
 
     async fn decode(&mut self, reader: &mut TcpStreamReader) -> Result<Bytes> {
