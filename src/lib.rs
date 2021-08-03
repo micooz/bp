@@ -3,6 +3,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 mod bootstrap;
 mod config;
+mod event;
 mod net;
 mod options;
 mod protocols;

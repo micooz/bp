@@ -1,12 +1,12 @@
 use crate::{
+    event::EventSender,
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::{DecodeStatus, Protocol},
+    protocols::Protocol,
     utils, Result,
 };
 use async_trait::async_trait;
-use bytes::{BufMut, Bytes, BytesMut};
-use std::vec;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use bytes::Bytes;
+use tokio::io::AsyncWriteExt;
 
 const NOOP: u8 = 0x00;
 // const SOCKS_VERSION_V4: u8 = 0x04;
@@ -36,16 +36,23 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 // const REPLY_UNASSIGNED: u8 = 0xff;
 
 pub struct Socks5 {
-    header_sent: bool,
-
+    // header_sent: bool,
     proxy_address: Option<NetAddr>,
 }
 
 impl Socks5 {
     pub fn new() -> Self {
         Self {
-            header_sent: false,
+            // header_sent: false,
             proxy_address: None,
+        }
+    }
+}
+
+impl Clone for Socks5 {
+    fn clone(&self) -> Self {
+        Self {
+            proxy_address: self.proxy_address.clone(),
         }
     }
 }
@@ -79,22 +86,19 @@ impl Protocol for Socks5 {
         // +----+----------+----------+
 
         // check the first two bytes
-        let mut buf = vec![0u8; 2];
-        reader.read_exact(&mut buf).await?;
-
+        let buf = utils::net::read_exact(reader, 2).await?;
         let n_methods = buf[1] as usize;
 
         if buf[0] != SOCKS_VERSION_V5 || n_methods < 1 {
             return Err(format!(
                 "message is invalid when parsing socks5 identifier message: {}",
-                utils::fmt::ToHex(buf)
+                utils::fmt::ToHex(buf.to_vec())
             )
             .into());
         }
 
         // select one method
-        let mut buf = vec![0u8; n_methods];
-        reader.read_exact(&mut buf).await?;
+        let buf = utils::net::read_exact(reader, n_methods).await?;
 
         let mut method = None;
         let mut n = 0usize;
@@ -136,8 +140,7 @@ impl Protocol for Socks5 {
         // | 1  |  1  | X'00' |  1   | Variable |    2     |
         // +----+-----+-------+------+----------+----------+
 
-        let mut buf = vec![0u8; 3];
-        reader.read_exact(&mut buf).await?;
+        let buf = utils::net::read_exact(reader, 3).await?;
 
         if buf[0] != SOCKS_VERSION_V5 {
             return Err(format!("VER should be {:#04x} but got {:#04x}", SOCKS_VERSION_V5, buf[0]).into());
@@ -181,34 +184,36 @@ impl Protocol for Socks5 {
             ])
             .await?;
 
-        // self.set_proxy_address(addr);
-
         Ok((addr, None))
     }
 
-    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        let mut frame = BytesMut::new();
+    async fn client_encode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+        unimplemented!()
+        // let mut frame = BytesMut::new();
 
-        if !self.header_sent {
-            let header = self.proxy_address.as_ref().unwrap();
-            frame.put(header.as_bytes());
-            self.header_sent = true;
-        }
+        // if !self.header_sent {
+        //     let header = self.proxy_address.as_ref().unwrap();
+        //     frame.put(header.as_bytes());
+        //     self.header_sent = true;
+        // }
 
-        frame.put(buf);
+        // let buf = utils::net::read_buf(reader, 1024).await?;
+        // frame.put(buf);
 
-        Ok(frame.freeze())
+        // tx.send(Event::EncodeDone(frame.freeze())).await?;
+
+        // Ok(())
     }
 
-    fn client_decode(&mut self, _buf: Bytes) -> Result<DecodeStatus> {
+    async fn server_encode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    fn server_encode(&mut self, _buf: Bytes) -> Result<Bytes> {
+    async fn client_decode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    fn server_decode(&mut self, _buf: Bytes) -> Result<DecodeStatus> {
+    async fn server_decode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 }

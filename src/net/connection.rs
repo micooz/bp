@@ -1,7 +1,8 @@
 use crate::{
-    net::bound::{Bound, BoundEvent},
+    event::Event,
+    net::bound::Bound,
     options::{Options, Protocol, ServiceType},
-    protocols::{DecodeStatus, DynProtocol, Erp, Plain, Socks5, Transparent},
+    protocols::{DynProtocol, Erp, Plain, Socks5, Transparent},
     Result,
 };
 use tokio::{
@@ -10,8 +11,8 @@ use tokio::{
 };
 
 pub struct Connection {
-    tx: Sender<BoundEvent>,
-    rx: Receiver<BoundEvent>,
+    tx: Sender<Event>,
+    rx: Receiver<Event>,
     inbound: Bound,
     outbound: Bound,
     opts: Options,
@@ -20,7 +21,7 @@ pub struct Connection {
 impl Connection {
     pub fn new(socket: TcpStream, opts: Options) -> Self {
         let peer_address = socket.peer_addr().unwrap();
-        let (tx, rx) = tokio::sync::mpsc::channel::<BoundEvent>(32);
+        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
         let inbound = Bound::new(Some(socket), opts.clone(), peer_address);
         let outbound = Bound::new(None, opts.clone(), peer_address);
@@ -37,69 +38,56 @@ impl Connection {
     pub async fn handle(&mut self, service_type: ServiceType) -> Result<()> {
         // select a protocol for transport layer
         let protocol: DynProtocol = match self.opts.protocol.as_ref().unwrap_or(&Protocol::EncryptRandomPadding) {
-            Protocol::Plain => Box::new(Plain::new()),
-            Protocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone())),
+            Protocol::Plain => self.create_protocol(Plain::new()),
+            Protocol::EncryptRandomPadding => self.create_protocol(Erp::new(self.opts.key.clone())),
         };
 
         // apply protocols for inbound and outbound
         match service_type {
             ServiceType::Client => {
-                let socks5 = Box::new(Socks5::new());
-                let addr = self.inbound.resolve_proxy_address(socks5, self.tx.clone()).await?;
+                let socks5 = self.create_protocol(Socks5::new());
 
-                self.outbound.use_protocol(protocol, addr).await?;
+                let (in_proto, out_proto) = self
+                    .inbound
+                    .resolve_proxy_address(socks5, protocol, self.tx.clone())
+                    .await?;
+
+                self.outbound.use_protocol(out_proto, in_proto, self.tx.clone()).await?;
             }
             ServiceType::Server => {
-                let transparent = Box::new(Transparent::new());
-                let addr = self.inbound.resolve_proxy_address(protocol, self.tx.clone()).await?;
+                let transparent = self.create_protocol(Transparent::new());
 
-                self.outbound.use_protocol(transparent, addr).await?;
+                let (in_proto, out_proto) = self
+                    .inbound
+                    .resolve_proxy_address(protocol, transparent, self.tx.clone())
+                    .await?;
+
+                self.outbound.use_protocol(out_proto, in_proto, self.tx.clone()).await?;
             }
         }
-
-        self.inbound.start_recv(self.tx.clone());
-        self.outbound.start_recv(self.tx.clone());
 
         // TODO: add timeout mechanism for bound recv
 
         while let Some(event) = self.rx.recv().await {
-            // log::debug!("recv event {:?}", event);
-
             match event {
-                // pipe data from inbound to outbound
-                BoundEvent::InboundRecv(data) => {
-                    let data = if self.opts.client {
-                        self.outbound.encode(data)?
+                Event::EncodeDone(buf) => {
+                    if self.opts.client {
+                        self.outbound.write(buf).await?;
                     } else {
-                        match self.inbound.decode(data)? {
-                            DecodeStatus::Pending => {
-                                continue;
-                            }
-                            DecodeStatus::Fulfil(buf) => buf,
-                        }
-                    };
-                    self.outbound.write(data).await?;
+                        self.inbound.write(buf).await?;
+                    }
                 }
-                // pipe data from outbound to inbound
-                BoundEvent::OutboundRecv(data) => {
-                    let data = if self.opts.client {
-                        match self.outbound.decode(data)? {
-                            DecodeStatus::Pending => {
-                                continue;
-                            }
-                            DecodeStatus::Fulfil(buf) => buf,
-                        }
+                Event::DecodeDone(buf) => {
+                    if self.opts.client {
+                        self.inbound.write(buf).await?;
                     } else {
-                        self.inbound.encode(data)?
-                    };
-                    self.inbound.write(data).await?;
+                        self.outbound.write(buf).await?;
+                    }
                 }
-                // the following data after address parsing
-                BoundEvent::InboundPendingData(buf) => {
+                Event::InboundPendingData(buf) => {
                     self.outbound.write(buf).await?;
                 }
-                // inbound closed cause outbound close
-                BoundEvent::InboundClose => {
+                Event::InboundClose => {
                     self.outbound.close().await?;
 
                     if self.inbound.is_closed() {
@@ -107,8 +95,7 @@ impl Connection {
                         break;
                     }
                 }
-                // outbound closed cause inbound close
-                BoundEvent::OutboundClose => {
+                Event::OutboundClose => {
                     self.inbound.close().await?;
 
                     if self.outbound.is_closed() {
@@ -120,5 +107,9 @@ impl Connection {
         }
 
         Ok(())
+    }
+
+    fn create_protocol<T>(&self, proto: T) -> Box<T> {
+        Box::new(proto)
     }
 }

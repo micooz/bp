@@ -1,10 +1,13 @@
 use crate::{
+    event::{Event, EventSender},
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::{DecodeStatus, Protocol},
-    Result,
+    protocols::Protocol,
+    utils, Result,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
+
+const RECV_BUFFER_SIZE: usize = 4 * 1024;
 
 /// # Protocol
 /// +------+----------+----------+-------------+
@@ -14,7 +17,6 @@ use bytes::{BufMut, Bytes, BytesMut};
 /// +------+----------+----------+-------------+
 pub struct Plain {
     header_sent: bool,
-
     proxy_address: Option<NetAddr>,
 }
 
@@ -23,6 +25,15 @@ impl Plain {
         Self {
             header_sent: false,
             proxy_address: None,
+        }
+    }
+}
+
+impl Clone for Plain {
+    fn clone(&self) -> Self {
+        Self {
+            header_sent: self.header_sent,
+            proxy_address: self.proxy_address.clone(),
         }
     }
 }
@@ -50,7 +61,7 @@ impl Protocol for Plain {
         Ok((header, None))
     }
 
-    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
+    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
         let mut frame = BytesMut::new();
 
         if !self.header_sent {
@@ -59,20 +70,27 @@ impl Protocol for Plain {
             self.header_sent = true;
         }
 
+        let buf = utils::net::read_buf(reader, 1024).await?;
         frame.put(buf);
 
-        Ok(frame.freeze())
+        tx.send(Event::EncodeDone(frame.freeze())).await?;
+
+        Ok(())
     }
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        Ok(DecodeStatus::Fulfil(buf))
+    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        tx.send(Event::EncodeDone(buf)).await?;
+        Ok(())
     }
 
-    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        Ok(buf)
+    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        tx.send(Event::DecodeDone(buf)).await?;
+        Ok(())
     }
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        Ok(DecodeStatus::Fulfil(buf))
+    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        self.client_decode(reader, tx).await
     }
 }

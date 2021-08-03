@@ -1,9 +1,11 @@
 use crate::{
+    event::EventSender,
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
     Result,
 };
 use async_trait::async_trait;
 use bytes::Bytes;
+use dyn_clone::DynClone;
 
 mod erp;
 mod plain;
@@ -16,7 +18,7 @@ pub use socks5::Socks5;
 pub use transparent::Transparent;
 
 #[async_trait]
-pub trait Protocol {
+pub trait Protocol: DynClone {
     fn get_name(&self) -> String;
 
     async fn resolve_proxy_address(
@@ -29,18 +31,15 @@ pub trait Protocol {
 
     fn get_proxy_address(&self) -> Option<NetAddr>;
 
-    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes>;
+    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()>;
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus>;
+    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()>;
 
-    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes>;
+    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()>;
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus>;
+    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()>;
 }
+
+dyn_clone::clone_trait_object!(Protocol);
 
 pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
-
-pub enum DecodeStatus {
-    Pending,
-    Fulfil(Bytes),
-}

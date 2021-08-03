@@ -1,14 +1,15 @@
 use crate::{
+    event::{Event, EventSender},
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::{DecodeStatus, Protocol},
+    protocols::Protocol,
     utils, Result,
 };
 use async_trait::async_trait;
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use tokio::io::AsyncReadExt;
 
+const RECV_BUFFER_SIZE: usize = 4 * 1024;
 const MAX_CHUNK_SIZE: usize = 0x3FFF;
 const SALT_SIZE: usize = 32;
 const KEY_SIZE: usize = 32;
@@ -59,6 +60,8 @@ pub struct Erp {
 
     raw_key: String,
 
+    salt: Option<Bytes>,
+
     derived_key: Option<Bytes>,
 
     encrypt_nonce: u128,
@@ -70,9 +73,15 @@ pub struct Erp {
 
 impl Erp {
     pub fn new(key: String) -> Self {
+        // TODO: only client side can generate salt and derived_key
+        // generate on server side will take no effect.
+        let salt = utils::crypto::random_bytes(SALT_SIZE);
+        let derived_key = Self::derive_key(key.clone(), salt.clone());
+
         Self {
             raw_key: key,
-            derived_key: None,
+            salt: Some(salt),
+            derived_key: Some(derived_key),
             encrypt_nonce: 0,
             decrypt_nonce: 0,
             header_sent: false,
@@ -80,26 +89,19 @@ impl Erp {
         }
     }
 
-    fn derive_key(&mut self, salt: Bytes) {
-        if self.derived_key.is_some() {
-            return;
-        }
-
-        let derived_key =
-            utils::crypto::hkdf_sha256(self.raw_key.clone().into(), salt, HKDF_INFO.as_bytes().into(), KEY_SIZE);
-
+    fn derive_key(raw_key: String, salt: Bytes) -> Bytes {
+        let derived_key = utils::crypto::hkdf_sha256(raw_key.into(), salt, HKDF_INFO.as_bytes().into(), KEY_SIZE);
         if log::log_enabled!(log::Level::Debug) {
             log::debug!("encrypt/decrypt key = {}", utils::fmt::ToHex(derived_key.to_vec()));
         }
-
-        self.derived_key = Some(derived_key);
+        derived_key
     }
 
     fn encrypt(&mut self, plain_text: Bytes) -> Result<Bytes> {
         let key = Key::from_slice(self.derived_key.as_ref().unwrap());
         let cipher = ChaCha20Poly1305::new(key);
 
-        let nonce = utils::buffer::num_to_buf_le(self.encrypt_nonce as u128, NONCE_SIZE);
+        let nonce = utils::buffer::num_to_buf_le(self.encrypt_nonce, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
         if log::log_enabled!(log::Level::Debug) {
@@ -124,7 +126,7 @@ impl Erp {
         let key = Key::from_slice(self.derived_key.as_ref().unwrap());
         let cipher = ChaCha20Poly1305::new(key);
 
-        let nonce = utils::buffer::num_to_buf_le(self.decrypt_nonce as u128, NONCE_SIZE);
+        let nonce = utils::buffer::num_to_buf_le(self.decrypt_nonce, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
         if log::log_enabled!(log::Level::Debug) {
@@ -196,59 +198,37 @@ impl Erp {
         Ok(Bytes::from(chunks.concat()))
     }
 
-    fn decode(&mut self, mut buf: Bytes) -> Result<DecodeStatus> {
-        let mut chunks = vec![];
-        let mut total_nonce_inc = 0usize;
+    async fn decode(&mut self, reader: &mut TcpStreamReader) -> Result<Bytes> {
+        // PaddingLen
+        let enc_pad_len = utils::net::read_exact(reader, 1 + TAG_SIZE).await?;
+        let pad_len = self.decrypt(enc_pad_len)?;
+        let pad_len = u8::from_be_bytes([pad_len[0]]);
 
-        while !buf.is_empty() {
-            log::debug!("decoding {} bytes buf", buf.len());
+        // Padding
+        let _ = utils::net::read_exact(reader, pad_len as usize).await?;
 
-            if buf.len() < 1 + TAG_SIZE {
-                return Ok(DecodeStatus::Pending);
-            }
+        // ChunkLen
+        let enc_chunk_len = utils::net::read_exact(reader, 2 + TAG_SIZE).await?;
+        let chunk_len = self.decrypt(enc_chunk_len)?;
+        let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]);
 
-            // PaddingLen
-            let enc_pad_len = buf.slice(0..(1 + TAG_SIZE));
-            let pad_len = self.decrypt(enc_pad_len)?;
-            let pad_len = u8::from_be_bytes([pad_len[0]]);
+        // Chunk
+        let enc_chunk = utils::net::read_exact(reader, chunk_len as usize + TAG_SIZE).await?;
+        self.decrypt(enc_chunk)
+    }
+}
 
-            total_nonce_inc += 1;
-            buf.advance(1 + TAG_SIZE);
-
-            // Padding
-            buf.advance(pad_len as usize);
-
-            if buf.len() < 2 + TAG_SIZE {
-                self.decrypt_nonce -= total_nonce_inc as u128;
-                return Ok(DecodeStatus::Pending);
-            }
-
-            // ChunkLen
-            let enc_chunk_len = buf.slice(0..(2 + TAG_SIZE));
-            let chunk_len = self.decrypt(enc_chunk_len)?;
-            let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]) as usize;
-
-            total_nonce_inc += 1;
-            buf.advance(2 + TAG_SIZE);
-
-            if buf.len() < chunk_len + TAG_SIZE {
-                self.decrypt_nonce -= total_nonce_inc as u128;
-                return Ok(DecodeStatus::Pending);
-            }
-
-            // Chunk
-            let enc_chunk = buf.slice(0..(chunk_len + TAG_SIZE));
-            let chunk = self.decrypt(enc_chunk)?;
-
-            total_nonce_inc += 1;
-            chunks.push(chunk);
-
-            buf.advance(chunk_len + TAG_SIZE);
+impl Clone for Erp {
+    fn clone(&self) -> Self {
+        Self {
+            header_sent: self.header_sent,
+            raw_key: self.raw_key.clone(),
+            salt: self.salt.clone(),
+            derived_key: self.derived_key.clone(),
+            encrypt_nonce: self.encrypt_nonce,
+            decrypt_nonce: self.decrypt_nonce,
+            proxy_address: self.proxy_address.clone(),
         }
-
-        let buf: Bytes = chunks.concat().into();
-
-        Ok(DecodeStatus::Fulfil(buf))
     }
 }
 
@@ -271,49 +251,19 @@ impl Protocol for Erp {
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
     ) -> Result<(NetAddr, Option<Bytes>)> {
-        // Salt
-        let mut salt = vec![0u8; SALT_SIZE];
-        reader.read_exact(&mut salt).await?;
+        let salt = utils::net::read_exact(reader, SALT_SIZE).await?;
+        self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
-        // PaddingLen
-        let mut enc_pad_len = vec![0u8; 1 + TAG_SIZE];
-        reader.read_exact(&mut enc_pad_len).await?;
-
-        self.derive_key(salt.into());
-
-        let pad_len = self.decrypt(enc_pad_len.into())?;
-        let pad_len = u8::from_be_bytes([pad_len[0]]);
-
-        // Padding
-        let mut padding = vec![0u8; pad_len as usize];
-        reader.read_exact(&mut padding).await?;
-
-        // ChunkLen
-        let mut enc_chunk_len = vec![0u8; 2 + TAG_SIZE];
-        reader.read_exact(&mut enc_chunk_len).await?;
-
-        let chunk_len = self.decrypt(enc_chunk_len.into())?;
-        let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]);
-
-        // Chunk
-        let mut enc_chunk = vec![0u8; (chunk_len + TAG_SIZE as u16) as usize];
-        reader.read_exact(&mut enc_chunk).await?;
-
-        let chunk = self.decrypt(enc_chunk.into())?;
-
+        let chunk = self.decode(reader).await?;
         NetAddr::from_bytes(chunk)
     }
 
-    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
+    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
         let mut data = BytesMut::with_capacity(buf.len() + 200);
-        let mut salt = Bytes::new();
 
+        // attach header
         if !self.header_sent {
-            // generate salt and then derive key
-            salt = utils::crypto::random_bytes(SALT_SIZE);
-            self.derive_key(salt.clone());
-
-            // attach header
             data.put(self.proxy_address.as_ref().unwrap().as_bytes());
         }
 
@@ -322,28 +272,36 @@ impl Protocol for Erp {
         let data = self.encode(data.freeze())?;
 
         if self.header_sent {
-            Ok(data)
+            tx.send(Event::EncodeDone(data)).await?;
+            Ok(())
         } else {
             let mut buf = BytesMut::with_capacity(SALT_SIZE + data.len());
 
-            buf.put(salt);
+            buf.put(self.salt.as_ref().unwrap().clone());
             buf.put(data);
 
             self.header_sent = true;
 
-            Ok(buf.freeze())
+            tx.send(Event::EncodeDone(buf.freeze())).await?;
+            Ok(())
         }
     }
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        self.decode(buf)
+    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let data = self.encode(buf)?;
+        tx.send(Event::EncodeDone(data)).await?;
+        Ok(())
     }
 
-    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        self.encode(buf)
+    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        loop {
+            let chunk = self.decode(reader).await?;
+            tx.send(Event::DecodeDone(chunk)).await?;
+        }
     }
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        self.decode(buf)
+    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        self.client_decode(reader, tx).await
     }
 }

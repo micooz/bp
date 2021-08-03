@@ -1,7 +1,8 @@
 use crate::{
-    net::NetAddr,
-    protocols::{DecodeStatus, Protocol},
-    Result,
+    event::{Event, EventSender},
+    net::{NetAddr, TcpStreamReader},
+    protocols::Protocol,
+    utils, Result,
 };
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -10,10 +11,18 @@ use tokio::{
     net::TcpStream,
 };
 
+const RECV_BUFFER_SIZE: usize = 4 * 1024;
+
 pub struct Transparent {}
 
 impl Transparent {
     pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Clone for Transparent {
+    fn clone(&self) -> Self {
         Self {}
     }
 }
@@ -24,9 +33,7 @@ impl Protocol for Transparent {
         "transparent".into()
     }
 
-    fn set_proxy_address(&mut self, _addr: NetAddr) {
-        // unimplemented!()
-    }
+    fn set_proxy_address(&mut self, _addr: NetAddr) {}
 
     fn get_proxy_address(&self) -> Option<NetAddr> {
         unimplemented!()
@@ -40,19 +47,23 @@ impl Protocol for Transparent {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 
-    fn client_encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        Ok(buf)
+    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        tx.send(Event::EncodeDone(buf)).await?;
+        Ok(())
     }
 
-    fn client_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        Ok(DecodeStatus::Fulfil(buf))
+    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        self.client_encode(reader, tx).await
     }
 
-    fn server_encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        Ok(buf)
+    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        tx.send(Event::DecodeDone(buf)).await?;
+        Ok(())
     }
 
-    fn server_decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        Ok(DecodeStatus::Fulfil(buf))
+    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+        self.client_decode(reader, tx).await
     }
 }

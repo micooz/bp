@@ -1,20 +1,12 @@
 use crate::{
-    config::RECV_BUFFER_SIZE,
+    event::{Event, EventSender},
     net::{NetAddr, TcpStreamReader, TcpStreamWriter},
-    protocols::{DecodeStatus, DynProtocol},
+    protocols::DynProtocol,
     utils, Options, Result,
 };
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::Bytes;
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-    sync::mpsc::Sender,
-    sync::Mutex,
-    task::JoinHandle,
-};
-
-type BoundEventSender = Sender<BoundEvent>;
+use tokio::{io::AsyncWriteExt, net::TcpStream, sync::Mutex};
 
 pub struct Bound {
     /// The options
@@ -29,14 +21,8 @@ pub struct Bound {
     /// The write half of current stream
     writer: Option<Arc<Mutex<TcpStreamWriter>>>,
 
-    /// The associate protocol
-    protocol: Option<DynProtocol>,
-
     /// The peer address
     peer_address: SocketAddr,
-
-    /// The pending data while decode
-    decode_pending_data: BytesMut,
 
     /// Whether the bound is closed
     is_closed: bool,
@@ -63,118 +49,150 @@ impl Bound {
             bound_type,
             reader,
             writer,
-            protocol: None,
             peer_address,
-            decode_pending_data: BytesMut::new(),
             is_closed: false,
         }
     }
 
-    // parse incoming data from inbound to get proxy address
-    pub async fn resolve_proxy_address(&mut self, proto: DynProtocol, tx: BoundEventSender) -> Result<NetAddr> {
+    // [inbound] parse incoming data to get proxy address
+    pub async fn resolve_proxy_address(
+        &mut self,
+        mut in_proto: DynProtocol,
+        mut out_proto: DynProtocol,
+        tx: EventSender,
+    ) -> Result<(DynProtocol, DynProtocol)> {
+        let in_proto_name = in_proto.get_name();
+
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
             self.peer_address,
-            proto.get_name(),
+            in_proto_name,
         );
-
-        // store protocol for further use
-        self.protocol = Some(proto);
 
         let mut reader = self.reader.as_ref().unwrap().lock().await;
         let mut writer = self.writer.as_ref().unwrap().lock().await;
 
-        let proto = self.protocol.as_mut().unwrap();
-
-        let (proxy_address, rest) = proto
+        let (proxy_address, rest) = in_proto
             .resolve_proxy_address(&mut reader, &mut writer)
             .await
             .map_err(|err| format!("resolve proxy address failed: {}", err))?;
 
+        in_proto.set_proxy_address(proxy_address.clone());
+        out_proto.set_proxy_address(proxy_address.clone());
+
         log::info!(
-            "[{}] [{}] resolved target address {}",
+            "[{}] [{}] [{}] resolved target address {}",
             self.bound_type,
             self.peer_address,
-            proxy_address
+            in_proto_name,
+            proxy_address,
         );
 
+        let ret = (in_proto.clone(), out_proto.clone());
+
         if let Some(buf) = rest {
-            tx.send(BoundEvent::InboundPendingData(buf)).await?;
+            tx.send(Event::InboundPendingData(buf)).await?;
         }
 
-        Ok(proxy_address)
+        log::info!(
+            "[{}] [{}] [{}] start receiving data...",
+            self.bound_type,
+            self.peer_address,
+            in_proto_name,
+        );
+
+        let reader = self.reader.as_ref().unwrap().clone();
+        let opts = self.opts.clone();
+
+        tokio::spawn(async move {
+            let mut reader = reader.lock().await;
+            loop {
+                let res = if opts.client {
+                    out_proto.client_encode(&mut reader, tx.clone()).await
+                } else {
+                    in_proto.server_decode(&mut reader, tx.clone()).await
+                };
+
+                if res.is_err() {
+                    tx.send(Event::InboundClose).await.unwrap();
+                    break;
+                }
+            }
+        });
+
+        Ok(ret)
     }
 
-    // apply protocol and make connection from outbound
-    pub async fn use_protocol(&mut self, mut proto: DynProtocol, addr: NetAddr) -> Result<()> {
+    // [outbound] apply protocol and then make connection to remote
+    pub async fn use_protocol(
+        &mut self,
+        mut out_proto: DynProtocol,
+        mut in_proto: DynProtocol,
+        tx: EventSender,
+    ) -> Result<()> {
+        let out_proto_name = out_proto.get_name();
+
         log::info!(
             "[{}] [{}] use {} protocol",
             self.bound_type,
             self.peer_address,
-            proto.get_name(),
+            out_proto_name,
         );
-
-        // let outbound protocol known proxy address
-        proto.set_proxy_address(addr.clone());
-
-        // store protocol for further use
-        self.protocol = Some(proto);
 
         let remote_addr = if self.opts.client {
             // on client side, make connection to bp server
             self.opts.get_remote_addr()
         } else {
             // on server side, make connection to target host
-            addr
+            in_proto.get_proxy_address().unwrap()
         };
+
+        log::info!(
+            "[{}] [{}] [{}] connecting to {}",
+            self.bound_type,
+            self.peer_address,
+            out_proto_name,
+            remote_addr,
+        );
 
         self.connect(&remote_addr).await?;
 
-        Ok(())
-    }
+        log::info!(
+            "[{}] [{}] [{}] connected to {}",
+            self.bound_type,
+            self.peer_address,
+            out_proto_name,
+            remote_addr,
+        );
 
-    pub fn start_recv(&mut self, tx: BoundEventSender) -> JoinHandle<Result<()>> {
-        log::info!("[{}] [{}] start piping data", self.bound_type, self.peer_address,);
+        log::info!(
+            "[{}] [{}] [{}] start receiving data...",
+            self.bound_type,
+            self.peer_address,
+            out_proto_name,
+        );
 
         let reader = self.reader.as_ref().unwrap().clone();
-        let bound_type = self.bound_type.clone();
+        let opts = self.opts.clone();
 
-        tokio::spawn(async { Self::recv_task(RecvArgs { tx, reader, bound_type }).await })
-    }
-
-    async fn recv_task(args: RecvArgs) -> Result<()> {
-        let mut reader = args.reader.lock().await;
-
-        loop {
-            let mut buffer = BytesMut::with_capacity(RECV_BUFFER_SIZE);
-
-            if 0 == reader.read_buf(&mut buffer).await? {
-                // log::debug!("[{}] read_buf return 0", args.bound_type);
-
-                let event = match args.bound_type {
-                    BoundType::In => BoundEvent::InboundClose,
-                    BoundType::Out => BoundEvent::OutboundClose,
+        tokio::spawn(async move {
+            let mut reader = reader.lock().await;
+            loop {
+                let res = if opts.client {
+                    out_proto.client_decode(&mut reader, tx.clone()).await
+                } else {
+                    in_proto.server_encode(&mut reader, tx.clone()).await
                 };
 
-                args.tx.send(event).await?;
-
-                if buffer.is_empty() {
-                    return Ok(());
-                } else {
-                    return Err("connection reset by peer".into());
+                if res.is_err() {
+                    tx.send(Event::OutboundClose).await.unwrap();
+                    break;
                 }
             }
+        });
 
-            let buf = buffer.clone().freeze();
-
-            let event = match args.bound_type {
-                BoundType::In => BoundEvent::InboundRecv(buf),
-                BoundType::Out => BoundEvent::OutboundRecv(buf),
-            };
-
-            args.tx.send(event).await?;
-        }
+        Ok(())
     }
 
     /// send data to remote
@@ -197,7 +215,7 @@ impl Bound {
 
             self.is_closed = true;
 
-            log::debug!("[{}] [{}] closed", self.bound_type, self.peer_address);
+            log::info!("[{}] [{}] closed", self.bound_type, self.peer_address);
         }
 
         Ok(())
@@ -207,71 +225,9 @@ impl Bound {
         self.is_closed
     }
 
-    pub fn encode(&mut self, buf: Bytes) -> Result<Bytes> {
-        let proto = self.protocol.as_mut().unwrap();
-
-        if self.opts.client {
-            proto.client_encode(buf)
-        } else {
-            proto.server_encode(buf)
-        }
-    }
-
-    pub fn decode(&mut self, buf: Bytes) -> Result<DecodeStatus> {
-        let proto = self.protocol.as_mut().unwrap();
-
-        let full_buf = if self.decode_pending_data.is_empty() {
-            buf.clone()
-        } else {
-            log::debug!(
-                "[decode] carry previous stashed {} bytes data, total = {}",
-                self.decode_pending_data.len(),
-                self.decode_pending_data.len() + buf.len(),
-            );
-            [self.decode_pending_data.clone().freeze(), buf.clone()].concat().into()
-        };
-
-        let res = if self.opts.client {
-            proto.client_decode(full_buf)
-        } else {
-            proto.server_decode(full_buf)
-        }?;
-
-        match res {
-            DecodeStatus::Pending => {
-                log::debug!("[decode] got Pending, stashed {} bytes data", buf.len());
-                self.decode_pending_data.put(buf);
-            }
-            DecodeStatus::Fulfil(_) => {
-                self.decode_pending_data.clear();
-            }
-        }
-
-        Ok(res)
-    }
-
     // connect to addr then create self.reader/self.writer
     async fn connect(&mut self, addr: &NetAddr) -> Result<()> {
-        let proto_name = self.protocol.as_ref().unwrap().get_name();
-
-        log::info!(
-            "[{}] [{}] [{}] connecting to {}",
-            self.bound_type,
-            self.peer_address,
-            proto_name,
-            addr
-        );
-
         let stream = TcpStream::connect(addr.as_string()).await?;
-
-        log::info!(
-            "[{}] [{}] [{}] connected to {}",
-            self.bound_type,
-            self.peer_address,
-            proto_name,
-            addr
-        );
-
         let split = utils::net::split_tcp_stream(stream);
 
         self.reader = Some(split.0);
@@ -295,19 +251,4 @@ impl Display for BoundType {
         };
         write!(f, "{}", str)
     }
-}
-
-struct RecvArgs {
-    tx: BoundEventSender,
-    reader: Arc<Mutex<TcpStreamReader>>,
-    bound_type: BoundType,
-}
-
-#[derive(Debug)]
-pub enum BoundEvent {
-    InboundRecv(Bytes),
-    InboundClose,
-    InboundPendingData(Bytes),
-    OutboundRecv(Bytes),
-    OutboundClose,
 }
