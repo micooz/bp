@@ -7,8 +7,10 @@ use crate::{
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
-use chacha20poly1305::aead::{Aead, NewAead, Payload};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::{
+    aead::{Aead, NewAead, Payload},
+    ChaCha20Poly1305, Key, Nonce,
+};
 
 const RECV_BUFFER_SIZE: usize = 4 * 1024;
 const MAX_CHUNK_SIZE: usize = 0x3FFF;
