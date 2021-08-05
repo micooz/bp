@@ -1,6 +1,6 @@
 use crate::{
     config::{CRATE_AUTHOR, DEFAULT_SERVICE_HOST, DEFAULT_SERVICE_PORT},
-    net::NetAddr,
+    net::Address,
     protocol::{DynProtocol, Erp, Plain},
 };
 use clap::{crate_version, Clap};
@@ -45,12 +45,12 @@ pub struct Options {
 
 impl Options {
     /// Return combination of host and port
-    pub fn get_local_addr(&self) -> Result<NetAddr, &'static str> {
+    pub fn get_local_addr(&self) -> Result<Address, &'static str> {
         format!("{}:{}", self.host, self.port).parse()
     }
 
     /// Return combination of remote_host and remote_port
-    pub fn get_remote_addr(&self) -> Result<NetAddr, &'static str> {
+    pub fn get_remote_addr(&self) -> Result<Address, &'static str> {
         format!("{}:{}", self.remote_host.as_ref().unwrap(), self.remote_port.unwrap()).parse()
     }
 

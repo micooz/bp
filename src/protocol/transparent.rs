@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{NetAddr, TcpStreamReader},
+    net::{Address, TcpStreamReader},
     protocol::Protocol,
     utils, Result,
 };
@@ -33,9 +33,9 @@ impl Protocol for Transparent {
         "transparent".into()
     }
 
-    fn set_proxy_address(&mut self, _addr: NetAddr) {}
+    fn set_proxy_address(&mut self, _addr: Address) {}
 
-    fn get_proxy_address(&self) -> Option<NetAddr> {
+    fn get_proxy_address(&self) -> Option<Address> {
         unimplemented!()
     }
 
@@ -43,7 +43,7 @@ impl Protocol for Transparent {
         &mut self,
         _reader: &mut ReadHalf<TcpStream>,
         _writer: &mut WriteHalf<TcpStream>,
-    ) -> Result<(NetAddr, Option<Bytes>)> {
+    ) -> Result<(Address, Option<Bytes>)> {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 

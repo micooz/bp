@@ -9,7 +9,7 @@ mod bound;
 mod connection;
 mod local;
 
-pub use address::NetAddr;
+pub use address::Address;
 pub use connection::Connection;
 pub use local::bootstrap;
 

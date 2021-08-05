@@ -1,6 +1,6 @@
 use crate::{
     event::EventSender,
-    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    net::{Address, TcpStreamReader, TcpStreamWriter},
     protocol::Protocol,
     utils, Result,
 };
@@ -37,7 +37,7 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 
 pub struct Socks5 {
     // header_sent: bool,
-    proxy_address: Option<NetAddr>,
+    proxy_address: Option<Address>,
 }
 
 impl Socks5 {
@@ -63,11 +63,11 @@ impl Protocol for Socks5 {
         "socks5".into()
     }
 
-    fn set_proxy_address(&mut self, addr: NetAddr) {
+    fn set_proxy_address(&mut self, addr: Address) {
         self.proxy_address = Some(addr);
     }
 
-    fn get_proxy_address(&self) -> Option<NetAddr> {
+    fn get_proxy_address(&self) -> Option<Address> {
         self.proxy_address.clone()
     }
 
@@ -75,7 +75,7 @@ impl Protocol for Socks5 {
         &mut self,
         reader: &mut TcpStreamReader,
         writer: &mut TcpStreamWriter,
-    ) -> Result<(NetAddr, Option<Bytes>)> {
+    ) -> Result<(Address, Option<Bytes>)> {
         // 1. Parse Socks5 Identifier Message
 
         // Socks5 Identifier Message
@@ -159,7 +159,7 @@ impl Protocol for Socks5 {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = NetAddr::from_reader(reader).await?;
+        let addr = Address::from_reader(reader).await?;
 
         // 4. Reply Socks5 Reply Message
 

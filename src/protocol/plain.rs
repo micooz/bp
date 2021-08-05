@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    net::{Address, TcpStreamReader, TcpStreamWriter},
     protocol::Protocol,
     utils, Result,
 };
@@ -17,7 +17,7 @@ const RECV_BUFFER_SIZE: usize = 4 * 1024;
 /// +------+----------+----------+-------------+
 pub struct Plain {
     header_sent: bool,
-    proxy_address: Option<NetAddr>,
+    proxy_address: Option<Address>,
 }
 
 impl Plain {
@@ -44,11 +44,11 @@ impl Protocol for Plain {
         "plain".into()
     }
 
-    fn set_proxy_address(&mut self, addr: NetAddr) {
+    fn set_proxy_address(&mut self, addr: Address) {
         self.proxy_address = Some(addr);
     }
 
-    fn get_proxy_address(&self) -> Option<NetAddr> {
+    fn get_proxy_address(&self) -> Option<Address> {
         self.proxy_address.clone()
     }
 
@@ -56,8 +56,8 @@ impl Protocol for Plain {
         &mut self,
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
-    ) -> Result<(NetAddr, Option<Bytes>)> {
-        let header = NetAddr::from_reader(reader).await?;
+    ) -> Result<(Address, Option<Bytes>)> {
+        let header = Address::from_reader(reader).await?;
         Ok((header, None))
     }
 

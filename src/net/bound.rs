@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    net::{Address, TcpStreamReader, TcpStreamWriter},
     protocol::DynProtocol,
     utils, Options, Result,
 };
@@ -226,7 +226,7 @@ impl Bound {
     }
 
     // connect to addr then create self.reader/self.writer
-    async fn connect(&mut self, addr: &NetAddr) -> Result<()> {
+    async fn connect(&mut self, addr: &Address) -> Result<()> {
         let stream = TcpStream::connect(addr.as_string()).await?;
         let split = utils::net::split_tcp_stream(stream);
 

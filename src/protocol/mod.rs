@@ -1,6 +1,6 @@
 use crate::{
     event::EventSender,
-    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    net::{Address, TcpStreamReader, TcpStreamWriter},
     Result,
 };
 use async_trait::async_trait;
@@ -25,11 +25,11 @@ pub trait Protocol: DynClone {
         &mut self,
         reader: &mut TcpStreamReader,
         writer: &mut TcpStreamWriter,
-    ) -> Result<(NetAddr, Option<Bytes>)>;
+    ) -> Result<(Address, Option<Bytes>)>;
 
-    fn set_proxy_address(&mut self, addr: NetAddr);
+    fn set_proxy_address(&mut self, addr: Address);
 
-    fn get_proxy_address(&self) -> Option<NetAddr>;
+    fn get_proxy_address(&self) -> Option<Address>;
 
     async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()>;
 

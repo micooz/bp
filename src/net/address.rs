@@ -59,12 +59,12 @@ impl ToString for Host {
 // |  1   | Variable |    2     |
 // +------+----------+----------+
 #[derive(Debug, Clone)]
-pub struct NetAddr {
+pub struct Address {
     pub host: Host,
     pub port: u16,
 }
 
-impl NetAddr {
+impl Address {
     pub fn new(host: Host, port: u16) -> Self {
         Self { host, port }
     }
@@ -206,7 +206,7 @@ impl NetAddr {
     }
 }
 
-impl Display for NetAddr {
+impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (address_type, addr) = match &self.host {
             Host::Ip(ip) => ("Ip", ip.to_string()),
@@ -216,7 +216,7 @@ impl Display for NetAddr {
     }
 }
 
-impl FromStr for NetAddr {
+impl FromStr for Address {
     type Err = &'static str;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {

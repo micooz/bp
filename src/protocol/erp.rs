@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{NetAddr, TcpStreamReader, TcpStreamWriter},
+    net::{Address, TcpStreamReader, TcpStreamWriter},
     options::ServiceType,
     protocol::Protocol,
     utils, Result,
@@ -71,7 +71,7 @@ pub struct Erp {
 
     decrypt_nonce: u128,
 
-    proxy_address: Option<NetAddr>,
+    proxy_address: Option<Address>,
 }
 
 impl Erp {
@@ -245,11 +245,11 @@ impl Protocol for Erp {
         "erp".into()
     }
 
-    fn set_proxy_address(&mut self, addr: NetAddr) {
+    fn set_proxy_address(&mut self, addr: Address) {
         self.proxy_address = Some(addr);
     }
 
-    fn get_proxy_address(&self) -> Option<NetAddr> {
+    fn get_proxy_address(&self) -> Option<Address> {
         self.proxy_address.clone()
     }
 
@@ -257,12 +257,12 @@ impl Protocol for Erp {
         &mut self,
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
-    ) -> Result<(NetAddr, Option<Bytes>)> {
+    ) -> Result<(Address, Option<Bytes>)> {
         let salt = utils::net::read_exact(reader, SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
         let chunk = self.decode(reader).await?;
-        NetAddr::from_bytes(chunk)
+        Address::from_bytes(chunk)
     }
 
     async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
