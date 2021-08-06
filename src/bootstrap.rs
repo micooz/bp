@@ -1,4 +1,5 @@
 use crate::{
+    logging,
     net::{bootstrap, AcceptResult, Connection},
     options::Options,
     Result,
@@ -6,6 +7,8 @@ use crate::{
 use tokio::sync::mpsc;
 
 pub async fn boot(opts: Options) -> Result<()> {
+    logging::setup().await;
+
     let (tx, mut rx) = mpsc::channel::<AcceptResult>(32);
     let local_addr = opts.get_local_addr()?;
 
