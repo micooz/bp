@@ -1,4 +1,5 @@
 use crate::{
+    config::{PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS, TCP_CONNECT_TIMEOUT_SECONDS},
     event::{Event, EventSender},
     net::{Address, TcpStreamReader, TcpStreamWriter},
     protocol::DynProtocol,
@@ -6,7 +7,12 @@ use crate::{
 };
 use bytes::Bytes;
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
-use tokio::{io::AsyncWriteExt, net::TcpStream, sync::Mutex};
+use tokio::{
+    io::AsyncWriteExt,
+    net::TcpStream,
+    sync::Mutex,
+    time::{timeout, Duration},
+};
 
 pub struct Bound {
     /// The options
@@ -73,10 +79,12 @@ impl Bound {
         let mut reader = self.reader.as_ref().unwrap().lock().await;
         let mut writer = self.writer.as_ref().unwrap().lock().await;
 
-        let (proxy_address, rest) = in_proto
-            .resolve_proxy_address(&mut reader, &mut writer)
-            .await
-            .map_err(|err| format!("resolve proxy address failed: {}", err))?;
+        let (proxy_address, rest) = timeout(
+            Duration::from_secs(PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
+            in_proto.resolve_proxy_address(&mut reader, &mut writer),
+        )
+        .await?
+        .map_err(|err| format!("resolve proxy address failed due to {}", err))?;
 
         in_proto.set_proxy_address(proxy_address.clone());
         out_proto.set_proxy_address(proxy_address.clone());
@@ -115,7 +123,7 @@ impl Bound {
                 };
 
                 if res.is_err() {
-                    tx.send(Event::InboundClose).await.unwrap();
+                    let _ = tx.send(Event::InboundClose).await;
                     break;
                 }
             }
@@ -149,14 +157,19 @@ impl Bound {
         };
 
         log::info!(
-            "[{}] [{}] [{}] connecting to {}",
+            "[{}] [{}] [{}] connecting to {}...",
             self.bound_type,
             self.peer_address,
             out_proto_name,
             remote_addr,
         );
 
-        self.connect(&remote_addr).await?;
+        self.connect(&remote_addr).await.map_err(|err| {
+            format!(
+                "[{}] [{}] [{}] connect to {} failed due to {}",
+                self.bound_type, self.peer_address, out_proto_name, remote_addr, err
+            )
+        })?;
 
         log::info!(
             "[{}] [{}] [{}] connected to {}",
@@ -186,7 +199,7 @@ impl Bound {
                 };
 
                 if res.is_err() {
-                    tx.send(Event::OutboundClose).await.unwrap();
+                    let _ = tx.send(Event::OutboundClose).await;
                     break;
                 }
             }
@@ -227,7 +240,12 @@ impl Bound {
 
     // connect to addr then create self.reader/self.writer
     async fn connect(&mut self, addr: &Address) -> Result<()> {
-        let stream = TcpStream::connect(addr.as_string()).await?;
+        let stream = timeout(
+            Duration::from_secs(TCP_CONNECT_TIMEOUT_SECONDS),
+            TcpStream::connect(addr.as_string()),
+        )
+        .await??;
+
         let split = utils::net::split_tcp_stream(stream);
 
         self.reader = Some(split.0);

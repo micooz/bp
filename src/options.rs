@@ -19,7 +19,7 @@ pub struct Options {
     pub client: bool,
 
     /// symmetric encryption key
-    #[clap(short)]
+    #[clap(short, long)]
     pub key: String,
 
     /// local service bind address host

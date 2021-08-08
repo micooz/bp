@@ -30,6 +30,7 @@ pub async fn boot(opts: Options) -> Result<()> {
 
             if let Err(err) = conn.handle(service_type).await {
                 log::error!("{}", err);
+                let _ = conn.force_close().await;
             }
 
             log::info!("[{}] disconnected", addr);

@@ -61,8 +61,6 @@ impl Connection {
         // [outbound] apply protocol
         self.outbound.use_protocol(out_proto, in_proto, self.tx.clone()).await?;
 
-        // TODO: add timeout mechanism for bound recv
-
         while let Some(event) = self.rx.recv().await {
             match event {
                 Event::EncodeDone(buf) => {
@@ -101,6 +99,12 @@ impl Connection {
             }
         }
 
+        Ok(())
+    }
+
+    pub async fn force_close(&mut self) -> Result<()> {
+        self.inbound.close().await?;
+        self.outbound.close().await?;
         Ok(())
     }
 }
