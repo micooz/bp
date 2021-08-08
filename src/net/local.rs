@@ -1,10 +1,10 @@
-use crate::net::{AcceptResult, Address};
+use crate::net::AcceptResult;
 use tokio::{net::TcpListener, sync::mpsc};
 
-pub async fn bootstrap(local_addr: Address, sender: mpsc::Sender<AcceptResult>) -> std::io::Result<()> {
-    let listener = TcpListener::bind(&local_addr.as_string()).await?;
+pub async fn bootstrap(bind_addr: String, sender: mpsc::Sender<AcceptResult>) -> std::io::Result<()> {
+    let listener = TcpListener::bind(&bind_addr).await?;
 
-    log::info!("service running at {}, waiting for connection...", &local_addr);
+    log::info!("service running at {}, waiting for connection...", bind_addr);
 
     loop {
         let (socket, addr) = listener.accept().await?;

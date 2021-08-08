@@ -6,23 +6,17 @@ fn main() {
 
     // check -c or -s
     if !opts.client && !opts.server {
-        eprintln!("-c or -s must be set");
+        eprintln!("-c or -s must be set.");
         return;
     }
     if opts.client && opts.server {
-        eprintln!("-c or -s can only be set one");
+        eprintln!("-c or -s can only be set one.");
         return;
     }
 
-    // check --remote-host and --remote-port
-    if opts.client && (opts.remote_host == None || opts.remote_port == None) {
-        if opts.remote_host == None {
-            eprintln!("--remote-host must be set when specify -c");
-        }
-        if opts.remote_port == None {
-            eprintln!("--remote-port must be set when specify -c");
-        }
-        return;
+    // check --server-host and --server-port
+    if opts.client && (opts.server_host == None || opts.server_port == None) {
+        println!("[WARN] --server-host or --server-port not set, bp will work as transparent proxy.");
     }
 
     let runtime = tokio::runtime::Builder::new_multi_thread()

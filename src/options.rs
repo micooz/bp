@@ -1,5 +1,5 @@
 use crate::{
-    config::{CRATE_AUTHOR, DEFAULT_SERVICE_HOST, DEFAULT_SERVICE_PORT},
+    config::{CRATE_AUTHOR, DEFAULT_SERVICE_ADDRESS},
     net::Address,
     protocol::{DynProtocol, Erp, Plain},
 };
@@ -22,36 +22,35 @@ pub struct Options {
     #[clap(short)]
     pub key: String,
 
-    /// local service host, default 127.0.0.1
-    #[clap(short, default_value = DEFAULT_SERVICE_HOST)]
-    pub host: String,
+    /// local service bind address host
+    #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
+    pub bind: String,
 
-    /// local service port, default 1080
-    #[clap(short, default_value = DEFAULT_SERVICE_PORT)]
-    pub port: u16,
-
-    /// remote service host, client only
+    /// bp server host, client only,
+    /// if not set, bp will run as transparent proxy
     #[clap(long)]
-    pub remote_host: Option<String>,
+    pub server_host: Option<String>,
 
-    /// remote service port, client only
+    /// bp server port, client only,
+    /// if not set, bp will run as transparent proxy
     #[clap(long)]
-    pub remote_port: Option<u16>,
+    pub server_port: Option<u16>,
 
-    /// protocol used for transport layer between client and server
-    #[clap(long)]
-    pub protocol: Option<Protocol>,
+    /// protocol used for transport layer between client and server,
+    /// "plain" or "erp" are supported.
+    #[clap(long, default_value = "erp")]
+    pub protocol: Protocol,
 }
 
 impl Options {
-    /// Return combination of host and port
-    pub fn get_local_addr(&self) -> Result<Address, &'static str> {
-        format!("{}:{}", self.host, self.port).parse()
+    /// Return combination of remote_host and remote_port
+    pub fn get_server_addr(&self) -> Result<Address, &'static str> {
+        format!("{}:{}", self.server_host.as_ref().unwrap(), self.server_port.unwrap()).parse()
     }
 
-    /// Return combination of remote_host and remote_port
-    pub fn get_remote_addr(&self) -> Result<Address, &'static str> {
-        format!("{}:{}", self.remote_host.as_ref().unwrap(), self.remote_port.unwrap()).parse()
+    /// Return wether a transparent proxy
+    pub fn is_transparent_proxy(&self) -> bool {
+        self.server_host.is_none() || self.server_port.is_none()
     }
 
     /// Return local service type
@@ -66,8 +65,8 @@ impl Options {
     }
 
     /// Return initialize protocol object
-    pub fn get_protocol(&self) -> Result<DynProtocol, &'static str> {
-        let proto: DynProtocol = match self.protocol.as_ref().unwrap_or(&Protocol::EncryptRandomPadding) {
+    pub fn init_protocol(&self) -> Result<DynProtocol, &'static str> {
+        let proto: DynProtocol = match self.protocol {
             Protocol::Plain => Box::new(Plain::new()),
             Protocol::EncryptRandomPadding => Box::new(Erp::new(self.key.clone(), self.get_service_type()?)),
         };

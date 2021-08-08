@@ -36,18 +36,22 @@ impl Connection {
     }
 
     pub async fn handle(&mut self, service_type: ServiceType) -> Result<()> {
-        let protocol = self.opts.get_protocol()?;
-        let socks5 = Box::new(Socks5::new());
-        let transparent = Box::new(Transparent::new());
+        let protocol = if self.opts.is_transparent_proxy() {
+            Box::new(Transparent::new())
+        } else {
+            self.opts.init_protocol()?
+        };
 
         // [inbound] resolve proxy address
         let (in_proto, out_proto) = match service_type {
             ServiceType::Client => {
+                let socks5 = Box::new(Socks5::new());
                 self.inbound
                     .resolve_proxy_address(socks5, protocol, self.tx.clone())
                     .await?
             }
             ServiceType::Server => {
+                let transparent = Box::new(Transparent::new());
                 self.inbound
                     .resolve_proxy_address(protocol, transparent, self.tx.clone())
                     .await?

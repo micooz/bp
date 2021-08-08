@@ -10,11 +10,11 @@ pub async fn boot(opts: Options) -> Result<()> {
     logging::setup().await;
 
     let (tx, mut rx) = mpsc::channel::<AcceptResult>(32);
-    let local_addr = opts.get_local_addr()?;
+    let bind_addr = opts.bind.clone();
 
     // start local service
     tokio::spawn(async move {
-        if let Err(err) = bootstrap(local_addr, tx).await {
+        if let Err(err) = bootstrap(bind_addr, tx).await {
             log::error!("service bootstrap failed due to: {}", err);
         }
     });

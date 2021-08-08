@@ -2,7 +2,4 @@
 pub const CRATE_AUTHOR: &str = "Micooz Lee <micooz@hotmail.com>";
 
 /// The default local service host
-pub const DEFAULT_SERVICE_HOST: &str = "127.0.0.1";
-
-/// The default local service port
-pub const DEFAULT_SERVICE_PORT: &str = "1080";
+pub const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";

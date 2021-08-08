@@ -140,12 +140,12 @@ impl Bound {
             out_proto_name,
         );
 
-        let remote_addr = if self.opts.client {
-            // on client side, make connection to bp server
-            self.opts.get_remote_addr()?
-        } else {
-            // on server side, make connection to target host
+        let remote_addr = if self.opts.server || self.opts.is_transparent_proxy() {
+            // make connection to target host
             in_proto.get_proxy_address().unwrap()
+        } else {
+            // make connection to bp server
+            self.opts.get_server_addr()?
         };
 
         log::info!(
