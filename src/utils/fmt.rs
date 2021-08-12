@@ -5,12 +5,12 @@ const MAX_DISPLAY_BYTES: usize = 16;
 #[derive(Debug)]
 pub struct ToHex(pub Vec<u8>);
 
-impl Display for ToHex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ToHex {
+    pub fn print_n(&self, f: &mut dyn std::fmt::Write, n: usize) {
         let mut is_omitted = false;
 
         self.0.iter().enumerate().for_each(|(i, x)| {
-            if i >= MAX_DISPLAY_BYTES {
+            if i >= n {
                 if !is_omitted {
                     write!(f, "... {} bytes omitted", self.0.len() - i).unwrap();
                 }
@@ -23,7 +23,16 @@ impl Display for ToHex {
                 f.write_str(" ").unwrap();
             }
         });
+    }
 
+    // pub fn print_all(&self) {
+    //     todo!();
+    // }
+}
+
+impl Display for ToHex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.print_n(f, MAX_DISPLAY_BYTES);
         Ok(())
     }
 }

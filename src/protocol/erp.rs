@@ -207,20 +207,20 @@ impl Erp {
 
     async fn decode(&mut self, reader: &mut TcpStreamReader) -> Result<Bytes> {
         // PaddingLen
-        let enc_pad_len = utils::net::read_exact(reader, 1 + TAG_SIZE).await?;
+        let enc_pad_len = reader.read_exact(1 + TAG_SIZE).await?;
         let pad_len = self.decrypt(enc_pad_len)?;
         let pad_len = u8::from_be_bytes([pad_len[0]]);
 
         // Padding
-        let _ = utils::net::read_exact(reader, pad_len as usize).await?;
+        let _ = reader.read_exact(pad_len as usize).await?;
 
         // ChunkLen
-        let enc_chunk_len = utils::net::read_exact(reader, 2 + TAG_SIZE).await?;
+        let enc_chunk_len = reader.read_exact(2 + TAG_SIZE).await?;
         let chunk_len = self.decrypt(enc_chunk_len)?;
         let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]);
 
         // Chunk
-        let enc_chunk = utils::net::read_exact(reader, chunk_len as usize + TAG_SIZE).await?;
+        let enc_chunk = reader.read_exact(chunk_len as usize + TAG_SIZE).await?;
         self.decrypt(enc_chunk)
     }
 }
@@ -258,7 +258,7 @@ impl Protocol for Erp {
         reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
     ) -> Result<(Address, Option<Bytes>)> {
-        let salt = utils::net::read_exact(reader, SALT_SIZE).await?;
+        let salt = reader.read_exact(SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
         let chunk = self.decode(reader).await?;
@@ -266,7 +266,7 @@ impl Protocol for Erp {
     }
 
     async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
         let mut data = BytesMut::with_capacity(buf.len() + 200);
 
         // attach header
@@ -295,7 +295,7 @@ impl Protocol for Erp {
     }
 
     async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
         let data = self.encode(buf)?;
         tx.send(Event::EncodeDone(data)).await?;
         Ok(())

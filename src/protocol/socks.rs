@@ -6,11 +6,10 @@ use crate::{
 };
 use async_trait::async_trait;
 use bytes::Bytes;
-use tokio::io::AsyncWriteExt;
 
 const NOOP: u8 = 0x00;
 // const SOCKS_VERSION_V4: u8 = 0x04;
-const SOCKS_VERSION_V5: u8 = 0x05;
+pub const SOCKS_VERSION_V5: u8 = 0x05;
 const METHOD_NO_AUTH: u8 = 0x00;
 // const METHOD_USERNAME_PASSWORD: u8 = 0x02;
 // const METHOD_NOT_ACCEPTABLE: u8 = 0xff;
@@ -35,12 +34,12 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 // const REPLY_ADDRESS_TYPE_NOT_SUPPORTED: u8 = 0x08;
 // const REPLY_UNASSIGNED: u8 = 0xff;
 
-pub struct Socks5 {
+pub struct Socks {
     // header_sent: bool,
     proxy_address: Option<Address>,
 }
 
-impl Socks5 {
+impl Socks {
     pub fn new() -> Self {
         Self {
             // header_sent: false,
@@ -49,7 +48,7 @@ impl Socks5 {
     }
 }
 
-impl Clone for Socks5 {
+impl Clone for Socks {
     fn clone(&self) -> Self {
         Self {
             proxy_address: self.proxy_address.clone(),
@@ -58,9 +57,9 @@ impl Clone for Socks5 {
 }
 
 #[async_trait]
-impl Protocol for Socks5 {
+impl Protocol for Socks {
     fn get_name(&self) -> String {
-        "socks5".into()
+        "socks".into()
     }
 
     fn set_proxy_address(&mut self, addr: Address) {
@@ -86,7 +85,7 @@ impl Protocol for Socks5 {
         // +----+----------+----------+
 
         // check the first two bytes
-        let buf = utils::net::read_exact(reader, 2).await?;
+        let buf = reader.read_exact(2).await?;
         let n_methods = buf[1] as usize;
 
         if buf[0] != SOCKS_VERSION_V5 || n_methods < 1 {
@@ -98,7 +97,7 @@ impl Protocol for Socks5 {
         }
 
         // select one method
-        let buf = utils::net::read_exact(reader, n_methods).await?;
+        let buf = reader.read_exact(n_methods).await?;
 
         let mut method = None;
         let mut n = 0usize;
@@ -140,7 +139,7 @@ impl Protocol for Socks5 {
         // | 1  |  1  | X'00' |  1   | Variable |    2     |
         // +----+-----+-------+------+----------+----------+
 
-        let buf = utils::net::read_exact(reader, 3).await?;
+        let buf = reader.read_exact(3).await?;
 
         if buf[0] != SOCKS_VERSION_V5 {
             return Err(format!("VER should be {:#04x} but got {:#04x}", SOCKS_VERSION_V5, buf[0]).into());
@@ -197,7 +196,7 @@ impl Protocol for Socks5 {
         //     self.header_sent = true;
         // }
 
-        // let buf = utils::net::read_buf(reader, 1024).await?;
+        // let buf = reader.read_buf(reader, 1024).await?;
         // frame.put(buf);
 
         // tx.send(Event::EncodeDone(frame.freeze())).await?;

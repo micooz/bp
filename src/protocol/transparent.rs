@@ -1,15 +1,11 @@
 use crate::{
     event::{Event, EventSender},
-    net::{Address, TcpStreamReader},
+    net::{Address, TcpStreamReader, TcpStreamWriter},
     protocol::Protocol,
-    utils, Result,
+    Result,
 };
 use async_trait::async_trait;
 use bytes::Bytes;
-use tokio::{
-    io::{ReadHalf, WriteHalf},
-    net::TcpStream,
-};
 
 const RECV_BUFFER_SIZE: usize = 4 * 1024;
 
@@ -41,14 +37,14 @@ impl Protocol for Transparent {
 
     async fn resolve_proxy_address(
         &mut self,
-        _reader: &mut ReadHalf<TcpStream>,
-        _writer: &mut WriteHalf<TcpStream>,
+        _reader: &mut TcpStreamReader,
+        _writer: &mut TcpStreamWriter,
     ) -> Result<(Address, Option<Bytes>)> {
         unimplemented!("transparent protocol cannot be used on inbound")
     }
 
     async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
         tx.send(Event::EncodeDone(buf)).await?;
         Ok(())
     }
@@ -58,7 +54,7 @@ impl Protocol for Transparent {
     }
 
     async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
         tx.send(Event::DecodeDone(buf)).await?;
         Ok(())
     }

@@ -1,20 +1,16 @@
 use std::net::SocketAddr;
-use tokio::{
-    io::{ReadHalf, WriteHalf},
-    net::TcpStream,
-};
+use tokio::net::TcpStream;
 
 mod address;
 mod bound;
 mod connection;
+mod io;
 mod local;
 
-pub use address::Address;
+pub use address::{Address, Host};
 pub use connection::Connection;
+pub use io::{TcpStreamReader, TcpStreamWriter};
 pub use local::bootstrap;
-
-pub type TcpStreamReader = ReadHalf<TcpStream>;
-pub type TcpStreamWriter = WriteHalf<TcpStream>;
 
 #[derive(Debug)]
 pub struct AcceptResult {

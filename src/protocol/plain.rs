@@ -2,7 +2,7 @@ use crate::{
     event::{Event, EventSender},
     net::{Address, TcpStreamReader, TcpStreamWriter},
     protocol::Protocol,
-    utils, Result,
+    Result,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -70,7 +70,7 @@ impl Protocol for Plain {
             self.header_sent = true;
         }
 
-        let buf = utils::net::read_buf(reader, 1024).await?;
+        let buf = reader.read_buf(1024).await?;
         frame.put(buf);
 
         tx.send(Event::EncodeDone(frame.freeze())).await?;
@@ -79,13 +79,13 @@ impl Protocol for Plain {
     }
 
     async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
         tx.send(Event::EncodeDone(buf)).await?;
         Ok(())
     }
 
     async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = utils::net::read_buf(reader, RECV_BUFFER_SIZE).await?;
+        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
         tx.send(Event::DecodeDone(buf)).await?;
         Ok(())
     }

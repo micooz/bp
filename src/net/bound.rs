@@ -8,7 +8,6 @@ use crate::{
 use bytes::Bytes;
 use std::{fmt::Display, net::SocketAddr, sync::Arc};
 use tokio::{
-    io::AsyncWriteExt,
     net::TcpStream,
     sync::Mutex,
     time::{timeout, Duration},
@@ -79,7 +78,7 @@ impl Bound {
         let mut reader = self.reader.as_ref().unwrap().lock().await;
         let mut writer = self.writer.as_ref().unwrap().lock().await;
 
-        let (proxy_address, rest) = timeout(
+        let (proxy_address, pending_buf) = timeout(
             Duration::from_secs(PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
             in_proto.resolve_proxy_address(&mut reader, &mut writer),
         )
@@ -99,10 +98,6 @@ impl Bound {
 
         let ret = (in_proto.clone(), out_proto.clone());
 
-        if let Some(buf) = rest {
-            tx.send(Event::InboundPendingData(buf)).await?;
-        }
-
         log::info!(
             "[{}] [{}] [{}] start receiving data...",
             self.bound_type,
@@ -115,6 +110,19 @@ impl Bound {
 
         tokio::spawn(async move {
             let mut reader = reader.lock().await;
+
+            // handle pending_buf
+            if let Some(buf) = pending_buf {
+                if opts.client {
+                    reader.cache(&buf);
+                    if let Err(err) = out_proto.client_encode(&mut reader, tx.clone()).await {
+                        let _ = tx.send(Event::InboundError(err)).await;
+                    }
+                } else {
+                    let _ = tx.send(Event::DecodeDone(buf)).await;
+                }
+            }
+
             loop {
                 let res = if opts.client {
                     out_proto.client_encode(&mut reader, tx.clone()).await
@@ -122,8 +130,8 @@ impl Bound {
                     in_proto.server_decode(&mut reader, tx.clone()).await
                 };
 
-                if res.is_err() {
-                    let _ = tx.send(Event::InboundClose).await;
+                if let Err(err) = res {
+                    let _ = tx.send(Event::InboundError(err)).await;
                     break;
                 }
             }
@@ -198,8 +206,8 @@ impl Bound {
                     in_proto.server_encode(&mut reader, tx.clone()).await
                 };
 
-                if res.is_err() {
-                    let _ = tx.send(Event::OutboundClose).await;
+                if let Err(err) = res {
+                    let _ = tx.send(Event::OutboundError(err)).await;
                     break;
                 }
             }

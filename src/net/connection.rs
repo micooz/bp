@@ -2,7 +2,7 @@ use crate::{
     event::Event,
     net::bound::Bound,
     options::{Options, ServiceType},
-    protocol::{Socks5, Transparent},
+    protocol::{SocksHttp, Transparent},
     Result,
 };
 use tokio::{
@@ -45,9 +45,9 @@ impl Connection {
         // [inbound] resolve proxy address
         let (in_proto, out_proto) = match service_type {
             ServiceType::Client => {
-                let socks5 = Box::new(Socks5::new());
+                let socks_http = Box::new(SocksHttp::new());
                 self.inbound
-                    .resolve_proxy_address(socks5, protocol, self.tx.clone())
+                    .resolve_proxy_address(socks_http, protocol, self.tx.clone())
                     .await?
             }
             ServiceType::Server => {
@@ -77,10 +77,7 @@ impl Connection {
                         self.outbound.write(buf).await?;
                     }
                 }
-                Event::InboundPendingData(buf) => {
-                    self.outbound.write(buf).await?;
-                }
-                Event::InboundClose => {
+                Event::InboundError(_) => {
                     self.outbound.close().await?;
 
                     if self.inbound.is_closed() {
@@ -88,7 +85,7 @@ impl Connection {
                         break;
                     }
                 }
-                Event::OutboundClose => {
+                Event::OutboundError(_) => {
                     self.inbound.close().await?;
 
                     if self.outbound.is_closed() {

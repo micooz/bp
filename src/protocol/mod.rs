@@ -8,13 +8,17 @@ use bytes::Bytes;
 use dyn_clone::DynClone;
 
 mod erp;
+mod http;
 mod plain;
-mod socks5;
+mod socks;
+mod socks_http;
 mod transparent;
 
 pub use erp::Erp;
+pub use http::Http;
 pub use plain::Plain;
-pub use socks5::Socks5;
+pub use socks::Socks;
+pub use socks_http::SocksHttp;
 pub use transparent::Transparent;
 
 #[async_trait]

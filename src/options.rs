@@ -50,7 +50,7 @@ impl Options {
 
     /// Return wether a transparent proxy
     pub fn is_transparent_proxy(&self) -> bool {
-        self.server_host.is_none() || self.server_port.is_none()
+        self.client && (self.server_host.is_none() || self.server_port.is_none())
     }
 
     /// Return local service type
