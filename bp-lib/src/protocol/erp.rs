@@ -1,9 +1,8 @@
 use crate::{
     event::{Event, EventSender},
     net::{Address, TcpStreamReader, TcpStreamWriter},
-    options::ServiceType,
     protocol::Protocol,
-    utils, Result,
+    utils, Result, ServiceType,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};

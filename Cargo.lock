@@ -67,22 +67,35 @@ dependencies = [
 name = "bp"
 version = "0.1.0"
 dependencies = [
+ "bp-lib",
+ "clap",
+ "dirs",
+ "env_logger",
+ "humantime",
+ "log",
+ "tokio",
+]
+
+[[package]]
+name = "bp-lib"
+version = "0.1.0"
+dependencies = [
  "async-trait",
  "bytes",
  "chacha20poly1305",
- "clap",
- "dirs",
  "dyn-clone",
- "env_logger",
  "hkdf",
  "httparse",
- "humantime",
  "log",
  "rand",
  "sha2",
  "tokio",
  "url",
 ]
+
+[[package]]
+name = "bp-macros"
+version = "0.1.0"
 
 [[package]]
 name = "bytes"

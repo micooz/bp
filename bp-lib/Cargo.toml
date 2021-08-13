@@ -1,0 +1,27 @@
+[package]
+name = "bp-lib"
+version = "0.1.0"
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+### framework
+async-trait = "0.1.50"
+dyn-clone = "1.0.4"
+
+### net
+bytes = "1.0.1"
+tokio = { version = "1.8.2", features = ["rt-multi-thread", "net", "sync", "io-util", "time"] }
+
+### protocol
+httparse = "1.4.1"
+url = "2.2.2"
+
+### cryoto
+chacha20poly1305 = "0.8.1"
+hkdf = "0.11.0"
+rand = { version = "0.8.4", features = ["std_rng"] }
+sha2 = "0.9.5"
+
+### logging
+log = "0.4.0"

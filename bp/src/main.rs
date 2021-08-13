@@ -1,5 +1,10 @@
-use bp::{bootstrap, Options};
+mod bootstrap;
+mod logging;
+mod options;
+
+use bootstrap::bootstrap;
 use clap::Clap;
+use options::Options;
 
 fn main() {
     let opts: Options = Clap::parse();
@@ -26,7 +31,7 @@ fn main() {
 
     runtime.block_on(async {
         if let Err(err) = bootstrap(opts).await {
-            log::error!("bp error: {}", err);
+            eprintln!("bp error: {}", err);
         }
     });
 }

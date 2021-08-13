@@ -1,0 +1,40 @@
+type Error = Box<dyn std::error::Error + Send + Sync>;
+type Result<T> = std::result::Result<T, Error>;
+
+mod config;
+mod event;
+mod net;
+mod protocol;
+mod utils;
+
+pub use net::{Address, Connection, ConnectionOptions};
+
+#[derive(Clone, Copy)]
+pub enum ServiceType {
+    Client,
+    Server,
+}
+
+impl ServiceType {
+    fn is_server(&self) -> bool {
+        matches!(self, ServiceType::Server)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Protocol {
+    Plain,
+    EncryptRandomPadding,
+}
+
+impl std::str::FromStr for Protocol {
+    type Err = String;
+
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "plain" => Ok(Protocol::Plain),
+            "erp" => Ok(Protocol::EncryptRandomPadding),
+            _ => Err(format!("{} is not supported, available protocols are: plain, erp", s)),
+        }
+    }
+}

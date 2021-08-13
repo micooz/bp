@@ -3,9 +3,23 @@ use std::fs::{create_dir_all, File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::time::SystemTime;
+// use syslog::{BasicLogger, Facility, Formatter3164};
 
 pub async fn setup() {
     let file_path = get_file_path();
+
+    // let formatter = Formatter3164 {
+    //     facility: Facility::LOG_USER,
+    //     hostname: None,
+    //     process: "bp".into(),
+    //     pid: 0,
+    // };
+
+    // let logger = syslog::unix(formatter).expect("could not connect to syslog");
+
+    // log::set_boxed_logger(Box::new(BasicLogger::new(logger)))
+    //     .map(|()| log::set_max_level(log::LevelFilter::Info))
+    //     .unwrap();
 
     env_logger::builder()
         .default_format()
