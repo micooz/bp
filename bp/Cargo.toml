@@ -9,8 +9,14 @@ keywords = ["bp", "proxy", "socks", "socks5", "firewall"]
 license = "MIT"
 edition = "2018"
 
+[features]
+monitor = []
+
 [dependencies]
 bp-lib = { path = "../bp-lib" }
+bp-monitor = { path = "../bp-monitor" }
+
+### network
 tokio = { version = "1.8.2", features = ["rt-multi-thread"] }
 
 ### logging

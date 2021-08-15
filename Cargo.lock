@@ -68,6 +68,7 @@ name = "bp"
 version = "0.1.0"
 dependencies = [
  "bp-lib",
+ "bp-monitor",
  "clap",
  "dirs",
  "env_logger",
@@ -96,6 +97,16 @@ dependencies = [
 [[package]]
 name = "bp-macros"
 version = "0.1.0"
+
+[[package]]
+name = "bp-monitor"
+version = "0.1.0"
+dependencies = [
+ "bp-lib",
+ "bytes",
+ "log",
+ "tokio",
+]
 
 [[package]]
 name = "bytes"

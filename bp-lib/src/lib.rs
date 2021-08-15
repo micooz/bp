@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, Error>;
 
@@ -7,7 +9,8 @@ mod net;
 mod protocol;
 mod utils;
 
-pub use net::{Address, Connection, ConnectionOptions};
+pub use net::{start_service, Address, Connection, ConnectionOptions, TcpStreamReader, TcpStreamWriter};
+pub use utils::net::split_tcp_stream;
 
 #[derive(Clone, Copy)]
 pub enum ServiceType {
@@ -27,10 +30,10 @@ pub enum Protocol {
     EncryptRandomPadding,
 }
 
-impl std::str::FromStr for Protocol {
+impl FromStr for Protocol {
     type Err = String;
 
-    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "plain" => Ok(Protocol::Plain),
             "erp" => Ok(Protocol::EncryptRandomPadding),

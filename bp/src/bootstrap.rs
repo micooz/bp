@@ -1,68 +1,61 @@
-use crate::{logging, options::Options};
-use bp_lib::{Connection, ConnectionOptions};
-use std::net::SocketAddr;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
+use crate::options::Options;
+use bp_lib::{start_service, Connection, ConnectionOptions};
+use tokio::net::TcpStream;
 
-#[derive(Debug)]
-pub struct AcceptResult {
-    /// The underlying socket.
-    pub socket: TcpStream,
-
-    /// The incoming address.
-    pub addr: SocketAddr,
-}
+#[cfg(feature = "monitor")]
+use bp_monitor::handle_conn as handle_monitor_conn;
 
 pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
-    logging::setup().await;
+    let bind_addr = opts.bind.clone();
 
-    let (tx, mut rx) = mpsc::channel::<AcceptResult>(32);
+    #[cfg(feature = "monitor")]
+    let bind_addr_monitor = opts.get_monitor_bind_addr();
 
     // start local service
-    let bind_addr = opts.bind.clone();
-    tokio::spawn(async move {
-        if let Err(err) = listen(bind_addr, tx).await {
-            log::error!("service bootstrap failed due to: {}", err);
+    let task_main = tokio::spawn(async move {
+        let mut handler = start_service(bind_addr, "main");
+
+        while let Some(socket) = handler.recv().await {
+            handle_main_conn(socket, opts.clone()).await;
         }
     });
 
-    // handle connections
-    while let Some(accept) = rx.recv().await {
-        let addr = accept.socket.peer_addr()?;
-        let opts = opts.clone();
+    // start monitor service
+    #[cfg(feature = "monitor")]
+    let _task_monitor = tokio::spawn(async move {
+        let mut handler = start_service(bind_addr_monitor, "monitor");
 
-        let conn_opts = ConnectionOptions::new(
-            opts.get_service_type().unwrap(),
-            opts.protocol,
-            opts.key,
-            opts.server_host,
-            opts.server_port,
-        );
+        while let Some(socket) = handler.recv().await {
+            handle_monitor_conn(socket).await
+        }
+    });
 
-        let mut conn = Connection::new(accept.socket, conn_opts);
-
-        tokio::spawn(async move {
-            log::info!("[{}] connected", addr);
-
-            if let Err(err) = conn.handle().await {
-                log::error!("{}", err);
-                let _ = conn.force_close().await;
-            }
-
-            log::info!("[{}] disconnected", addr);
-        });
-    }
+    task_main.await?;
+    // task_monitor.await?;
 
     Ok(())
 }
 
-pub async fn listen(bind_addr: String, sender: mpsc::Sender<AcceptResult>) -> std::io::Result<()> {
-    let listener = TcpListener::bind(&bind_addr).await?;
+async fn handle_main_conn(socket: TcpStream, opts: Options) {
+    let addr = socket.peer_addr().unwrap();
+    let conn_opts = ConnectionOptions::new(
+        opts.get_service_type().unwrap(),
+        opts.protocol,
+        opts.key,
+        opts.server_host,
+        opts.server_port,
+    );
 
-    log::info!("service running at {}, waiting for connection...", bind_addr);
+    let mut conn = Connection::new(socket, conn_opts);
 
-    loop {
-        let (socket, addr) = listener.accept().await?;
-        sender.send(AcceptResult { socket, addr }).await.unwrap();
-    }
+    tokio::spawn(async move {
+        log::info!("[{}] connected", addr);
+
+        if let Err(err) = conn.handle().await {
+            log::error!("{}", err);
+            let _ = conn.force_close().await;
+        }
+
+        log::info!("[{}] disconnected", addr);
+    });
 }

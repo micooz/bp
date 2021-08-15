@@ -30,8 +30,10 @@ fn main() {
         .expect("create tokio runtime");
 
     runtime.block_on(async {
+        logging::setup().await;
+
         if let Err(err) = bootstrap(opts).await {
-            eprintln!("bp error: {}", err);
+            log::error!("{}", err);
         }
     });
 }

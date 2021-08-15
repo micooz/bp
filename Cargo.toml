@@ -3,4 +3,5 @@ members = [
     "bp",
     "bp-lib",
     "bp-macros",
+    "bp-monitor",
 ]

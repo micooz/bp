@@ -194,6 +194,10 @@ impl Address {
 
         Ok((addr, if !buf.is_empty() { Some(buf) } else { None }))
     }
+
+    pub fn set_port(&mut self, port: u16) {
+        self.port = port;
+    }
 }
 
 impl Display for Address {
