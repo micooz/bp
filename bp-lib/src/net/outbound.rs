@@ -142,7 +142,7 @@ impl Outbound {
 
             self.is_closed = true;
 
-            log::info!("[{}] closed", self.peer_address);
+            log::debug!("[{}] closed", self.peer_address);
         }
 
         Ok(())

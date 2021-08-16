@@ -6,6 +6,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
+use std::str::FromStr;
 use url::Url;
 
 pub struct Http {
@@ -48,7 +49,7 @@ impl Protocol for Http {
     async fn resolve_proxy_address(
         &mut self,
         reader: &mut TcpStreamReader,
-        _writer: &mut TcpStreamWriter,
+        writer: &mut TcpStreamWriter,
     ) -> Result<(Address, Option<Bytes>)> {
         let mut buf = BytesMut::with_capacity(1024);
         loop {
@@ -60,12 +61,26 @@ impl Protocol for Http {
             let bytes = String::from_utf8(buf.to_vec())?;
             let status = req.parse(bytes.as_bytes())?;
 
-            if status.is_complete() {
-                // get url
-                let path = req.path.unwrap();
+            if !status.is_complete() {
+                continue;
+            }
 
-                // parse url
+            let path = req.path.unwrap();
+            let method = req.method.unwrap();
+
+            if method.to_uppercase() == "CONNECT" {
+                // for HTTP proxy tunnel requests
+                let addr = Address::from_str(path)?;
+                let resp = Bytes::from_static(b"HTTP/1.1 200 Connection Established\r\n\r\n");
+
+                writer.write_all(&resp).await?;
+                writer.flush().await?;
+
+                return Ok((addr, None));
+            } else {
+                // for direct HTTP requests
                 let parse_result = Url::parse(path)?;
+
                 let host = parse_result.host().unwrap().to_string();
                 let port = parse_result.port().unwrap_or(80);
 

@@ -1,7 +1,7 @@
 use bp_lib::Connection;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::{collections::HashSet, hash::Hash};
+use std::{collections::HashMap, hash::Hash};
 use tokio::sync::RwLock;
 
 mod cmd;
@@ -60,5 +60,5 @@ impl Eq for ConnectionRecord {}
 
 #[derive(Clone)]
 pub struct SharedContext {
-    pub shared_conns: Arc<RwLock<HashSet<ConnectionRecord>>>,
+    pub shared_conns: Arc<RwLock<HashMap<usize, ConnectionRecord>>>,
 }

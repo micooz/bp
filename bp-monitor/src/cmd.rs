@@ -4,23 +4,39 @@ use std::{convert::TryFrom, fmt::Display, net::SocketAddr};
 use tokio::sync::RwLock;
 
 #[cfg(windows)]
-const LINE_ENDING: &'static str = "\r\n";
+const LINE_ENDING: &str = "\r\n";
 #[cfg(not(windows))]
-const LINE_ENDING: &'static str = "\n";
+const LINE_ENDING: &str = "\n";
 
 #[derive(Debug)]
 pub enum Command {
     Help,
     List,
-    Unknown(String),
+    Dump(usize, u16),
+    Invalid(String),
 }
 
 impl From<String> for Command {
     fn from(s: String) -> Self {
-        match s.trim() {
+        let mut parts = s.trim().split_whitespace();
+        let cmd_str = parts.next().unwrap_or("");
+
+        match cmd_str {
             "help" | "h" => Command::Help,
             "ls" => Command::List,
-            unknown => Command::Unknown(unknown.to_string()),
+            "dump" => {
+                // parse n
+                let n = match parts.next().unwrap_or("").parse::<usize>() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        return Command::Invalid(s);
+                    }
+                };
+                // parse k
+                let k: u16 = parts.next().unwrap_or("").parse().unwrap_or(0);
+                Command::Dump(n, k)
+            }
+            invalid => Command::Invalid(invalid.to_string()),
         }
     }
 }
@@ -28,11 +44,12 @@ impl From<String> for Command {
 impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Command::Help => "help",
-            Command::List => "ls",
-            Command::Unknown(cmd) => cmd.as_str(),
+            Command::Help => "help".to_string(),
+            Command::List => "ls".to_string(),
+            Command::Dump(n, k) => format!("dump {} {}", n, k),
+            Command::Invalid(cmd) => cmd.clone(),
         };
-        f.write_str(s)?;
+        f.write_str(s.as_str())?;
         Ok(())
     }
 }
@@ -62,33 +79,61 @@ impl MonitorCommand {
     }
 
     pub async fn exec(&mut self, ctx: SharedContext) {
-        log::info!("[{}] execute command: <{}>", self.peer_addr, self.cmd);
+        match self.cmd {
+            Command::Invalid(_) => {}
+            _ => {
+                log::info!("[{}] execute command: <{}>", self.peer_addr, self.cmd);
+            }
+        }
+
         match &self.cmd {
             Command::Help => {
                 self.reply(format!("\n{}", include_str!("help.txt"))).await;
             }
             Command::List => {
-                let mut list = vec![];
+                let shared_conns = RwLock::read(&ctx.shared_conns).await;
+                let mut snapshot_list = vec![];
 
-                for conn in RwLock::read(&ctx.shared_conns).await.iter() {
-                    let snapshot = RwLock::read(conn).await.snapshot();
-                    list.push(snapshot);
-                }
-
-                if list.is_empty() {
+                if shared_conns.is_empty() {
                     self.reply(String::from("<no alive connections>")).await;
                     return;
                 }
 
-                let msg: String = list
+                for (&index, conn) in shared_conns.iter() {
+                    let conn = RwLock::read(conn).await;
+                    let snapshot = conn.snapshot();
+                    snapshot_list.push((index, snapshot));
+                }
+
+                let msg: String = snapshot_list
                     .into_iter()
-                    .enumerate()
-                    .map(|(i, s)| format!("[{}] {}\n", i, s.get_abstract()))
+                    .map(|(i, v)| format!("[{}] {}\n", i, v.get_abstract()))
                     .collect();
 
                 self.reply(msg).await;
             }
-            Command::Unknown(cmd) => {
+            Command::Dump(n, k) => {
+                let shared_conns = RwLock::read(&ctx.shared_conns).await;
+
+                match shared_conns.get(&n) {
+                    Some(conn) => {
+                        // TODO: make better hexdump
+                        let conn = RwLock::read(conn).await;
+                        let mut buf = conn.dump();
+                        if *k > 0 {
+                            let len = std::cmp::min(*k as usize, buf.len());
+                            buf = buf.slice(0..len);
+                        }
+                        let buf = buf.to_vec();
+
+                        self.reply(String::from_utf8_lossy(&buf[..]).into()).await;
+                    }
+                    None => {
+                        self.reply(format!("connection with index {} is not found", n)).await;
+                    }
+                }
+            }
+            Command::Invalid(cmd) => {
                 // ignore \n, \r\n chars
                 if cmd.is_empty() {
                     return;

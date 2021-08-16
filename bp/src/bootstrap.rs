@@ -1,7 +1,7 @@
 use crate::options::Options;
 use bp_lib::{start_service, Connection, ConnectionOptions};
 use bp_monitor::ConnectionRecord;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
@@ -11,8 +11,7 @@ use bp_monitor::{handle_conn as handle_monitor_conn, MonitorCommand, SharedConte
 
 pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
     let bind_addr = opts.bind.clone();
-
-    let shared_conns = Arc::new(RwLock::new(HashSet::<ConnectionRecord>::new()));
+    let shared_conns = Arc::new(RwLock::new(HashMap::<usize, ConnectionRecord>::new()));
 
     #[cfg(feature = "monitor")]
     start_monitor_service(
@@ -30,7 +29,7 @@ pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
         let mut id = 0usize;
 
         while let Some(socket) = handler.recv().await {
-            id = id + 1;
+            id += 1;
             handle_main_conn(id, socket, opts.clone(), shared_conns.clone());
         }
     });
@@ -40,7 +39,12 @@ pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
     Ok(())
 }
 
-fn handle_main_conn(id: usize, socket: TcpStream, opts: Options, shared_conns: Arc<RwLock<HashSet<ConnectionRecord>>>) {
+fn handle_main_conn(
+    id: usize,
+    socket: TcpStream,
+    opts: Options,
+    shared_conns: Arc<RwLock<HashMap<usize, ConnectionRecord>>>,
+) {
     let addr = socket.peer_addr().unwrap();
     let conn_opts = ConnectionOptions::new(
         opts.get_service_type().unwrap(),
@@ -59,7 +63,8 @@ fn handle_main_conn(id: usize, socket: TcpStream, opts: Options, shared_conns: A
         let record = ConnectionRecord::new(id, conn.clone());
 
         {
-            RwLock::write(&shared_conns).await.insert(record.clone());
+            let mut shared_conns = RwLock::write(&shared_conns).await;
+            shared_conns.insert(id, record.clone());
         }
 
         let conn = conn.clone();

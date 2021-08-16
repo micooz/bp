@@ -4,10 +4,13 @@ use crate::{
     protocol::{DynProtocol, Erp, Plain, SocksHttp, Transparent},
     Protocol, Result, ServiceType,
 };
+use bytes::{BufMut, Bytes, BytesMut};
 use tokio::{
     net::TcpStream,
     sync::mpsc::{Receiver, Sender},
 };
+
+const MAX_CACHE_SIZE: usize = 1024;
 
 pub struct ConnectionOptions {
     service_type: ServiceType,
@@ -41,6 +44,7 @@ pub struct Connection {
     inbound: Inbound,
     outbound: Outbound,
     opts: ConnectionOptions,
+    last_decoded_data: BytesMut,
 }
 
 impl Connection {
@@ -63,6 +67,7 @@ impl Connection {
             inbound,
             outbound,
             opts,
+            last_decoded_data: BytesMut::with_capacity(MAX_CACHE_SIZE),
         }
     }
 
@@ -98,10 +103,17 @@ impl Connection {
                     ServiceType::Client => self.outbound.write(buf).await?,
                     ServiceType::Server => self.inbound.write(buf).await?,
                 },
-                Event::DecodeDone(buf) => match self.opts.service_type {
-                    ServiceType::Client => self.inbound.write(buf).await?,
-                    ServiceType::Server => self.outbound.write(buf).await?,
-                },
+                Event::DecodeDone(buf) => {
+                    // store last decoded data, for monitoring
+                    self.last_decoded_data.clear();
+                    self.last_decoded_data
+                        .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
+
+                    match self.opts.service_type {
+                        ServiceType::Client => self.inbound.write(buf).await?,
+                        ServiceType::Server => self.outbound.write(buf).await?,
+                    }
+                }
                 Event::InboundError(_) => {
                     self.outbound.close().await?;
                     if self.inbound.is_closed() {
@@ -135,6 +147,10 @@ impl Connection {
         }
     }
 
+    pub fn dump(&self) -> Bytes {
+        self.last_decoded_data.clone().freeze()
+    }
+
     fn is_transparent_proxy(&self) -> bool {
         match self.opts.service_type {
             ServiceType::Client => self.opts.server_host.is_none() || self.opts.server_port.is_none(),
@@ -160,21 +176,19 @@ impl ConnectionSnapshot {
         let peer_addr = self.inbound_snapshot.peer_addr;
         let local_addr = self.inbound_snapshot.local_addr;
 
-        let remote_addr = self.outbound_snapshot.remote_addr.as_ref();
-        let remote_addr = if remote_addr.is_none() {
-            "<none>".into()
-        } else {
-            remote_addr.unwrap().as_string()
+        let remote_addr = match self.outbound_snapshot.remote_addr.as_ref() {
+            Some(addr) => addr.as_string(),
+            None => "<none>".into(),
         };
 
         let in_proto_name = match self.inbound_snapshot.protocol_name.as_ref() {
             Some(name) => name.as_str(),
-            None => &"<none>",
+            None => "<none>",
         };
 
         let out_proto_name = match self.outbound_snapshot.protocol_name.as_ref() {
             Some(name) => name.as_str(),
-            None => &"<none>",
+            None => "<none>",
         };
 
         format!(
