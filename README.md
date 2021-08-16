@@ -16,7 +16,7 @@ $ bp -c --bind 127.0.0.1:1080 --key test --server-host somewhere --server-port 9
 $ bp -s --bind 127.0.0.1:9000 --key test
 ```
 
-### Test using Curl
+### Test with Curl
 
 > Both Socks5 and HTTP proxy requests are acceptable by bp client.
 
@@ -44,4 +44,16 @@ Available protocols are:
 
 ```
 $ bp -s --bind 127.0.0.1:9000 --key test --protocol plain
+```
+
+## Monitor
+
+bp binary which compiled with `--features="monitor"` expose a TCP control port which can be used for remote monitoring.
+
+### use telnet
+
+Use `telnet` connect to control port then follow the prompt:
+
+```
+$ telnet <bp_host> <bp_monitor_port>
 ```
