@@ -1,9 +1,6 @@
-#[cfg(feature = "monitor")]
-use super::{inbound::InboundSnapshot, outbound::OutboundSnapshot};
-
 use crate::{
     event::Event,
-    net::{Inbound, InboundOptions, Outbound, OutboundOptions},
+    net::{Inbound, InboundOptions, InboundSnapshot, Outbound, OutboundOptions, OutboundSnapshot},
     protocol::{DynProtocol, Erp, Plain, SocksHttp, Transparent},
     Protocol, Result, ServiceType,
 };
@@ -131,7 +128,6 @@ impl Connection {
         Ok(())
     }
 
-    #[cfg(feature = "monitor")]
     pub fn snapshot(&self) -> ConnectionSnapshot {
         ConnectionSnapshot {
             inbound_snapshot: self.inbound.snapshot(),
@@ -154,13 +150,11 @@ impl Connection {
     }
 }
 
-#[cfg(feature = "monitor")]
 pub struct ConnectionSnapshot {
     inbound_snapshot: InboundSnapshot,
     outbound_snapshot: OutboundSnapshot,
 }
 
-#[cfg(feature = "monitor")]
 impl ConnectionSnapshot {
     pub fn get_abstract(&self) -> String {
         let peer_addr = self.inbound_snapshot.peer_addr;

@@ -35,6 +35,7 @@ pub struct Inbound {
     /// The peer address
     peer_address: SocketAddr,
 
+    #[allow(unused)]
     local_addr: SocketAddr,
 
     protocol_name: Option<String>,
@@ -161,7 +162,6 @@ impl Inbound {
         self.is_closed
     }
 
-    #[cfg(feature = "monitor")]
     pub fn snapshot(&self) -> InboundSnapshot {
         InboundSnapshot {
             peer_addr: self.peer_address,
@@ -171,7 +171,6 @@ impl Inbound {
     }
 }
 
-#[cfg(feature = "monitor")]
 pub struct InboundSnapshot {
     pub peer_addr: SocketAddr,
     pub local_addr: SocketAddr,

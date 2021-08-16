@@ -4,9 +4,6 @@ version = "0.1.0"
 license = "MIT"
 edition = "2018"
 
-[features]
-monitor = []
-
 [dependencies]
 ### framework
 async-trait = "0.1.50"

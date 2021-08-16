@@ -1,17 +1,17 @@
 use crate::options::Options;
 use bp_lib::{start_service, Connection, ConnectionOptions};
+use bp_monitor::ConnectionRecord;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::RwLock;
 
 #[cfg(feature = "monitor")]
-use bp_monitor::{handle_conn as handle_monitor_conn, ConnectionRecord, MonitorCommand, SharedContext};
+use bp_monitor::{handle_conn as handle_monitor_conn, MonitorCommand, SharedContext};
 
 pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
     let bind_addr = opts.bind.clone();
 
-    #[cfg(feature = "monitor")]
     let shared_conns = Arc::new(RwLock::new(HashSet::<ConnectionRecord>::new()));
 
     #[cfg(feature = "monitor")]
@@ -56,10 +56,8 @@ fn handle_main_conn(id: usize, socket: TcpStream, opts: Options, shared_conns: A
         log::info!("[{}] connected", addr);
 
         // store conn to shared_conns
-        #[cfg(feature = "monitor")]
         let record = ConnectionRecord::new(id, conn.clone());
 
-        #[cfg(feature = "monitor")]
         {
             RwLock::write(&shared_conns).await.insert(record.clone());
         }
@@ -78,12 +76,12 @@ fn handle_main_conn(id: usize, socket: TcpStream, opts: Options, shared_conns: A
         // #[cfg(feature = "monitor")]
         // RwLock::write(&shared_conns).await.remove(&record);
     });
-
-    // (handle, ConnectionRecord::new(id, conn_copy))
 }
 
 #[cfg(feature = "monitor")]
 fn start_monitor_service(opts: Options, ctx: SharedContext) {
+    use tokio::sync::mpsc;
+
     let bind_addr_monitor = opts.get_monitor_bind_addr();
 
     let (tx_cmd, mut rx_cmd) = mpsc::channel::<MonitorCommand>(32);

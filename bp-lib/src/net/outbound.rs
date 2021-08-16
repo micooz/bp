@@ -152,7 +152,6 @@ impl Outbound {
         self.is_closed
     }
 
-    #[cfg(feature = "monitor")]
     pub fn snapshot(&self) -> OutboundSnapshot {
         OutboundSnapshot {
             remote_addr: self.remote_addr.clone(),
@@ -191,7 +190,6 @@ impl Outbound {
     }
 }
 
-#[cfg(feature = "monitor")]
 pub struct OutboundSnapshot {
     pub remote_addr: Option<Address>,
     pub protocol_name: Option<String>,

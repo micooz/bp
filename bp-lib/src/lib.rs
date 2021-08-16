@@ -9,10 +9,9 @@ mod net;
 mod protocol;
 mod utils;
 
-#[cfg(feature = "monitor")]
-pub use net::ConnectionSnapshot;
-
-pub use net::{start_service, Address, Connection, ConnectionOptions, TcpStreamReader, TcpStreamWriter};
+pub use net::{
+    start_service, Address, Connection, ConnectionOptions, ConnectionSnapshot, TcpStreamReader, TcpStreamWriter,
+};
 pub use utils::net::split_tcp_stream;
 
 #[derive(Clone, Copy)]
