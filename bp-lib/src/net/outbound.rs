@@ -41,6 +41,10 @@ pub struct Outbound {
     /// The peer address
     peer_address: SocketAddr,
 
+    remote_addr: Option<Address>,
+
+    protocol_name: Option<String>,
+
     /// Whether the bound is closed
     is_closed: bool,
 }
@@ -52,6 +56,8 @@ impl Outbound {
             reader: None,
             writer: None,
             peer_address,
+            remote_addr: None,
+            protocol_name: None,
             is_closed: false,
         }
     }
@@ -64,10 +70,13 @@ impl Outbound {
         tx: EventSender,
     ) -> Result<()> {
         let out_proto_name = out_proto.get_name();
+        self.protocol_name = Some(out_proto_name.clone());
 
         log::info!("[{}] use {} protocol", self.peer_address, out_proto_name);
 
         let remote_addr = self.get_remote_addr(&in_proto);
+
+        self.remote_addr = Some(remote_addr.clone());
 
         log::info!(
             "[{}] [{}] connecting to {}...",
@@ -143,6 +152,14 @@ impl Outbound {
         self.is_closed
     }
 
+    #[cfg(feature = "monitor")]
+    pub fn snapshot(&self) -> OutboundSnapshot {
+        OutboundSnapshot {
+            remote_addr: self.remote_addr.clone(),
+            protocol_name: self.protocol_name.clone(),
+        }
+    }
+
     fn get_remote_addr(&self, in_proto: &DynProtocol) -> Address {
         if self.opts.service_type.is_server() || self.opts.server_host.is_none() || self.opts.server_port.is_none() {
             in_proto.get_proxy_address().unwrap()
@@ -172,4 +189,10 @@ impl Outbound {
 
         Ok(())
     }
+}
+
+#[cfg(feature = "monitor")]
+pub struct OutboundSnapshot {
+    pub remote_addr: Option<Address>,
+    pub protocol_name: Option<String>,
 }

@@ -1,42 +1,46 @@
 use crate::options::Options;
 use bp_lib::{start_service, Connection, ConnectionOptions};
+use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::net::TcpStream;
+use tokio::sync::{mpsc, RwLock};
 
 #[cfg(feature = "monitor")]
-use bp_monitor::handle_conn as handle_monitor_conn;
+use bp_monitor::{handle_conn as handle_monitor_conn, ConnectionRecord, MonitorCommand, SharedContext};
 
 pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
     let bind_addr = opts.bind.clone();
 
     #[cfg(feature = "monitor")]
-    let bind_addr_monitor = opts.get_monitor_bind_addr();
+    let shared_conns = Arc::new(RwLock::new(HashSet::<ConnectionRecord>::new()));
+
+    #[cfg(feature = "monitor")]
+    start_monitor_service(
+        opts.clone(),
+        // put some shared data to context,
+        // so that monitor can process these data.
+        SharedContext {
+            shared_conns: shared_conns.clone(),
+        },
+    );
 
     // start local service
     let task_main = tokio::spawn(async move {
         let mut handler = start_service(bind_addr, "main");
+        let mut id = 0usize;
 
         while let Some(socket) = handler.recv().await {
-            handle_main_conn(socket, opts.clone()).await;
-        }
-    });
-
-    // start monitor service
-    #[cfg(feature = "monitor")]
-    let _task_monitor = tokio::spawn(async move {
-        let mut handler = start_service(bind_addr_monitor, "monitor");
-
-        while let Some(socket) = handler.recv().await {
-            handle_monitor_conn(socket).await
+            id = id + 1;
+            handle_main_conn(id, socket, opts.clone(), shared_conns.clone());
         }
     });
 
     task_main.await?;
-    // task_monitor.await?;
 
     Ok(())
 }
 
-async fn handle_main_conn(socket: TcpStream, opts: Options) {
+fn handle_main_conn(id: usize, socket: TcpStream, opts: Options, shared_conns: Arc<RwLock<HashSet<ConnectionRecord>>>) {
     let addr = socket.peer_addr().unwrap();
     let conn_opts = ConnectionOptions::new(
         opts.get_service_type().unwrap(),
@@ -46,10 +50,22 @@ async fn handle_main_conn(socket: TcpStream, opts: Options) {
         opts.server_port,
     );
 
-    let mut conn = Connection::new(socket, conn_opts);
+    let conn = Arc::new(RwLock::new(Connection::new(socket, conn_opts)));
 
     tokio::spawn(async move {
         log::info!("[{}] connected", addr);
+
+        // store conn to shared_conns
+        #[cfg(feature = "monitor")]
+        let record = ConnectionRecord::new(id, conn.clone());
+
+        #[cfg(feature = "monitor")]
+        {
+            RwLock::write(&shared_conns).await.insert(record.clone());
+        }
+
+        let conn = conn.clone();
+        let mut conn = RwLock::write(&conn).await;
 
         if let Err(err) = conn.handle().await {
             log::error!("{}", err);
@@ -57,5 +73,34 @@ async fn handle_main_conn(socket: TcpStream, opts: Options) {
         }
 
         log::info!("[{}] disconnected", addr);
+
+        // TODO: remove conn from shared_conns when connection closed
+        // #[cfg(feature = "monitor")]
+        // RwLock::write(&shared_conns).await.remove(&record);
+    });
+
+    // (handle, ConnectionRecord::new(id, conn_copy))
+}
+
+#[cfg(feature = "monitor")]
+fn start_monitor_service(opts: Options, ctx: SharedContext) {
+    let bind_addr_monitor = opts.get_monitor_bind_addr();
+
+    let (tx_cmd, mut rx_cmd) = mpsc::channel::<MonitorCommand>(32);
+
+    // start monitor service
+    tokio::spawn(async move {
+        let mut handler = start_service(bind_addr_monitor, "monitor");
+
+        while let Some(socket) = handler.recv().await {
+            handle_monitor_conn(socket, tx_cmd.clone()).await
+        }
+    });
+
+    // recv client command
+    tokio::spawn(async move {
+        while let Some(mut mc) = rx_cmd.recv().await {
+            mc.exec(ctx.clone()).await;
+        }
     });
 }

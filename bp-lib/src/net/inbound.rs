@@ -35,6 +35,10 @@ pub struct Inbound {
     /// The peer address
     peer_address: SocketAddr,
 
+    local_addr: SocketAddr,
+
+    protocol_name: Option<String>,
+
     /// Whether the bound is closed
     is_closed: bool,
 }
@@ -42,6 +46,7 @@ pub struct Inbound {
 impl Inbound {
     pub fn new(socket: TcpStream, opts: InboundOptions) -> Self {
         let peer_address = socket.peer_addr().unwrap();
+        let local_addr = socket.local_addr().unwrap();
         let split = utils::net::split_tcp_stream(socket);
 
         Self {
@@ -49,6 +54,8 @@ impl Inbound {
             reader: split.0,
             writer: split.1,
             peer_address,
+            local_addr,
+            protocol_name: None,
             is_closed: false,
         }
     }
@@ -61,6 +68,7 @@ impl Inbound {
         tx: EventSender,
     ) -> Result<(DynProtocol, DynProtocol)> {
         let in_proto_name = in_proto.get_name();
+        self.protocol_name = Some(in_proto_name.clone());
 
         log::info!("[{}] use {} protocol", self.peer_address, in_proto_name,);
 
@@ -152,4 +160,20 @@ impl Inbound {
     pub fn is_closed(&self) -> bool {
         self.is_closed
     }
+
+    #[cfg(feature = "monitor")]
+    pub fn snapshot(&self) -> InboundSnapshot {
+        InboundSnapshot {
+            peer_addr: self.peer_address,
+            local_addr: self.local_addr,
+            protocol_name: self.protocol_name.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "monitor")]
+pub struct InboundSnapshot {
+    pub peer_addr: SocketAddr,
+    pub local_addr: SocketAddr,
+    pub protocol_name: Option<String>,
 }

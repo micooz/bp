@@ -66,6 +66,7 @@ impl TcpStreamReader {
 }
 
 /// TcpStreamWriter
+#[derive(Debug)]
 pub struct TcpStreamWriter {
     inner: WriteHalf<TcpStream>,
 }

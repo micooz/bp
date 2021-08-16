@@ -1,3 +1,6 @@
+#[cfg(feature = "monitor")]
+use super::{inbound::InboundSnapshot, outbound::OutboundSnapshot};
+
 use crate::{
     event::Event,
     net::{Inbound, InboundOptions, Outbound, OutboundOptions},
@@ -128,6 +131,14 @@ impl Connection {
         Ok(())
     }
 
+    #[cfg(feature = "monitor")]
+    pub fn snapshot(&self) -> ConnectionSnapshot {
+        ConnectionSnapshot {
+            inbound_snapshot: self.inbound.snapshot(),
+            outbound_snapshot: self.outbound.snapshot(),
+        }
+    }
+
     fn is_transparent_proxy(&self) -> bool {
         match self.opts.service_type {
             ServiceType::Client => self.opts.server_host.is_none() || self.opts.server_port.is_none(),
@@ -140,5 +151,41 @@ impl Connection {
             Protocol::Plain => Box::new(Plain::new()),
             Protocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone(), self.opts.service_type)),
         }
+    }
+}
+
+#[cfg(feature = "monitor")]
+pub struct ConnectionSnapshot {
+    inbound_snapshot: InboundSnapshot,
+    outbound_snapshot: OutboundSnapshot,
+}
+
+#[cfg(feature = "monitor")]
+impl ConnectionSnapshot {
+    pub fn get_abstract(&self) -> String {
+        let peer_addr = self.inbound_snapshot.peer_addr;
+        let local_addr = self.inbound_snapshot.local_addr;
+
+        let remote_addr = self.outbound_snapshot.remote_addr.as_ref();
+        let remote_addr = if remote_addr.is_none() {
+            "<none>".into()
+        } else {
+            remote_addr.unwrap().as_string()
+        };
+
+        let in_proto_name = match self.inbound_snapshot.protocol_name.as_ref() {
+            Some(name) => name.as_str(),
+            None => &"<none>",
+        };
+
+        let out_proto_name = match self.outbound_snapshot.protocol_name.as_ref() {
+            Some(name) => name.as_str(),
+            None => &"<none>",
+        };
+
+        format!(
+            "{} <--[{}]--> {} <--[{}]--> {}",
+            peer_addr, in_proto_name, local_addr, out_proto_name, remote_addr
+        )
     }
 }
