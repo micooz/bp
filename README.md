@@ -29,18 +29,20 @@ $ curl -L --sock5-hostname 127.0.0.1:1080 cn.bing.com
 
 ### Transparent Proxy
 
+You can turn bp `client` into transparent proxy by omitting `--server-host` and `--server-port` options.
+
 > Transparent Proxy only works on client side
 
 ```
 $ bp -c --bind 127.0.0.1:1080 --key test
 ```
 
-### Change Protocol of Transport Layer
+### Change Transport Protocol
 
-Available protocols are:
+The transport protocol can be switched between bp client and bp server, available protocols are:
 
 * `plain`: without encryption.
-* `erp`: with AEAD encryption as well as random padding.
+* `erp`: with AEAD encryption as well as random padding. (default)
 
 ```
 $ bp -s --bind 127.0.0.1:9000 --key test --protocol plain
@@ -48,7 +50,7 @@ $ bp -s --bind 127.0.0.1:9000 --key test --protocol plain
 
 ## Monitor
 
-bp binary which compiled with `--features="monitor"` expose a TCP control port which can be used for remote monitoring.
+bp executable compiled with `--features="monitor"` expose a TCP control port which can be used for remote monitoring.
 
 ### use telnet
 
