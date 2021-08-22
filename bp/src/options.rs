@@ -58,7 +58,7 @@ impl Options {
     #[cfg(feature = "monitor")]
     /// Return monitor bind address
     pub fn get_monitor_bind_addr(&self) -> String {
-        use bp_lib::Address;
+        use bp_lib::net::address::Address;
 
         let mut addr: Address = self.bind.parse().unwrap();
         addr.set_port(addr.port + 1);

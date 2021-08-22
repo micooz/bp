@@ -1,6 +1,9 @@
 use crate::{
     event::EventSender,
-    net::{Address, TcpStreamReader, TcpStreamWriter},
+    net::{
+        address::Address,
+        io::{TcpStreamReader, TcpStreamWriter},
+    },
     protocol::{socks::SOCKS_VERSION_V5, Http, Protocol, Socks},
     Result,
 };

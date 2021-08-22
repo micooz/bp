@@ -5,14 +5,10 @@ type Result<T> = std::result::Result<T, Error>;
 
 mod config;
 mod event;
-mod net;
 mod protocol;
-mod utils;
 
-pub use net::{
-    start_service, Address, Connection, ConnectionOptions, ConnectionSnapshot, TcpStreamReader, TcpStreamWriter,
-};
-pub use utils::net::split_tcp_stream;
+pub mod net;
+pub mod utils;
 
 #[derive(Clone, Copy)]
 pub enum ServiceType {

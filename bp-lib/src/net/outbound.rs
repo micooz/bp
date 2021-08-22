@@ -1,9 +1,13 @@
 use crate::{
     config::TCP_CONNECT_TIMEOUT_SECONDS,
     event::{Event, EventSender},
-    net::{Address, TcpStreamReader, TcpStreamWriter},
+    net::{
+        self,
+        address::Address,
+        io::{TcpStreamReader, TcpStreamWriter},
+    },
     protocol::DynProtocol,
-    utils, Result, ServiceType,
+    Result, ServiceType,
 };
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
@@ -72,32 +76,26 @@ impl Outbound {
         let out_proto_name = out_proto.get_name();
         self.protocol_name = Some(out_proto_name.clone());
 
-        log::info!("[{}] use {} protocol", self.peer_address, out_proto_name);
+        log::info!("[{}] use [{}] protocol", self.peer_address, out_proto_name);
 
         let remote_addr = self.get_remote_addr(&in_proto);
 
         self.remote_addr = Some(remote_addr.clone());
 
-        log::info!(
-            "[{}] [{}] connecting to {}...",
-            self.peer_address,
-            out_proto_name,
-            remote_addr,
-        );
+        log::info!("[{}] connecting to {}...", self.peer_address, remote_addr,);
 
-        self.connect(&remote_addr).await.map_err(|err| {
+        // dns resolve
+        let ip_list = remote_addr.dns_resolve().await;
+        log::info!("[{}] resolved {} to {:?}", self.peer_address, remote_addr, ip_list);
+
+        self.connect(ip_list).await.map_err(|err| {
             format!(
-                "[{}] [{}] connect to {} failed due to {}",
-                self.peer_address, out_proto_name, remote_addr, err
+                "[{}] connect to {} failed due to {}",
+                self.peer_address, remote_addr, err
             )
         })?;
 
-        log::info!(
-            "[{}] [{}] connected to {}",
-            self.peer_address,
-            out_proto_name,
-            remote_addr,
-        );
+        log::info!("[{}] connected to {}", self.peer_address, remote_addr,);
 
         log::info!("[{}] [{}] start receiving data...", self.peer_address, out_proto_name);
 
@@ -174,14 +172,11 @@ impl Outbound {
     }
 
     // connect to addr then create self.reader/self.writer
-    async fn connect(&mut self, addr: &Address) -> Result<()> {
-        let socket = timeout(
-            Duration::from_secs(TCP_CONNECT_TIMEOUT_SECONDS),
-            TcpStream::connect(addr.as_string()),
-        )
-        .await??;
+    async fn connect(&mut self, addrs: Vec<SocketAddr>) -> Result<()> {
+        let future = TcpStream::connect(addrs.as_slice());
+        let socket = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
 
-        let split = utils::net::split_tcp_stream(socket);
+        let split = net::io::split_tcp_stream(socket);
 
         self.reader = Some(split.0);
         self.writer = Some(split.1);
@@ -190,6 +185,7 @@ impl Outbound {
     }
 }
 
+#[derive(Debug)]
 pub struct OutboundSnapshot {
     pub remote_addr: Option<Address>,
     pub protocol_name: Option<String>,

@@ -1,7 +1,9 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
+    sync::Mutex,
 };
 
 /// TcpStreamReader
@@ -95,6 +97,18 @@ impl TcpStreamWriter {
         self.inner.shutdown().await?;
         Ok(())
     }
+}
+
+pub fn split_tcp_stream(stream: TcpStream) -> (Arc<Mutex<TcpStreamReader>>, Arc<Mutex<TcpStreamWriter>>) {
+    let (read_half, write_half) = tokio::io::split(stream);
+
+    let reader = TcpStreamReader::new(read_half);
+    let writer = TcpStreamWriter::new(write_half);
+
+    let reader = Arc::new(Mutex::new(reader));
+    let writer = Arc::new(Mutex::new(writer));
+
+    (reader, writer)
 }
 
 #[test]

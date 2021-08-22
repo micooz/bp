@@ -1,12 +1,12 @@
 use crate::{
-    cmd::{Command, MonitorCommand},
+    cmd::{Command, CommandType},
     context::Context,
 };
-use bp_lib::split_tcp_stream;
+use bp_lib::net::io::split_tcp_stream;
 use std::convert::TryFrom;
 use tokio::{net::TcpStream, sync::mpsc::Sender};
 
-pub async fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
+pub fn handle_conn(socket: TcpStream, tx: Sender<Command>) {
     tokio::spawn(async move {
         let addr = socket.peer_addr().unwrap();
         let (reader, writer) = split_tcp_stream(socket);
@@ -14,9 +14,9 @@ pub async fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
         log::info!("[{}] connected", addr);
 
         // send a greeting message once client connected
-        tx.send(MonitorCommand {
+        tx.send(Command {
             peer_addr: addr,
-            cmd: Command::Help,
+            cmd_type: CommandType::Help,
             ctx: Context {
                 peer_addr: addr,
                 writer: writer.clone(),
@@ -41,17 +41,21 @@ pub async fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
 
             let buf = res.unwrap();
 
-            match Command::try_from(buf) {
-                Ok(cmd) => {
-                    tx.send(MonitorCommand {
+            match CommandType::try_from(buf) {
+                Ok(cmd_type) => {
+                    tx.send(Command {
                         peer_addr: addr,
-                        cmd,
+                        cmd_type,
                         ctx,
                     })
                     .await
                     .unwrap();
                 }
-                Err(err) => log::error!("[{}] {}", addr, err),
+                Err(err) => {
+                    if !err.is_empty() {
+                        log::error!("[{}] {}", addr, err);
+                    }
+                }
             }
         }
 

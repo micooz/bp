@@ -1,4 +1,7 @@
-use crate::{net::TcpStreamReader, Result};
+use crate::{
+    net::{dns::lookup, io::TcpStreamReader},
+    Result,
+};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::{
     convert::TryInto,
@@ -198,6 +201,23 @@ impl Address {
     pub fn set_port(&mut self, port: u16) {
         self.port = port;
     }
+
+    // use trust dns resolve addr
+    pub async fn dns_resolve(&self) -> Vec<SocketAddr> {
+        match &self.host {
+            Host::Ip(ip) => {
+                let addr = SocketAddr::new(*ip, self.port);
+                [addr].to_vec()
+            }
+            Host::Name(name) => {
+                let response = lookup(name).await.unwrap();
+                response
+                    .iter()
+                    .map(|addr| SocketAddr::new(addr, self.port))
+                    .collect::<Vec<SocketAddr>>()
+            }
+        }
+    }
 }
 
 impl Display for Address {
@@ -226,14 +246,8 @@ impl FromStr for Address {
         let addr = format!("{}:{}", host, port);
 
         match addr.parse::<SocketAddr>() {
-            Ok(v) => Ok(Self {
-                host: Host::Ip(v.ip()),
-                port: v.port(),
-            }),
-            Err(_) => Ok(Self {
-                host: Host::Name(host.into()),
-                port,
-            }),
+            Ok(v) => Ok(Self::new(Host::Ip(v.ip()), v.port())),
+            Err(_) => Ok(Self::new(Host::Name(host.into()), port)),
         }
     }
 }

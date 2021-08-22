@@ -1,6 +1,9 @@
 use crate::{
     event::{Event, EventSender},
-    net::{Address, TcpStreamReader, TcpStreamWriter},
+    net::{
+        address::Address,
+        io::{TcpStreamReader, TcpStreamWriter},
+    },
     protocol::Protocol,
     utils, Result, ServiceType,
 };

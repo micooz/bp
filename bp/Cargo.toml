@@ -17,7 +17,7 @@ bp-lib = { path = "../bp-lib" }
 bp-monitor = { path = "../bp-monitor" }
 
 ### network
-tokio = { version = "1.8.2", features = ["rt-multi-thread"] }
+tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
 
 ### logging
 dirs = "3.0.2"

@@ -1,9 +1,12 @@
 use crate::{
     config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS,
     event::{Event, EventSender},
-    net::{TcpStreamReader, TcpStreamWriter},
+    net::{
+        self,
+        io::{TcpStreamReader, TcpStreamWriter},
+    },
     protocol::DynProtocol,
-    utils, Result, ServiceType,
+    Result, ServiceType,
 };
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
@@ -35,7 +38,6 @@ pub struct Inbound {
     /// The peer address
     peer_address: SocketAddr,
 
-    #[allow(unused)]
     local_addr: SocketAddr,
 
     protocol_name: Option<String>,
@@ -48,7 +50,7 @@ impl Inbound {
     pub fn new(socket: TcpStream, opts: InboundOptions) -> Self {
         let peer_address = socket.peer_addr().unwrap();
         let local_addr = socket.local_addr().unwrap();
-        let split = utils::net::split_tcp_stream(socket);
+        let split = net::io::split_tcp_stream(socket);
 
         Self {
             opts,
@@ -71,7 +73,7 @@ impl Inbound {
         let in_proto_name = in_proto.get_name();
         self.protocol_name = Some(in_proto_name.clone());
 
-        log::info!("[{}] use {} protocol", self.peer_address, in_proto_name,);
+        log::info!("[{}] use [{}] protocol", self.peer_address, in_proto_name,);
 
         let mut reader = self.reader.lock().await;
         let mut writer = self.writer.lock().await;
@@ -171,6 +173,7 @@ impl Inbound {
     }
 }
 
+#[derive(Debug)]
 pub struct InboundSnapshot {
     pub peer_addr: SocketAddr,
     pub local_addr: SocketAddr,
