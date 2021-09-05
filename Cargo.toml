@@ -5,3 +5,6 @@ members = [
     "bp-macros",
     "bp-monitor",
 ]
+exclude = [
+    "dns-pollution-detector"
+]

@@ -1,7 +1,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use std::cmp::min;
 
-pub fn get_chunks(buf: Bytes, len: usize) -> Vec<Bytes> {
+pub fn get_chunks(arr: Bytes, len: usize) -> Vec<Bytes> {
     let mut chunks = vec![];
     let mut ptr = 0;
 
@@ -10,8 +10,8 @@ pub fn get_chunks(buf: Bytes, len: usize) -> Vec<Bytes> {
     }
 
     loop {
-        let end = min(buf.len(), ptr + len);
-        let chunk = buf.slice(ptr..end);
+        let end = min(arr.len(), ptr + len);
+        let chunk = arr.slice(ptr..end);
         let chunk_len = chunk.len();
 
         chunks.push(chunk);
