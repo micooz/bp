@@ -1,4 +1,5 @@
-use std::str::FromStr;
+use net::connection::ConnectionSnapshot;
+use std::{collections::HashMap, str::FromStr};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, Error>;
@@ -38,4 +39,9 @@ impl FromStr for Protocol {
             _ => Err(format!("{} is not supported, available protocols are: plain, erp", s)),
         }
     }
+}
+
+#[derive(Default)]
+pub struct SharedData {
+    pub conns: HashMap<usize, ConnectionSnapshot>,
 }

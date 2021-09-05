@@ -2,5 +2,5 @@ mod cmd;
 mod context;
 mod net;
 
-pub use cmd::Command;
+pub use cmd::MonitorCommand;
 pub use net::handle_conn;

@@ -1,12 +1,12 @@
 use crate::{
-    cmd::{Command, CommandType},
+    cmd::{CommandType, MonitorCommand},
     context::Context,
 };
 use bp_lib::net::io::split_tcp_stream;
 use std::convert::TryFrom;
 use tokio::{net::TcpStream, sync::mpsc::Sender};
 
-pub fn handle_conn(socket: TcpStream, tx: Sender<Command>) {
+pub fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
     tokio::spawn(async move {
         let addr = socket.peer_addr().unwrap();
         let (reader, writer) = split_tcp_stream(socket);
@@ -14,7 +14,7 @@ pub fn handle_conn(socket: TcpStream, tx: Sender<Command>) {
         log::info!("[{}] connected", addr);
 
         // send a greeting message once client connected
-        tx.send(Command {
+        tx.send(MonitorCommand {
             peer_addr: addr,
             cmd_type: CommandType::Help,
             ctx: Context {
@@ -43,7 +43,7 @@ pub fn handle_conn(socket: TcpStream, tx: Sender<Command>) {
 
             match CommandType::try_from(buf) {
                 Ok(cmd_type) => {
-                    tx.send(Command {
+                    tx.send(MonitorCommand {
                         peer_addr: addr,
                         cmd_type,
                         ctx,

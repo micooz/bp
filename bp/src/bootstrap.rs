@@ -1,30 +1,46 @@
 use crate::options::Options;
-use bp_lib::net::{
-    connection::{Connection, ConnectionOptions},
-    service::start_service,
+use bp_lib::{
+    net::{
+        connection::{Connection, ConnectionOptions},
+        service::start_service,
+    },
+    SharedData,
 };
-use bp_monitor::Command;
-use tokio::sync::mpsc::{self, Receiver};
-use tokio::task::JoinHandle;
+#[cfg(feature = "monitor")]
+use bp_monitor::MonitorCommand;
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
 
 pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
-    let (tx, rx) = mpsc::channel::<Command>(32);
+    #[cfg(feature = "monitor")]
+    let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
 
     #[cfg(feature = "monitor")]
     start_monitor_service(opts.clone(), tx);
 
-    start_main_service(opts.clone(), rx).await?;
+    start_main_service(
+        opts.clone(),
+        #[cfg(feature = "monitor")]
+        rx,
+    )
+    .await?;
 
     Ok(())
 }
 
-fn start_main_service(opts: Options, mut rx: Receiver<Command>) -> JoinHandle<()> {
+fn start_main_service(
+    opts: Options,
+    #[cfg(feature = "monitor")] mut rx: tokio::sync::mpsc::Receiver<MonitorCommand>,
+) -> JoinHandle<()> {
     let mut receiver = start_service(opts.bind.clone(), "main");
 
+    let shared_data = Arc::new(RwLock::new(SharedData::default()));
+    let shared_data_monitor = shared_data.clone();
+
+    #[cfg(feature = "monitor")]
     tokio::spawn(async move {
         while let Some(mut cmd) = rx.recv().await {
-            // TODO: pass shared data into exec()
-            cmd.exec().await;
+            cmd.exec(shared_data_monitor.clone()).await;
         }
     });
 
@@ -32,8 +48,10 @@ fn start_main_service(opts: Options, mut rx: Receiver<Command>) -> JoinHandle<()
         let mut id = 0usize;
 
         while let Some(socket) = receiver.recv().await {
-            let opts = opts.clone();
             id += 1;
+
+            let opts = opts.clone();
+            let shared_data = shared_data.clone();
 
             // put socket to new task to create a Connection
             tokio::spawn(async move {
@@ -48,6 +66,7 @@ fn start_main_service(opts: Options, mut rx: Receiver<Command>) -> JoinHandle<()
                         key: opts.key.clone(),
                         server_host: opts.server_host.clone(),
                         server_port: opts.server_port,
+                        shared_data: shared_data.clone(),
                     },
                 );
 
@@ -59,13 +78,18 @@ fn start_main_service(opts: Options, mut rx: Receiver<Command>) -> JoinHandle<()
                 }
 
                 log::info!("[{}] disconnected", addr);
+                drop(conn);
+
+                // remove item from shared_data after 1min
+                sleep(Duration::from_secs(60)).await;
+                shared_data.write().await.conns.remove(&id);
             });
         }
     })
 }
 
 #[cfg(feature = "monitor")]
-fn start_monitor_service(opts: Options, tx: mpsc::Sender<Command>) {
+fn start_monitor_service(opts: Options, tx: tokio::sync::mpsc::Sender<MonitorCommand>) {
     use bp_monitor::handle_conn;
 
     // start monitor service

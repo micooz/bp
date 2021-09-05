@@ -1,7 +1,8 @@
 use crate::context::Context;
-// use bp_lib::net::{MonitorCommand, MonitorCommandParam, MonitorCommandReturn};
+use bp_lib::SharedData;
 use bytes::Bytes;
-use std::{convert::TryFrom, fmt::Display, net::SocketAddr};
+use std::{convert::TryFrom, fmt::Display, net::SocketAddr, sync::Arc};
+use tokio::sync::RwLock;
 
 #[cfg(windows)]
 const LINE_ENDING: &str = "\r\n";
@@ -63,20 +64,20 @@ impl TryFrom<Bytes> for CommandType {
 }
 
 #[derive(Debug)]
-pub struct Command {
+pub struct MonitorCommand {
     pub peer_addr: SocketAddr,
     pub cmd_type: CommandType,
     pub ctx: Context,
 }
 
-impl Command {
+impl MonitorCommand {
     pub async fn reply(&mut self, data: String) {
         let mut writer = self.ctx.writer.lock().await;
         writer.write(data.as_bytes()).await.unwrap();
         writer.write(LINE_ENDING.as_bytes()).await.unwrap();
     }
 
-    pub async fn exec(&mut self) {
+    pub async fn exec(&mut self, shared_data: Arc<RwLock<SharedData>>) {
         log::info!("[{}] execute command: <{}>", self.peer_addr, self.cmd_type);
 
         match &self.cmd_type {
@@ -84,30 +85,14 @@ impl Command {
                 self.reply(format!("\n{}", include_str!("help.txt"))).await;
             }
             CommandType::List => {
-                // let res = emitter.emit("snapshot", None).await.unwrap();
+                let shared_data = shared_data.read().await;
+                let snapshot_list = shared_data.conns.values();
 
-                // if let MonitorCommandReturn::Snapshot(snapshot) = res {
-                // snapshot.
-                // }
+                let msg = snapshot_list
+                    .map(|v| format!("[{}] {}\n", v.id(), v.get_abstract()))
+                    .collect::<String>();
 
-                // let (txx, mut rxx) = mpsc::channel(1);
-
-                // if tx.send(MonitorCommandForConnection::Snapshot(txx)).is_err() {
-                //     return;
-                // }
-
-                // let mut snapshot_list = vec![];
-
-                // while let Some(x) = rxx.recv().await {
-                //     snapshot_list.push(x);
-                // }
-
-                // let msg: String = snapshot_list
-                //     .into_iter()
-                //     .map(|v| format!("[{}] {}\n", v.id(), v.get_abstract()))
-                //     .collect();
-
-                // self.reply(msg).await;
+                self.reply(msg).await;
             }
             CommandType::Dump(_n, _k) => {
                 // let buf = emitter
