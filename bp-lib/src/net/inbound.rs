@@ -63,10 +63,7 @@ impl Inbound {
             use crate::net::linux::get_original_destination_addr;
 
             match get_original_destination_addr(&socket) {
-                Ok(addr) => {
-                    log::debug!("{:?}", addr);
-                    Some(addr.into())
-                }
+                Ok(addr) => Some(addr.into()),
                 Err(_) => None,
             }
         };
@@ -94,24 +91,43 @@ impl Inbound {
     ) -> Result<(DynProtocol, DynProtocol)> {
         self.protocol_name = Some(in_proto.get_name());
 
-        log::info!(
-            "[{}] use [{}] protocol",
-            self.peer_address,
-            self.protocol_name.as_ref().unwrap()
-        );
+        let already_have_proxy_address_before_resolving = self.proxy_address.is_some();
 
         let (proxy_address, pending_buf) = match self.proxy_address.as_ref() {
-            Some(addr) => (addr.clone(), None),
+            Some(addr) => {
+                log::info!(
+                    "[{}] obtained target address [{}] from REDIRECT",
+                    self.peer_address,
+                    addr
+                );
+
+                (addr.clone(), None)
+            }
             None => {
+                log::info!(
+                    "[{}] use [{}] protocol to resolve target address",
+                    self.peer_address,
+                    self.protocol_name.as_ref().unwrap()
+                );
+
                 let mut reader = self.reader.lock().await;
                 let mut writer = self.writer.lock().await;
 
-                timeout(
+                let (addr, pending_buf) = timeout(
                     Duration::from_secs(PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
                     in_proto.resolve_proxy_address(&mut reader, &mut writer),
                 )
                 .await?
-                .map_err(|err| format!("resolve proxy address failed due to {}", err))?
+                .map_err(|err| format!("resolve proxy address failed due to {}", err))?;
+
+                log::info!(
+                    "[{}] [{}] resolved target address {}",
+                    self.peer_address,
+                    self.protocol_name.as_ref().unwrap(),
+                    self.proxy_address.as_ref().unwrap(),
+                );
+
+                (addr, pending_buf)
             }
         };
 
@@ -121,20 +137,17 @@ impl Inbound {
         in_proto.set_proxy_address(proxy_address.clone());
         out_proto.set_proxy_address(proxy_address);
 
-        log::info!(
-            "[{}] [{}] resolved target address {}",
-            self.peer_address,
-            self.protocol_name.as_ref().unwrap(),
-            self.proxy_address.as_ref().unwrap(),
-        );
+        if already_have_proxy_address_before_resolving {
+            log::info!("[{}] start receiving data...", self.peer_address);
+        } else {
+            log::info!(
+                "[{}] [{}] start receiving data...",
+                self.peer_address,
+                self.protocol_name.as_ref().unwrap()
+            );
+        }
 
         let ret = (in_proto.clone(), out_proto.clone());
-
-        log::info!(
-            "[{}] [{}] start receiving data...",
-            self.peer_address,
-            self.protocol_name.as_ref().unwrap()
-        );
 
         let reader = self.reader.clone();
         let service_type = self.opts.service_type;
