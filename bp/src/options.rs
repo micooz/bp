@@ -12,32 +12,30 @@ const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
 #[clap(version = crate_version!(), author = CRATE_AUTHOR)]
 pub struct Options {
     /// run as server
-    #[clap(short)]
+    #[clap(short, long)]
     pub server: bool,
 
     /// run as client
-    #[clap(short)]
+    #[clap(short, long)]
     pub client: bool,
 
-    /// symmetric encryption key
-    #[clap(short, long)]
-    pub key: String,
-
-    /// local service bind address host
+    /// local service bind address
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
     pub bind: String,
 
-    /// bp server host, client only,
-    /// if not set, bp will run as transparent proxy
+    /// bp server host, client only. if not set, bp will relay directly
     #[clap(long)]
     pub server_host: Option<String>,
 
-    /// bp server port, client only,
-    /// if not set, bp will run as transparent proxy
+    /// bp server port, client only. if not set, bp will relay directly
     #[clap(long)]
     pub server_port: Option<u16>,
 
-    /// protocol used for transport layer between client and server,
+    /// symmetric encryption key
+    #[clap(short, long, default_value = "")]
+    pub key: String,
+
+    /// protocol used by transport layer between client and server,
     /// "plain" or "erp" are supported.
     #[clap(long, default_value = "erp")]
     pub protocol: Protocol,

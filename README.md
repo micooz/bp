@@ -27,16 +27,6 @@ $ curl -L --sock5-hostname 127.0.0.1:1080 cn.bing.com
 
 ## Advanced Usage
 
-### Transparent Proxy
-
-You can turn bp `client` into transparent proxy by omitting `--server-host` and `--server-port` options.
-
-> Transparent Proxy only works on client side
-
-```
-$ bp -c --bind 127.0.0.1:1080 --key test
-```
-
 ### Change Transport Protocol
 
 The transport protocol can be switched between bp client and bp server, available protocols are:

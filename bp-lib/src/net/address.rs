@@ -251,3 +251,12 @@ impl FromStr for Address {
         }
     }
 }
+
+impl From<SocketAddr> for Address {
+    fn from(addr: SocketAddr) -> Self {
+        Self {
+            host: Host::Name(addr.ip().to_string()),
+            port: addr.port(),
+        }
+    }
+}

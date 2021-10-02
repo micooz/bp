@@ -15,14 +15,14 @@ mod http;
 mod plain;
 mod socks;
 mod socks_http;
-mod transparent;
+mod direct;
 
 pub use erp::Erp;
 pub use http::Http;
 pub use plain::Plain;
 pub use socks::Socks;
 pub use socks_http::SocksHttp;
-pub use transparent::Transparent;
+pub use direct::Direct;
 
 #[async_trait]
 pub trait Protocol: DynClone {
@@ -34,9 +34,11 @@ pub trait Protocol: DynClone {
         writer: &mut TcpStreamWriter,
     ) -> Result<(Address, Option<Bytes>)>;
 
-    fn set_proxy_address(&mut self, addr: Address);
+    fn set_proxy_address(&mut self, _addr: Address) {}
 
-    fn get_proxy_address(&self) -> Option<Address>;
+    fn get_proxy_address(&self) -> Option<Address> {
+        unimplemented!()
+    }
 
     async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()>;
 

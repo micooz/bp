@@ -12,30 +12,24 @@ use bytes::Bytes;
 
 const RECV_BUFFER_SIZE: usize = 4 * 1024;
 
-pub struct Transparent {}
+pub struct Direct {}
 
-impl Transparent {
+impl Direct {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl Clone for Transparent {
+impl Clone for Direct {
     fn clone(&self) -> Self {
         Self {}
     }
 }
 
 #[async_trait]
-impl Protocol for Transparent {
+impl Protocol for Direct {
     fn get_name(&self) -> String {
-        "transparent".into()
-    }
-
-    fn set_proxy_address(&mut self, _addr: Address) {}
-
-    fn get_proxy_address(&self) -> Option<Address> {
-        unimplemented!()
+        "direct".into()
     }
 
     async fn resolve_proxy_address(
@@ -43,7 +37,7 @@ impl Protocol for Transparent {
         _reader: &mut TcpStreamReader,
         _writer: &mut TcpStreamWriter,
     ) -> Result<(Address, Option<Bytes>)> {
-        unimplemented!("transparent protocol cannot be used on inbound")
+        unimplemented!("direct protocol cannot be used on inbound")
     }
 
     async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {

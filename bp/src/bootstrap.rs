@@ -2,6 +2,7 @@ use crate::options::Options;
 use bp_lib::{
     net::{
         connection::{Connection, ConnectionOptions},
+        // dns::start_dns_server,
         service::start_service,
     },
     SharedData,
@@ -25,6 +26,8 @@ pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
     )
     .await?;
 
+    // start_dns_server().await;
+
     Ok(())
 }
 
@@ -35,6 +38,8 @@ fn start_main_service(
     let mut receiver = start_service(opts.bind.clone(), "main");
 
     let shared_data = Arc::new(RwLock::new(SharedData::default()));
+
+    #[cfg(feature = "monitor")]
     let shared_data_monitor = shared_data.clone();
 
     #[cfg(feature = "monitor")]

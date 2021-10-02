@@ -20,7 +20,7 @@ const SALT_SIZE: usize = 32;
 const KEY_SIZE: usize = 32;
 const NONCE_SIZE: usize = 12;
 const TAG_SIZE: usize = 16;
-const HKDF_INFO: &str = "bp-subkey1";
+const HKDF_INFO: &str = "bp-subkey";
 
 /// # Protocol
 ///

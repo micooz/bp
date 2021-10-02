@@ -3,14 +3,22 @@ use crate::{
     net::address::Address,
     net::inbound::{Inbound, InboundOptions, InboundSnapshot},
     net::outbound::{Outbound, OutboundOptions, OutboundSnapshot},
-    protocol::{DynProtocol, Erp, Plain, SocksHttp, Transparent},
+    protocol::{Direct, DynProtocol, Erp, Plain, SocksHttp},
     Protocol, Result, ServiceType, SharedData,
 };
-use bytes::{BufMut, BytesMut};
 use std::sync::Arc;
 use tokio::{net::TcpStream, sync::RwLock};
 
+#[cfg(feature = "monitor")]
+use bytes::{BufMut, BytesMut};
+
+#[cfg(feature = "monitor")]
 const MAX_CACHE_SIZE: usize = 1024;
+
+#[cfg(feature = "monitor")]
+struct MonitorCollectData {
+    last_decoded_data: BytesMut,
+}
 
 pub struct ConnectionOptions {
     pub id: usize,
@@ -29,7 +37,8 @@ pub struct Connection {
     outbound: Arc<RwLock<Outbound>>,
     proxy_address: Option<Address>,
     opts: ConnectionOptions,
-    last_decoded_data: BytesMut,
+    #[cfg(feature = "monitor")]
+    monitor_collect_data: MonitorCollectData,
     closed: bool,
 }
 
@@ -52,7 +61,10 @@ impl Connection {
             outbound: Arc::new(RwLock::new(outbound)),
             proxy_address: None,
             opts,
-            last_decoded_data: BytesMut::with_capacity(MAX_CACHE_SIZE),
+            #[cfg(feature = "monitor")]
+            monitor_collect_data: MonitorCollectData {
+                last_decoded_data: BytesMut::with_capacity(MAX_CACHE_SIZE),
+            },
             closed: false,
         }
     }
@@ -66,8 +78,8 @@ impl Connection {
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        let protocol = if self.is_transparent_proxy() {
-            Box::new(Transparent::new())
+        let protocol = if self.is_direct() {
+            Box::new(Direct::new())
         } else {
             self.init_protocol()
         };
@@ -76,18 +88,16 @@ impl Connection {
         let (in_proto, out_proto) = match self.opts.service_type {
             ServiceType::Client => {
                 let socks_http = Box::new(SocksHttp::new());
-                self.inbound
-                    .write()
+                RwLock::write(&self.inbound)
                     .await
                     .resolve_proxy_address(socks_http, protocol, tx.clone())
                     .await?
             }
             ServiceType::Server => {
-                let transparent = Box::new(Transparent::new());
-                self.inbound
-                    .write()
+                let direct = Box::new(Direct::new());
+                RwLock::write(&self.inbound)
                     .await
-                    .resolve_proxy_address(protocol, transparent, tx.clone())
+                    .resolve_proxy_address(protocol, direct, tx.clone())
                     .await?
             }
         };
@@ -96,8 +106,7 @@ impl Connection {
         self.update_snapshot().await;
 
         // [outbound] apply protocol
-        self.outbound
-            .write()
+        RwLock::write(&self.outbound)
             .await
             .use_protocol(out_proto, in_proto, tx.clone())
             .await?;
@@ -107,30 +116,33 @@ impl Connection {
         while let Some(event) = rx.recv().await {
             match event {
                 Event::EncodeDone(buf) => match self.opts.service_type {
-                    ServiceType::Client => self.outbound.write().await.write(buf).await?,
-                    ServiceType::Server => self.inbound.write().await.write(buf).await?,
+                    ServiceType::Client => RwLock::write(&self.outbound).await.write(buf).await?,
+                    ServiceType::Server => RwLock::write(&self.inbound).await.write(buf).await?,
                 },
                 Event::DecodeDone(buf) => {
                     // store last decoded data, for monitoring
-                    self.last_decoded_data.clear();
-                    self.last_decoded_data
-                        .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
-
+                    #[cfg(feature = "monitor")]
+                    {
+                        self.monitor_collect_data.last_decoded_data.clear();
+                        self.monitor_collect_data
+                            .last_decoded_data
+                            .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
+                    }
                     match self.opts.service_type {
-                        ServiceType::Client => self.inbound.write().await.write(buf).await?,
-                        ServiceType::Server => self.outbound.write().await.write(buf).await?,
+                        ServiceType::Client => RwLock::write(&self.inbound).await.write(buf).await?,
+                        ServiceType::Server => RwLock::write(&self.outbound).await.write(buf).await?,
                     }
                 }
                 Event::InboundError(_) => {
-                    self.outbound.write().await.close().await?;
-                    if self.inbound.read().await.is_closed() {
+                    RwLock::write(&self.outbound).await.close().await?;
+                    if RwLock::read(&self.inbound).await.is_closed() {
                         rx.close();
                         break;
                     }
                 }
                 Event::OutboundError(_) => {
-                    self.inbound.write().await.close().await?;
-                    if self.outbound.read().await.is_closed() {
+                    RwLock::write(&self.inbound).await.close().await?;
+                    if RwLock::read(&self.inbound).await.is_closed() {
                         rx.close();
                         break;
                     }
@@ -164,7 +176,7 @@ impl Connection {
         shared_data.conns.insert(self.id, snapshot);
     }
 
-    fn is_transparent_proxy(&self) -> bool {
+    fn is_direct(&self) -> bool {
         match self.opts.service_type {
             ServiceType::Client => self.opts.server_host.is_none() || self.opts.server_port.is_none(),
             _ => false,

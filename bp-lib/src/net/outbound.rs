@@ -12,7 +12,7 @@ use crate::{
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{
-    net::TcpStream,
+    net::TcpSocket,
     sync::Mutex,
     time::{timeout, Duration},
 };
@@ -88,7 +88,7 @@ impl Outbound {
         let ip_list = remote_addr.dns_resolve().await;
         log::info!("[{}] resolved {} to {:?}", self.peer_address, remote_addr, ip_list);
 
-        self.connect(ip_list).await.map_err(|err| {
+        self.connect(ip_list[0]).await.map_err(|err| {
             format!(
                 "[{}] connect to {} failed due to {}",
                 self.peer_address, remote_addr, err
@@ -172,11 +172,38 @@ impl Outbound {
     }
 
     // connect to addr then create self.reader/self.writer
-    async fn connect(&mut self, addrs: Vec<SocketAddr>) -> Result<()> {
-        let future = TcpStream::connect(addrs.as_slice());
-        let socket = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
+    async fn connect(&mut self, addr: SocketAddr) -> Result<()> {
+        let socket = match addr {
+            SocketAddr::V4(..) => TcpSocket::new_v4()?,
+            SocketAddr::V6(..) => TcpSocket::new_v6()?,
+        };
 
-        let split = net::io::split_tcp_stream(socket);
+        #[cfg(target_os = "linux")]
+        unsafe {
+            use std::os::unix::io::AsRawFd;
+
+            let fd = socket.as_raw_fd();
+            let mark: libc::c_uint = 0xff;
+
+            let ret = libc::setsockopt(
+                fd,
+                libc::SOL_SOCKET,
+                libc::SO_MARK,
+                &mark as *const _ as *const _,
+                std::mem::size_of_val(&mark) as libc::socklen_t,
+            );
+
+            if ret != 0 {
+                let err = std::io::Error::last_os_error();
+                log::error!("set SO_MARK error: {}", err);
+                return Err(Box::new(err));
+            }
+        }
+
+        let future = socket.connect(addr);
+        let stream = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
+
+        let split = net::io::split_tcp_stream(stream);
 
         self.reader = Some(split.0);
         self.writer = Some(split.1);
