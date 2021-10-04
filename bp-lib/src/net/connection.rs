@@ -1,16 +1,11 @@
 use crate::{
-    event::Event,
-    net::address::Address,
-    net::inbound::{Inbound, InboundOptions, InboundSnapshot},
-    net::outbound::{Outbound, OutboundOptions, OutboundSnapshot},
-    protocol::{Direct, DynProtocol, Erp, Plain, SocksHttp},
-    Protocol, Result, ServiceType, SharedData,
+    event, net, net::inbound, net::outbound, net::socket, protocol, Result, ServiceType, SharedData, TransportProtocol,
 };
 use std::sync::Arc;
-use tokio::{net::TcpStream, sync::RwLock};
+use tokio::sync::RwLock;
 
 #[cfg(feature = "monitor")]
-use bytes::{BufMut, BytesMut};
+use bytes::BytesMut;
 
 #[cfg(feature = "monitor")]
 const MAX_CACHE_SIZE: usize = 1024;
@@ -23,36 +18,47 @@ struct MonitorCollectData {
 pub struct ConnectionOptions {
     pub id: usize,
     pub service_type: ServiceType,
-    pub protocol: Protocol,
+    pub protocol: TransportProtocol,
     pub key: String,
-    pub server_host: Option<String>,
-    pub server_port: Option<u16>,
+    pub local_addr: net::Address,
+    pub server_addr: Option<net::Address>,
     pub shared_data: Arc<RwLock<SharedData>>,
 }
 
 pub struct Connection {
     #[allow(dead_code)]
     id: usize,
-    inbound: Arc<RwLock<Inbound>>,
-    outbound: Arc<RwLock<Outbound>>,
-    proxy_address: Option<Address>,
+    inbound: Arc<RwLock<inbound::Inbound>>,
+    outbound: Arc<RwLock<outbound::Outbound>>,
+    proxy_address: Option<net::Address>,
     opts: ConnectionOptions,
+    closed: bool,
+
     #[cfg(feature = "monitor")]
     monitor_collect_data: MonitorCollectData,
-    closed: bool,
 }
 
 impl Connection {
-    pub fn new(socket: TcpStream, opts: ConnectionOptions) -> Self {
+    pub fn new(socket: socket::Socket, opts: ConnectionOptions) -> Self {
         let peer_address = socket.peer_addr().unwrap();
+        let socket_type = socket.socket_type();
 
         // create inbound
-        let inbound = Inbound::new(socket, InboundOptions::new(opts.service_type));
+        let inbound = inbound::Inbound::new(
+            socket,
+            inbound::InboundOptions {
+                service_type: opts.service_type,
+            },
+        );
 
         // create outbound
-        let outbound = Outbound::new(
+        let outbound = outbound::Outbound::new(
             peer_address,
-            OutboundOptions::new(opts.service_type, opts.server_host.clone(), opts.server_port),
+            outbound::OutboundOptions {
+                service_type: opts.service_type,
+                server_addr: opts.server_addr.clone(),
+                socket_type,
+            },
         );
 
         Connection {
@@ -76,28 +82,24 @@ impl Connection {
     pub async fn handle(&mut self) -> Result<()> {
         self.update_snapshot().await;
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Event>(32);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<event::Event>(32);
 
-        let protocol = if self.is_direct() {
-            Box::new(Direct::new())
-        } else {
-            self.init_protocol()
-        };
+        let trans_proto = self.create_transport_protocol();
 
         // [inbound] resolve proxy address
         let (in_proto, out_proto) = match self.opts.service_type {
             ServiceType::Client => {
-                let socks_http = Box::new(SocksHttp::new());
+                let socks_http = Box::new(protocol::SocksHttp::new(Some(self.opts.local_addr.clone())));
                 RwLock::write(&self.inbound)
                     .await
-                    .resolve_proxy_address(socks_http, protocol, tx.clone())
+                    .resolve_proxy_address(socks_http, trans_proto, tx.clone())
                     .await?
             }
             ServiceType::Server => {
-                let direct = Box::new(Direct::new());
+                let direct = Box::new(protocol::Direct::new());
                 RwLock::write(&self.inbound)
                     .await
-                    .resolve_proxy_address(protocol, direct, tx.clone())
+                    .resolve_proxy_address(trans_proto, direct, tx.clone())
                     .await?
             }
         };
@@ -114,38 +116,44 @@ impl Connection {
         self.update_snapshot().await;
 
         while let Some(event) = rx.recv().await {
+            use event::Event;
+
             match event {
-                Event::EncodeDone(buf) => match self.opts.service_type {
-                    ServiceType::Client => RwLock::write(&self.outbound).await.write(buf).await?,
-                    ServiceType::Server => RwLock::write(&self.inbound).await.write(buf).await?,
-                },
-                Event::DecodeDone(buf) => {
-                    // store last decoded data, for monitoring
-                    #[cfg(feature = "monitor")]
-                    {
-                        self.monitor_collect_data.last_decoded_data.clear();
-                        self.monitor_collect_data
-                            .last_decoded_data
-                            .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
-                    }
-                    match self.opts.service_type {
-                        ServiceType::Client => RwLock::write(&self.inbound).await.write(buf).await?,
-                        ServiceType::Server => RwLock::write(&self.outbound).await.write(buf).await?,
-                    }
+                Event::ClientEncodeDone(buf) => {
+                    RwLock::write(&self.outbound).await.send(buf).await?;
+                }
+                Event::ServerEncodeDone(buf) => {
+                    RwLock::write(&self.inbound).await.send(buf).await?;
+                }
+                Event::ClientDecodeDone(buf) => {
+                    // TODO: store last decoded data, for monitoring
+                    // #[cfg(feature = "monitor")]
+                    // {
+                    //     self.monitor_collect_data.last_decoded_data.clear();
+                    //     self.monitor_collect_data
+                    //         .last_decoded_data
+                    //         .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
+                    // }
+                    RwLock::write(&self.inbound).await.send(buf).await?;
+                }
+                Event::ServerDecodeDone(buf) => {
+                    RwLock::write(&self.outbound).await.send(buf).await?;
                 }
                 Event::InboundError(_) => {
+                    // close self
+                    RwLock::write(&self.inbound).await.close().await?;
+                    // close outbound as well
                     RwLock::write(&self.outbound).await.close().await?;
-                    if RwLock::read(&self.inbound).await.is_closed() {
-                        rx.close();
-                        break;
-                    }
+
+                    break;
                 }
                 Event::OutboundError(_) => {
+                    // close self
+                    RwLock::write(&self.outbound).await.close().await?;
+                    // close inbound as well
                     RwLock::write(&self.inbound).await.close().await?;
-                    if RwLock::read(&self.inbound).await.is_closed() {
-                        rx.close();
-                        break;
-                    }
+
+                    break;
                 }
             }
         }
@@ -157,10 +165,12 @@ impl Connection {
     }
 
     pub async fn force_close(&mut self) -> Result<()> {
-        self.inbound.write().await.close().await?;
-        self.outbound.write().await.close().await?;
+        RwLock::write(&self.inbound).await.close().await?;
+        RwLock::write(&self.outbound).await.close().await?;
+
         self.closed = true;
         self.update_snapshot().await;
+
         Ok(())
     }
 
@@ -176,17 +186,16 @@ impl Connection {
         shared_data.conns.insert(self.id, snapshot);
     }
 
-    fn is_direct(&self) -> bool {
-        match self.opts.service_type {
-            ServiceType::Client => self.opts.server_host.is_none() || self.opts.server_port.is_none(),
-            _ => false,
-        }
-    }
-
-    fn init_protocol(&self) -> DynProtocol {
-        match self.opts.protocol {
-            Protocol::Plain => Box::new(Plain::new()),
-            Protocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone(), self.opts.service_type)),
+    fn create_transport_protocol(&self) -> protocol::DynProtocol {
+        if self.opts.service_type.is_client() && self.opts.server_addr.is_none() {
+            Box::new(protocol::Direct::new())
+        } else {
+            match self.opts.protocol {
+                TransportProtocol::Plain => Box::new(protocol::Plain::new()),
+                TransportProtocol::EncryptRandomPadding => {
+                    Box::new(protocol::Erp::new(self.opts.key.clone(), self.opts.service_type))
+                }
+            }
         }
     }
 }
@@ -195,9 +204,9 @@ impl Connection {
 pub struct ConnectionSnapshot {
     id: usize,
     closed: bool,
-    proxy_address: Option<Address>,
-    inbound_snapshot: InboundSnapshot,
-    outbound_snapshot: OutboundSnapshot,
+    proxy_address: Option<net::Address>,
+    inbound_snapshot: inbound::InboundSnapshot,
+    outbound_snapshot: outbound::OutboundSnapshot,
 }
 
 impl ConnectionSnapshot {

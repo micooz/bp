@@ -2,7 +2,7 @@ use crate::{
     event::EventSender,
     net::{
         address::{Address, Host},
-        io::{TcpStreamReader, TcpStreamWriter},
+        socket,
     },
     protocol::Protocol,
     Result,
@@ -49,11 +49,13 @@ impl Protocol for Http {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(
-        &mut self,
-        reader: &mut TcpStreamReader,
-        writer: &mut TcpStreamWriter,
-    ) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+        let reader = socket.tcp_reader();
+        let mut reader = reader.lock().await;
+
+        let writer = socket.tcp_writer();
+        let mut writer = writer.lock().await;
+
         let mut buf = BytesMut::with_capacity(1024);
         loop {
             reader.read_into(&mut buf).await?;
@@ -92,19 +94,19 @@ impl Protocol for Http {
         }
     }
 
-    async fn client_encode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_encode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 }

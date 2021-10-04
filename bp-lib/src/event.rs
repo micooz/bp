@@ -6,8 +6,10 @@ pub type EventSender = Sender<Event>;
 
 #[derive(Debug)]
 pub enum Event {
-    EncodeDone(Bytes),
-    DecodeDone(Bytes),
+    ClientEncodeDone(Bytes),
+    ServerEncodeDone(Bytes),
+    ClientDecodeDone(Bytes),
+    ServerDecodeDone(Bytes),
     InboundError(Error),
     OutboundError(Error),
 }

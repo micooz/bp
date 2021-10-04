@@ -1,9 +1,6 @@
 use crate::{
     event::EventSender,
-    net::{
-        address::Address,
-        io::{TcpStreamReader, TcpStreamWriter},
-    },
+    net::{address::Address, socket},
     protocol::Protocol,
     utils, Result,
 };
@@ -17,13 +14,13 @@ const METHOD_NO_AUTH: u8 = 0x00;
 // const METHOD_USERNAME_PASSWORD: u8 = 0x02;
 // const METHOD_NOT_ACCEPTABLE: u8 = 0xff;
 
-const REQUEST_COMMAND_CONNECT: u8 = 0x01;
-// const REQUEST_COMMAND_BIND: u8 = 0x02;
+// const REQUEST_COMMAND_CONNECT: u8 = 0x01;
+const REQUEST_COMMAND_BIND: u8 = 0x02;
 // const REQUEST_COMMAND_UDP: u8 = 0x03;
 
-const ATYP_V4: u8 = 0x01;
-// const ATYP_DOMAIN: u8 = 0x03;
-// const ATYP_V6: u8 = 0x04;
+pub const ATYP_V4: u8 = 0x01;
+pub const ATYP_DOMAIN: u8 = 0x03;
+pub const ATYP_V6: u8 = 0x04;
 
 // const REPLY_GRANTED: u8 = 0x5a;
 const REPLY_SUCCEEDED: u8 = 0x00;
@@ -39,13 +36,15 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 
 pub struct Socks {
     // header_sent: bool,
+    bind_addr: Option<Address>,
     proxy_address: Option<Address>,
 }
 
 impl Socks {
-    pub fn new() -> Self {
+    pub fn new(bind_addr: Option<Address>) -> Self {
         Self {
             // header_sent: false,
+            bind_addr,
             proxy_address: None,
         }
     }
@@ -54,6 +53,7 @@ impl Socks {
 impl Clone for Socks {
     fn clone(&self) -> Self {
         Self {
+            bind_addr: self.bind_addr.clone(),
             proxy_address: self.proxy_address.clone(),
         }
     }
@@ -73,11 +73,26 @@ impl Protocol for Socks {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(
-        &mut self,
-        reader: &mut TcpStreamReader,
-        writer: &mut TcpStreamWriter,
-    ) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+        if socket.is_udp() {
+            // Socks5 UDP Request/Response
+            // +----+------+------+----------+----------+----------+
+            // |RSV | FRAG | ATYP | DST.ADDR | DST.PORT |   DATA   |
+            // +----+------+------+----------+----------+----------+
+            // | 2  |  1   |  1   | Variable |    2     | Variable |
+            // +----+------+------+----------+----------+----------+
+            let packet = socket.udp_packet().unwrap();
+            let buf = packet.slice(3..);
+
+            return Address::from_bytes(buf);
+        }
+
+        let reader = socket.tcp_reader();
+        let mut reader = reader.lock().await;
+
+        let writer = socket.tcp_writer();
+        let mut writer = writer.lock().await;
+
         // 1. Parse Socks5 Identifier Message
 
         // Socks5 Identifier Message
@@ -148,20 +163,16 @@ impl Protocol for Socks {
             return Err(format!("VER should be {:#04x} but got {:#04x}", SOCKS_VERSION_V5, buf[0]).into());
         }
 
-        // TODO: only support REQUEST_COMMAND_CONNECT
-        if buf[1] != REQUEST_COMMAND_CONNECT {
-            return Err(format!(
-                "CMD only support {:#04x} but got {:#04x}",
-                REQUEST_COMMAND_CONNECT, buf[1]
-            )
-            .into());
+        // TODO: add support for REQUEST_COMMAND_BIND
+        if buf[1] == REQUEST_COMMAND_BIND {
+            return Err(format!("CMD does not support {:#04x}", REQUEST_COMMAND_BIND).into());
         }
 
         if buf[2] != NOOP {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = Address::from_reader(reader).await?;
+        let addr = Address::from_reader(&mut reader).await?;
 
         // 4. Reply Socks5 Reply Message
 
@@ -171,25 +182,26 @@ impl Protocol for Socks {
         // +----+-----+-------+------+----------+----------+
         // | 1  |  1  | X'00' |  1   | Variable |    2     |
         // +----+-----+-------+------+----------+----------+
-        writer
-            .write(&[
-                SOCKS_VERSION_V5,
-                REPLY_SUCCEEDED,
-                NOOP,
-                ATYP_V4,
-                NOOP,
-                NOOP,
-                NOOP,
-                NOOP,
-                NOOP,
-                NOOP,
-            ])
-            .await?;
+
+        let mut reply_buf = vec![SOCKS_VERSION_V5, REPLY_SUCCEEDED, NOOP];
+
+        match &self.bind_addr {
+            Some(addr) => {
+                let mut addr_buf = addr.as_bytes().to_vec();
+                reply_buf.append(&mut addr_buf);
+            }
+            None => {
+                let mut addr_buf = [ATYP_V4, NOOP, NOOP, NOOP, NOOP, NOOP, NOOP].to_vec();
+                reply_buf.append(&mut addr_buf);
+            }
+        }
+
+        writer.write(reply_buf.as_slice()).await?;
 
         Ok((addr, None))
     }
 
-    async fn client_encode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
         // let mut frame = BytesMut::new();
 
@@ -207,15 +219,15 @@ impl Protocol for Socks {
         // Ok(())
     }
 
-    async fn server_encode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _reader: &mut TcpStreamReader, _tx: EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 }

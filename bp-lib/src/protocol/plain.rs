@@ -1,9 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{
-        address::Address,
-        io::{TcpStreamReader, TcpStreamWriter},
-    },
+    net::{address::Address, socket},
     protocol::Protocol,
     Result,
 };
@@ -55,16 +52,15 @@ impl Protocol for Plain {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(
-        &mut self,
-        reader: &mut TcpStreamReader,
-        _writer: &mut TcpStreamWriter,
-    ) -> Result<(Address, Option<Bytes>)> {
-        let header = Address::from_reader(reader).await?;
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+        let reader = socket.tcp_reader();
+        let mut reader = reader.lock().await;
+
+        let header = Address::from_reader(&mut reader).await?;
         Ok((header, None))
     }
 
-    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
         let mut frame = BytesMut::new();
 
         if !self.header_sent {
@@ -73,27 +69,29 @@ impl Protocol for Plain {
             self.header_sent = true;
         }
 
-        let buf = reader.read_buf(1024).await?;
+        let buf = socket.read_buf(1024).await?;
         frame.put(buf);
 
-        tx.send(Event::EncodeDone(frame.freeze())).await?;
+        tx.send(Event::ClientEncodeDone(frame.freeze())).await?;
 
         Ok(())
     }
 
-    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
-        tx.send(Event::EncodeDone(buf)).await?;
+    async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ServerEncodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
-        tx.send(Event::DecodeDone(buf)).await?;
+    async fn client_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ClientDecodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        self.client_decode(reader, tx).await
+    async fn server_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ServerDecodeDone(buf)).await?;
+        Ok(())
     }
 }

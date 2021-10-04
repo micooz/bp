@@ -2,14 +2,13 @@ use crate::{
     cmd::{CommandType, MonitorCommand},
     context::Context,
 };
-use bp_lib::net::io::split_tcp_stream;
+use bp_lib::net::socket;
 use std::convert::TryFrom;
-use tokio::{net::TcpStream, sync::mpsc::Sender};
+use tokio::sync::mpsc::Sender;
 
-pub fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
+pub fn handle_conn(socket: socket::Socket, tx: Sender<MonitorCommand>) {
     tokio::spawn(async move {
         let addr = socket.peer_addr().unwrap();
-        let (reader, writer) = split_tcp_stream(socket);
 
         log::info!("[{}] connected", addr);
 
@@ -19,13 +18,14 @@ pub fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
             cmd_type: CommandType::Help,
             ctx: Context {
                 peer_addr: addr,
-                writer: writer.clone(),
+                writer: socket.tcp_writer(),
             },
         })
         .await
         .unwrap();
 
         loop {
+            let reader = socket.tcp_reader();
             let mut reader = reader.lock().await;
             let res = reader.read_buf(32).await;
 
@@ -36,7 +36,7 @@ pub fn handle_conn(socket: TcpStream, tx: Sender<MonitorCommand>) {
 
             let ctx = Context {
                 peer_addr: addr,
-                writer: writer.clone(),
+                writer: socket.tcp_writer(),
             };
 
             let buf = res.unwrap();

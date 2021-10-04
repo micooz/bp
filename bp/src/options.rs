@@ -1,4 +1,4 @@
-use bp_lib::{Protocol, ServiceType};
+use bp_lib::{TransportProtocol, ServiceType};
 use clap::{crate_version, Clap};
 
 /// The crate author
@@ -38,7 +38,7 @@ pub struct Options {
     /// protocol used by transport layer between client and server,
     /// "plain" or "erp" are supported.
     #[clap(long, default_value = "erp")]
-    pub protocol: Protocol,
+    pub protocol: TransportProtocol,
 }
 
 impl Options {

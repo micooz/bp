@@ -1,9 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{
-        address::Address,
-        io::{TcpStreamReader, TcpStreamWriter},
-    },
+    net::{address::Address, socket},
     protocol::Protocol,
     utils, Result, ServiceType,
 };
@@ -207,22 +204,22 @@ impl Erp {
         Ok(Bytes::from(enc_chunks.concat()))
     }
 
-    async fn decode(&mut self, reader: &mut TcpStreamReader) -> Result<Bytes> {
+    async fn decode(&mut self, socket: &socket::Socket) -> Result<Bytes> {
         // PaddingLen
-        let enc_pad_len = reader.read_exact(1 + TAG_SIZE).await?;
+        let enc_pad_len = socket.read_exact(1 + TAG_SIZE).await?;
         let pad_len = self.decrypt(enc_pad_len)?;
         let pad_len = u8::from_be_bytes([pad_len[0]]);
 
         // Padding
-        let _ = reader.read_exact(pad_len as usize).await?;
+        let _ = socket.read_exact(pad_len as usize).await?;
 
         // ChunkLen
-        let enc_chunk_len = reader.read_exact(2 + TAG_SIZE).await?;
+        let enc_chunk_len = socket.read_exact(2 + TAG_SIZE).await?;
         let chunk_len = self.decrypt(enc_chunk_len)?;
         let chunk_len = u16::from_be_bytes([chunk_len[0], chunk_len[1]]);
 
         // Chunk
-        let enc_chunk = reader.read_exact(chunk_len as usize + TAG_SIZE).await?;
+        let enc_chunk = socket.read_exact(chunk_len as usize + TAG_SIZE).await?;
         self.decrypt(enc_chunk)
     }
 }
@@ -255,20 +252,19 @@ impl Protocol for Erp {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(
-        &mut self,
-        reader: &mut TcpStreamReader,
-        _writer: &mut TcpStreamWriter,
-    ) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+        let reader = socket.tcp_reader();
+        let mut reader = reader.lock().await;
+
         let salt = reader.read_exact(SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
-        let chunk = self.decode(reader).await?;
+        let chunk = self.decode(socket).await?;
         Address::from_bytes(chunk)
     }
 
-    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
+    async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
         let mut data = BytesMut::with_capacity(buf.len() + 200);
 
         // attach header
@@ -281,7 +277,7 @@ impl Protocol for Erp {
         let data = self.encode(data.freeze())?;
 
         if self.header_sent {
-            tx.send(Event::EncodeDone(data)).await?;
+            tx.send(Event::ClientEncodeDone(data)).await?;
             Ok(())
         } else {
             let mut buf = BytesMut::with_capacity(SALT_SIZE + data.len());
@@ -291,26 +287,29 @@ impl Protocol for Erp {
 
             self.header_sent = true;
 
-            tx.send(Event::EncodeDone(buf.freeze())).await?;
+            tx.send(Event::ClientEncodeDone(buf.freeze())).await?;
             Ok(())
         }
     }
 
-    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
+    async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
         let data = self.encode(buf)?;
-        tx.send(Event::EncodeDone(data)).await?;
+        tx.send(Event::ServerEncodeDone(data)).await?;
         Ok(())
     }
 
-    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
         loop {
-            let chunk = self.decode(reader).await?;
-            tx.send(Event::DecodeDone(chunk)).await?;
+            let chunk = self.decode(socket).await?;
+            tx.send(Event::ClientDecodeDone(chunk)).await?;
         }
     }
 
-    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        self.client_decode(reader, tx).await
+    async fn server_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        loop {
+            let chunk = self.decode(socket).await?;
+            tx.send(Event::ServerDecodeDone(chunk)).await?;
+        }
     }
 }

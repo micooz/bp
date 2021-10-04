@@ -1,9 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::{
-        address::Address,
-        io::{TcpStreamReader, TcpStreamWriter},
-    },
+    net::{address::Address, socket},
     protocol::Protocol,
     Result,
 };
@@ -32,31 +29,31 @@ impl Protocol for Direct {
         "direct".into()
     }
 
-    async fn resolve_proxy_address(
-        &mut self,
-        _reader: &mut TcpStreamReader,
-        _writer: &mut TcpStreamWriter,
-    ) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, _socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
         unimplemented!("direct protocol cannot be used on inbound")
     }
 
-    async fn client_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
-        tx.send(Event::EncodeDone(buf)).await?;
+    async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ClientEncodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn server_encode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        self.client_encode(reader, tx).await
-    }
-
-    async fn client_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        let buf = reader.read_buf(RECV_BUFFER_SIZE).await?;
-        tx.send(Event::DecodeDone(buf)).await?;
+    async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ServerEncodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn server_decode(&mut self, reader: &mut TcpStreamReader, tx: EventSender) -> Result<()> {
-        self.client_decode(reader, tx).await
+    async fn client_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ClientDecodeDone(buf)).await?;
+        Ok(())
+    }
+
+    async fn server_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        tx.send(Event::ServerDecodeDone(buf)).await?;
+        Ok(())
     }
 }

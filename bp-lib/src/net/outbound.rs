@@ -1,55 +1,25 @@
-use crate::{
-    config::TCP_CONNECT_TIMEOUT_SECONDS,
-    event::{Event, EventSender},
-    net::{
-        self,
-        address::Address,
-        io::{TcpStreamReader, TcpStreamWriter},
-    },
-    protocol::DynProtocol,
-    Result, ServiceType,
-};
+use crate::{config, event, net, net::socket, protocol, Result, ServiceType};
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
-use tokio::{
-    net::TcpSocket,
-    sync::Mutex,
-    time::{timeout, Duration},
-};
+use tokio::{net::TcpSocket, time};
 
 pub struct OutboundOptions {
-    service_type: ServiceType,
-    server_host: Option<String>,
-    server_port: Option<u16>,
-}
-
-impl OutboundOptions {
-    pub fn new(service_type: ServiceType, server_host: Option<String>, server_port: Option<u16>) -> Self {
-        Self {
-            service_type,
-            server_host,
-            server_port,
-        }
-    }
+    pub service_type: ServiceType,
+    pub server_addr: Option<net::Address>,
+    pub socket_type: socket::SocketType,
 }
 
 pub struct Outbound {
     opts: OutboundOptions,
 
-    /// The read half of current stream
-    reader: Option<Arc<Mutex<TcpStreamReader>>>,
+    socket: Option<Arc<socket::Socket>>,
 
-    /// The write half of current stream
-    writer: Option<Arc<Mutex<TcpStreamWriter>>>,
-
-    /// The peer address
     peer_address: SocketAddr,
 
-    remote_addr: Option<Address>,
+    remote_addr: Option<net::Address>,
 
     protocol_name: Option<String>,
 
-    /// Whether the bound is closed
     is_closed: bool,
 }
 
@@ -57,8 +27,7 @@ impl Outbound {
     pub fn new(peer_address: SocketAddr, opts: OutboundOptions) -> Self {
         Self {
             opts,
-            reader: None,
-            writer: None,
+            socket: None,
             peer_address,
             remote_addr: None,
             protocol_name: None,
@@ -69,50 +38,94 @@ impl Outbound {
     // apply transport protocol then make connection to remote
     pub async fn use_protocol(
         &mut self,
-        mut out_proto: DynProtocol,
-        mut in_proto: DynProtocol,
-        tx: EventSender,
+        mut out_proto: protocol::DynProtocol,
+        mut in_proto: protocol::DynProtocol,
+        tx: event::EventSender,
     ) -> Result<()> {
-        let out_proto_name = out_proto.get_name();
-        self.protocol_name = Some(out_proto_name.clone());
+        let service_type = self.opts.service_type;
+        let socket_type = self.opts.socket_type;
+        let peer_address = self.peer_address;
 
-        log::info!("[{}] use [{}] protocol", self.peer_address, out_proto_name);
+        let protocol_name = out_proto.get_name();
+        self.protocol_name = Some(protocol_name.clone());
+
+        log::info!(
+            "[{}] [{}] use [{}] protocol",
+            self.peer_address,
+            socket_type,
+            protocol_name
+        );
 
         let remote_addr = self.get_remote_addr(&in_proto);
-
         self.remote_addr = Some(remote_addr.clone());
 
-        log::info!("[{}] connecting to {}...", self.peer_address, remote_addr,);
+        log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr,);
 
-        // dns resolve
-        let ip_list = remote_addr.dns_resolve().await;
-        log::info!("[{}] resolved {} to {:?}", self.peer_address, remote_addr, ip_list);
+        // resolve target ip address
+        let remote_ip_addr = if !remote_addr.is_ip() {
+            // dns resolve
+            let ip_list = remote_addr.dns_resolve().await;
 
-        self.connect(ip_list[0]).await.map_err(|err| {
+            log::info!(
+                "[{}] [{}] resolved {} to {:?}",
+                peer_address,
+                socket_type,
+                remote_addr,
+                ip_list
+            );
+
+            ip_list[0]
+        } else {
+            remote_addr.as_socket_addr()
+        };
+
+        // make connection
+        let socket = self.connect(remote_ip_addr).await.map_err(|err| {
             format!(
-                "[{}] connect to {} failed due to {}",
-                self.peer_address, remote_addr, err
+                "[{}] [{}] connect to {} failed due to {}",
+                peer_address, socket_type, remote_addr, err
             )
         })?;
 
-        log::info!("[{}] connected to {}", self.peer_address, remote_addr,);
+        self.socket = Some(socket.clone());
 
-        log::info!("[{}] [{}] start receiving data...", self.peer_address, out_proto_name);
+        log::info!("[{}] [{}] connected to {}", peer_address, socket_type, remote_addr);
 
-        let reader = self.reader.as_ref().unwrap().clone();
-        let service_type = self.opts.service_type;
+        log::info!(
+            "[{}] [{}] [{}] start relaying data...",
+            peer_address,
+            socket_type,
+            protocol_name
+        );
 
+        // start receiving data from outbound
         tokio::spawn(async move {
-            let mut reader = reader.lock().await;
             loop {
-                let res = match service_type {
-                    ServiceType::Client => out_proto.client_decode(&mut reader, tx.clone()).await,
-                    ServiceType::Server => in_proto.server_encode(&mut reader, tx.clone()).await,
+                let future = match service_type {
+                    ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
+                    ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
                 };
 
-                if let Err(err) = res {
-                    let _ = tx.send(Event::OutboundError(err)).await;
-                    break;
+                let res = time::timeout(time::Duration::from_secs(config::OUTBOUND_RECV_TIMEOUT_SECONDS), future).await;
+
+                match res {
+                    Ok(res) => {
+                        if let Err(err) = res {
+                            let _ = tx.send(event::Event::OutboundError(err)).await;
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        log::warn!(
+                            "[{}] [{}] [{}] no data received from outbound for {} seconds",
+                            peer_address,
+                            socket_type,
+                            protocol_name,
+                            config::OUTBOUND_RECV_TIMEOUT_SECONDS
+                        );
+                        let _ = tx.send(event::Event::OutboundError(Box::new(err))).await;
+                        break;
+                    }
                 }
             }
         });
@@ -121,26 +134,15 @@ impl Outbound {
     }
 
     /// send data to remote
-    pub async fn write(&mut self, buf: Bytes) -> Result<()> {
-        let mut writer = self.writer.as_ref().unwrap().lock().await;
-
-        writer.write_all(&buf).await?;
-        writer.flush().await?;
-
-        Ok(())
+    pub async fn send(&self, buf: Bytes) -> Result<()> {
+        self.socket.as_ref().unwrap().send(&buf).await
     }
 
     /// close the bound
-    pub async fn close(&mut self) -> tokio::io::Result<()> {
-        if let Some(writer) = &self.writer {
-            let mut writer = writer.lock().await;
-
-            // only close the write half
-            writer.shutdown().await?;
-
+    pub async fn close(&mut self) -> Result<()> {
+        if let Some(socket) = self.socket.as_ref() {
+            socket.close().await?;
             self.is_closed = true;
-
-            log::debug!("[{}] closed", self.peer_address);
         }
 
         Ok(())
@@ -157,56 +159,66 @@ impl Outbound {
         }
     }
 
-    fn get_remote_addr(&self, in_proto: &DynProtocol) -> Address {
-        if self.opts.service_type.is_server() || self.opts.server_host.is_none() || self.opts.server_port.is_none() {
+    fn get_remote_addr(&self, in_proto: &protocol::DynProtocol) -> net::Address {
+        if self.opts.service_type.is_server() || self.opts.server_addr.is_none() {
             in_proto.get_proxy_address().unwrap()
         } else {
-            format!(
-                "{}:{}",
-                self.opts.server_host.as_ref().unwrap(),
-                self.opts.server_port.unwrap()
-            )
-            .parse()
-            .unwrap()
+            self.opts.server_addr.as_ref().unwrap().clone()
         }
     }
 
-    // connect to addr then create self.reader/self.writer
-    async fn connect(&mut self, addr: SocketAddr) -> Result<()> {
-        let socket = match addr {
-            SocketAddr::V4(..) => TcpSocket::new_v4()?,
-            SocketAddr::V6(..) => TcpSocket::new_v6()?,
+    async fn connect(&self, addr: SocketAddr) -> Result<Arc<socket::Socket>> {
+        let socket = match self.opts.socket_type {
+            socket::SocketType::Tcp => {
+                #[cfg(target_os = "linux")]
+                use std::os::unix::io::AsRawFd;
+
+                let socket = match addr {
+                    SocketAddr::V4(..) => TcpSocket::new_v4()?,
+                    SocketAddr::V6(..) => TcpSocket::new_v6()?,
+                };
+
+                #[cfg(target_os = "linux")]
+                if let Err(err) = self.mark_socket(socket.as_raw_fd(), 0xff) {
+                    log::warn!("set SO_MARK error due to: {}", err);
+                }
+
+                let future = socket.connect(addr);
+                let stream =
+                    time::timeout(time::Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
+
+                Arc::new(socket::Socket::new_tcp(stream))
+            }
+            socket::SocketType::Udp => {
+                let socket = socket::UdpSocketWrapper::bind_random_port(addr).await?;
+
+                // TODO: self.mark_socket(socket.as_raw_fd());
+
+                Arc::new(socket::Socket::new_udp(socket))
+            }
         };
 
-        #[cfg(target_os = "linux")]
-        unsafe {
-            use std::os::unix::io::AsRawFd;
+        Ok(socket)
+    }
 
-            let fd = socket.as_raw_fd();
-            let mark: libc::c_uint = 0xff;
+    #[cfg(target_os = "linux")]
+    fn mark_socket(&self, fd: i32, mark: u8) -> Result<()> {
+        let mark: libc::c_uint = mark.into();
 
-            let ret = libc::setsockopt(
+        let ret = unsafe {
+            libc::setsockopt(
                 fd,
                 libc::SOL_SOCKET,
                 libc::SO_MARK,
                 &mark as *const _ as *const _,
                 std::mem::size_of_val(&mark) as libc::socklen_t,
-            );
+            )
+        };
 
-            if ret != 0 {
-                let err = std::io::Error::last_os_error();
-                log::error!("set SO_MARK error: {}", err);
-                return Err(Box::new(err));
-            }
+        if ret != 0 {
+            let err = std::io::Error::last_os_error();
+            return Err(Box::new(err));
         }
-
-        let future = socket.connect(addr);
-        let stream = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
-
-        let split = net::io::split_tcp_stream(stream);
-
-        self.reader = Some(split.0);
-        self.writer = Some(split.1);
 
         Ok(())
     }
@@ -214,6 +226,6 @@ impl Outbound {
 
 #[derive(Debug)]
 pub struct OutboundSnapshot {
-    pub remote_addr: Option<Address>,
+    pub remote_addr: Option<net::Address>,
     pub protocol_name: Option<String>,
 }

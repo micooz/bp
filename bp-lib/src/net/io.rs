@@ -62,8 +62,8 @@ impl TcpStreamReader {
         Ok(final_buf.into())
     }
 
-    pub fn cache(&mut self, buf: &Bytes) {
-        self.cache.put(buf.clone());
+    pub fn cache(&mut self, buf: bytes::Bytes) {
+        self.cache.put(buf);
     }
 }
 

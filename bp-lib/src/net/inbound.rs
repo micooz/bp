@@ -1,45 +1,21 @@
-use crate::{
-    config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS,
-    event::{Event, EventSender},
-    net::address::Address,
-    net::{
-        self,
-        io::{TcpStreamReader, TcpStreamWriter},
-    },
-    protocol::DynProtocol,
-    Result, ServiceType,
-};
-use bytes::Bytes;
-use std::{net::SocketAddr, sync::Arc};
-use tokio::{
-    net::TcpStream,
-    sync::Mutex,
-    time::{timeout, Duration},
-};
+use crate::{config, event, net, net::socket, protocol, Result, ServiceType};
+use bytes;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::time;
 
 pub struct InboundOptions {
-    service_type: ServiceType,
-}
-
-impl InboundOptions {
-    pub fn new(service_type: ServiceType) -> Self {
-        Self { service_type }
-    }
+    pub service_type: ServiceType,
 }
 
 pub struct Inbound {
     opts: InboundOptions,
 
-    /// The read half of current stream
-    reader: Arc<Mutex<TcpStreamReader>>,
+    socket: Arc<socket::Socket>,
 
-    /// The write half of current stream
-    writer: Arc<Mutex<TcpStreamWriter>>,
-
-    /// The peer address
     peer_address: SocketAddr,
 
-    proxy_address: Option<Address>,
+    proxy_address: Option<net::Address>,
 
     local_addr: SocketAddr,
 
@@ -50,30 +26,31 @@ pub struct Inbound {
 }
 
 impl Inbound {
-    pub fn new(socket: TcpStream, opts: InboundOptions) -> Self {
+    pub fn new(socket: socket::Socket, opts: InboundOptions) -> Self {
         let peer_address = socket.peer_addr().unwrap();
         let local_addr = socket.local_addr().unwrap();
 
         #[cfg(not(target_os = "linux"))]
-        let proxy_address: Option<Address> = None;
+        let proxy_address: Option<net::Address> = None;
 
         // TODO: get_original_destination_addr always return a value on linux
         #[cfg(target_os = "linux")]
         let proxy_address = {
             use crate::net::linux::get_original_destination_addr;
 
-            match get_original_destination_addr(&socket) {
-                Ok(addr) => Some(addr.into()),
-                Err(_) => None,
+            if socket.is_udp() {
+                None
+            } else {
+                match get_original_destination_addr(local_addr, socket.get_tcp_socket_fd()) {
+                    Ok(addr) => Some(addr.into()),
+                    Err(_) => None,
+                }
             }
         };
 
-        let split = net::io::split_tcp_stream(socket);
-
         Self {
             opts,
-            reader: split.0,
-            writer: split.1,
+            socket: Arc::new(socket),
             peer_address,
             proxy_address,
             local_addr,
@@ -85,10 +62,10 @@ impl Inbound {
     // parse incoming data to get proxy address
     pub async fn resolve_proxy_address(
         &mut self,
-        mut in_proto: DynProtocol,
-        mut out_proto: DynProtocol,
-        tx: EventSender,
-    ) -> Result<(DynProtocol, DynProtocol)> {
+        mut in_proto: protocol::DynProtocol,
+        mut out_proto: protocol::DynProtocol,
+        tx: event::EventSender,
+    ) -> Result<(protocol::DynProtocol, protocol::DynProtocol)> {
         self.protocol_name = Some(in_proto.get_name());
 
         let already_have_proxy_address_before_resolving = self.proxy_address.is_some();
@@ -96,8 +73,9 @@ impl Inbound {
         let (proxy_address, pending_buf) = match self.proxy_address.as_ref() {
             Some(addr) => {
                 log::info!(
-                    "[{}] obtained target address [{}] from REDIRECT",
+                    "[{}] [{}] obtained target address [{}] from REDIRECT",
                     self.peer_address,
+                    self.socket.socket_type(),
                     addr
                 );
 
@@ -105,24 +83,26 @@ impl Inbound {
             }
             None => {
                 log::info!(
-                    "[{}] use [{}] protocol to resolve target address",
+                    "[{}] [{}] use [{}] protocol to resolve target address",
                     self.peer_address,
+                    self.socket.socket_type(),
                     self.protocol_name.as_ref().unwrap()
                 );
 
-                let mut reader = self.reader.lock().await;
-                let mut writer = self.writer.lock().await;
-
-                let (addr, pending_buf) = timeout(
-                    Duration::from_secs(PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
-                    in_proto.resolve_proxy_address(&mut reader, &mut writer),
+                let (addr, pending_buf) = time::timeout(
+                    time::Duration::from_secs(config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
+                    in_proto.resolve_proxy_address(&self.socket),
                 )
                 .await?
-                .map_err(|err| format!("resolve proxy address failed due to {}", err))?;
+                .map_err(|err| format!("resolve proxy address failed due to: {}", err))?;
+
+                // set proxy_address
+                self.proxy_address = Some(addr.clone());
 
                 log::info!(
-                    "[{}] [{}] resolved target address {}",
+                    "[{}] [{}] [{}] resolved target address {}",
                     self.peer_address,
+                    self.socket.socket_type(),
                     self.protocol_name.as_ref().unwrap(),
                     self.proxy_address.as_ref().unwrap(),
                 );
@@ -131,81 +111,75 @@ impl Inbound {
             }
         };
 
-        // update proxy_address
-        self.proxy_address = Some(proxy_address.clone());
-
         in_proto.set_proxy_address(proxy_address.clone());
         out_proto.set_proxy_address(proxy_address);
 
         if already_have_proxy_address_before_resolving {
-            log::info!("[{}] start receiving data...", self.peer_address);
+            log::info!(
+                "[{}] [{}] start relaying data...",
+                self.peer_address,
+                self.socket.socket_type()
+            );
         } else {
             log::info!(
-                "[{}] [{}] start receiving data...",
+                "[{}] [{}] [{}] start relaying data...",
                 self.peer_address,
+                self.socket.socket_type(),
                 self.protocol_name.as_ref().unwrap()
             );
         }
 
         let ret = (in_proto.clone(), out_proto.clone());
 
-        let reader = self.reader.clone();
         let service_type = self.opts.service_type;
 
-        tokio::spawn(async move {
-            let mut reader = reader.lock().await;
+        // handle pending_buf
+        if let Some(buf) = pending_buf {
+            match service_type {
+                ServiceType::Client => {
+                    self.socket.cache(buf.clone()).await;
 
-            // handle pending_buf
-            if let Some(buf) = pending_buf {
-                match service_type {
-                    ServiceType::Client => {
-                        reader.cache(&buf);
-                        if let Err(err) = out_proto.client_encode(&mut reader, tx.clone()).await {
-                            let _ = tx.send(Event::InboundError(err)).await;
-                        }
-                    }
-                    ServiceType::Server => {
-                        let _ = tx.send(Event::DecodeDone(buf)).await;
+                    if let Err(err) = out_proto.client_encode(&self.socket, tx.clone()).await {
+                        let _ = tx.send(event::Event::InboundError(err)).await;
                     }
                 }
-            }
-
-            loop {
-                let res = match service_type {
-                    ServiceType::Client => out_proto.client_encode(&mut reader, tx.clone()).await,
-                    ServiceType::Server => in_proto.server_decode(&mut reader, tx.clone()).await,
-                };
-
-                if let Err(err) = res {
-                    let _ = tx.send(Event::InboundError(err)).await;
-                    break;
+                ServiceType::Server => {
+                    let _ = tx.send(event::Event::ServerDecodeDone(buf)).await;
                 }
             }
-        });
+        }
+
+        if self.socket.is_tcp() {
+            let socket = self.socket.clone();
+
+            // start receiving data from inbound
+            tokio::spawn(async move {
+                loop {
+                    let res = match service_type {
+                        ServiceType::Client => out_proto.client_encode(&socket, tx.clone()).await,
+                        ServiceType::Server => in_proto.server_decode(&socket, tx.clone()).await,
+                    };
+
+                    if let Err(err) = res {
+                        let _ = tx.send(event::Event::InboundError(err)).await;
+                        break;
+                    }
+                }
+            });
+        }
 
         Ok(ret)
     }
 
     /// send data to remote
-    pub async fn write(&mut self, buf: Bytes) -> Result<()> {
-        let mut writer = self.writer.lock().await;
-
-        writer.write_all(&buf).await?;
-        writer.flush().await?;
-
-        Ok(())
+    pub async fn send(&self, buf: bytes::Bytes) -> Result<()> {
+        self.socket.send(&buf).await
     }
 
     /// close the bound
-    pub async fn close(&mut self) -> tokio::io::Result<()> {
-        let mut writer = self.writer.lock().await;
-
-        // only close the write half
-        writer.shutdown().await?;
-
+    pub async fn close(&mut self) -> Result<()> {
+        self.socket.close().await?;
         self.is_closed = true;
-
-        log::debug!("[{}] closed", self.peer_address);
 
         Ok(())
     }

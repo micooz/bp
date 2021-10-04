@@ -71,6 +71,13 @@ impl Address {
         Self { host, port }
     }
 
+    pub fn is_ip(&self) -> bool {
+        match self.host {
+            Host::Ip(_) => true,
+            Host::Name(_) => false,
+        }
+    }
+
     pub fn as_string(&self) -> String {
         format!("{}:{}", self.host.to_string(), self.port)
     }
@@ -98,6 +105,10 @@ impl Address {
 
         buf.put_u16(self.port);
         buf.freeze()
+    }
+
+    pub fn as_socket_addr(&self) -> std::net::SocketAddr {
+        self.as_string().parse().unwrap()
     }
 
     pub async fn from_reader(reader: &mut TcpStreamReader) -> Result<Self> {

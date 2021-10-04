@@ -18,24 +18,28 @@ pub enum ServiceType {
 }
 
 impl ServiceType {
+    fn is_client(&self) -> bool {
+        matches!(self, ServiceType::Client)
+    }
+
     fn is_server(&self) -> bool {
         matches!(self, ServiceType::Server)
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum Protocol {
+pub enum TransportProtocol {
     Plain,
     EncryptRandomPadding,
 }
 
-impl FromStr for Protocol {
+impl FromStr for TransportProtocol {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "plain" => Ok(Protocol::Plain),
-            "erp" => Ok(Protocol::EncryptRandomPadding),
+            "plain" => Ok(Self::Plain),
+            "erp" => Ok(Self::EncryptRandomPadding),
             _ => Err(format!("{} is not supported, available protocols are: plain, erp", s)),
         }
     }
