@@ -32,8 +32,8 @@ pub struct Options {
     pub server_port: Option<u16>,
 
     /// symmetric encryption key
-    #[clap(short, long, default_value = "")]
-    pub key: String,
+    #[clap(short, long)]
+    pub key: Option<String>,
 
     /// protocol used by transport layer between client and server,
     /// "plain" or "erp" are supported.

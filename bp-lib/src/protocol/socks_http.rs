@@ -46,11 +46,8 @@ impl Protocol for SocksHttp {
 
     async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
         if socket.is_tcp() {
-            let reader = socket.tcp_reader();
-            let mut reader = reader.lock().await;
-
-            let buf = reader.read_exact(1).await?;
-            reader.cache(buf.clone());
+            let buf = socket.read_exact(1).await?;
+            socket.cache(buf.clone()).await;
 
             // TODO: improve this assertion
             if buf[0] == socks::SOCKS_VERSION_V5 {
@@ -62,7 +59,9 @@ impl Protocol for SocksHttp {
             }
         } else {
             // Socks UDP packet goes here
-            let packet = socket.udp_packet().unwrap();
+            let packet = socket.read_exact(4).await?;
+            socket.cache(packet.clone()).await;
+          
             let atyp = packet[3];
 
             // TODO: improve this assertion

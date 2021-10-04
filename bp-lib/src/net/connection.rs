@@ -19,7 +19,7 @@ pub struct ConnectionOptions {
     pub id: usize,
     pub service_type: ServiceType,
     pub protocol: TransportProtocol,
-    pub key: String,
+    pub key: Option<String>,
     pub local_addr: net::Address,
     pub server_addr: Option<net::Address>,
     pub shared_data: Arc<RwLock<SharedData>>,
@@ -192,9 +192,10 @@ impl Connection {
         } else {
             match self.opts.protocol {
                 TransportProtocol::Plain => Box::new(protocol::Plain::new()),
-                TransportProtocol::EncryptRandomPadding => {
-                    Box::new(protocol::Erp::new(self.opts.key.clone(), self.opts.service_type))
-                }
+                TransportProtocol::EncryptRandomPadding => Box::new(protocol::Erp::new(
+                    self.opts.key.clone().unwrap(),
+                    self.opts.service_type,
+                )),
             }
         }
     }

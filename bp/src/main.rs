@@ -36,8 +36,8 @@ async fn main() {
     }
 
     // check --key
-    if opts.server_host != None && opts.server_port != None {
-        log::error!("--server-host or --server-port not set, bp will relay directly.");
+    if opts.key.is_none() && ((opts.server_host != None && opts.server_port != None) || opts.server) {
+        log::error!("-k or --key must be set.");
         exit(ExitError::ArgumentsError.into());
     }
 

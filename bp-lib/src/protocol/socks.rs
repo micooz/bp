@@ -81,7 +81,7 @@ impl Protocol for Socks {
             // +----+------+------+----------+----------+----------+
             // | 2  |  1   |  1   | Variable |    2     | Variable |
             // +----+------+------+----------+----------+----------+
-            let packet = socket.udp_packet().unwrap();
+            let packet = socket.read_buf(1500).await?;
             let buf = packet.slice(3..);
 
             return Address::from_bytes(buf);

@@ -89,12 +89,23 @@ impl Inbound {
                     self.protocol_name.as_ref().unwrap()
                 );
 
+                let map_err = |err: String| {
+                    format!(
+                        "[{}] [{}] [{}] resolve proxy address failed due to: {}",
+                        self.peer_address,
+                        self.socket.socket_type(),
+                        self.protocol_name.as_ref().unwrap(),
+                        err
+                    )
+                };
+
                 let (addr, pending_buf) = time::timeout(
                     time::Duration::from_secs(config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
                     in_proto.resolve_proxy_address(&self.socket),
                 )
-                .await?
-                .map_err(|err| format!("resolve proxy address failed due to: {}", err))?;
+                .await
+                .map_err(|err| map_err(err.to_string()))?
+                .map_err(|err| map_err(err.to_string()))?;
 
                 // set proxy_address
                 self.proxy_address = Some(addr.clone());

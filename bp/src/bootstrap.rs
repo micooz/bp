@@ -84,7 +84,7 @@ fn start_main_service(
                     log::info!(
                         "[{}] received an udp packet: {} bytes",
                         addr,
-                        socket.udp_packet().unwrap().len()
+                        socket.udp_cache_size().await
                     );
                 }
 

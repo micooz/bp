@@ -66,11 +66,13 @@ where
         let mut buf = vec![0; 1500];
         let (len, addr) = socket.recv_from(&mut buf).await?;
 
-        if let Some(packet) = buf.get(0..len) {
-            let mut socket = socket::UdpSocketWrapper::new(socket.clone(), addr);
-            socket.set_packet(packet);
+        if let Some(buf) = buf.get(0..len) {
+            let socket = socket::UdpSocketWrapper::new(socket.clone(), addr);
+            let socket = socket::Socket::new_udp(socket);
 
-            let _res = sender.send(socket::Socket::new_udp(socket)).await;
+            socket.cache(bytes::Bytes::copy_from_slice(buf)).await;
+
+            let _res = sender.send(socket).await;
         }
     }
 }

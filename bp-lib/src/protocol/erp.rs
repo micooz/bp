@@ -253,10 +253,7 @@ impl Protocol for Erp {
     }
 
     async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
-        let reader = socket.tcp_reader();
-        let mut reader = reader.lock().await;
-
-        let salt = reader.read_exact(SALT_SIZE).await?;
+        let salt = socket.read_exact(SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
         let chunk = self.decode(socket).await?;

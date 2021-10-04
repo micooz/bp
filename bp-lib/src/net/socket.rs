@@ -2,8 +2,8 @@ use crate::net::io;
 use crate::Result;
 use bytes::BufMut;
 use std::fmt::Display;
-use std::sync::Arc;
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::sync::Arc;
 use tokio::net;
 use tokio::sync::Mutex;
 
@@ -44,7 +44,7 @@ impl Socket {
     pub fn new_tcp(stream: net::TcpStream) -> Self {
         let peer_addr = stream.peer_addr().unwrap();
         let local_addr = stream.local_addr().unwrap();
-        let tcp_socket_fd  = stream.as_raw_fd();
+        let tcp_socket_fd = stream.as_raw_fd();
 
         let split = io::split_tcp_stream(stream);
 
@@ -110,9 +110,19 @@ impl Socket {
         }
     }
 
-    pub fn udp_packet(&self) -> Option<bytes::Bytes> {
+    async fn udp_recv(&self) -> Result<bytes::Bytes> {
+        let mut buf_mut = self.udp_cache.as_ref().unwrap().lock().await;
+
+        if !buf_mut.is_empty() {
+            let buf = buf_mut.clone().freeze();
+            buf_mut.clear();
+            return Ok(buf);
+        }
+
         let socket = self.udp_socket_wrapper.as_ref().unwrap();
-        socket.packet.clone()
+        let buf = socket.recv().await?;
+
+        Ok(buf)
     }
 
     pub async fn cache(&self, buf: bytes::Bytes) {
@@ -121,9 +131,18 @@ impl Socket {
             let mut reader = reader.lock().await;
             reader.cache(buf);
         } else {
-            let mut cache = self.udp_cache.as_ref().unwrap().lock().await;
-            cache.put(buf);
+            let mut udp_cache = self.udp_cache.as_ref().unwrap().lock().await;
+            let prev = udp_cache.clone().freeze();
+
+            udp_cache.clear();
+            udp_cache.put(buf);
+            udp_cache.put(prev);
         }
+    }
+
+    pub async fn udp_cache_size(&self) -> usize {
+        let cache = self.udp_cache.as_ref().unwrap().lock().await;
+        cache.len()
     }
 
     pub async fn read_buf(&self, capacity: usize) -> Result<bytes::Bytes> {
@@ -133,25 +152,38 @@ impl Socket {
 
             reader.read_buf(capacity).await
         } else {
-            let mut cache = self.udp_cache.as_ref().unwrap().lock().await;
-
-            if !cache.is_empty() {
-                let buf = cache.clone().freeze();
-                cache.clear();
-                return Ok(buf);
-            }
-
-            let socket = self.udp_socket_wrapper.as_ref().unwrap();
-            let buf = socket.recv().await?;
-
-            Ok(buf)
+            self.udp_recv().await
         }
     }
 
     pub async fn read_exact(&self, len: usize) -> Result<bytes::Bytes> {
-        let reader = self.tcp_reader();
-        let mut reader = reader.lock().await;
-        reader.read_exact(len).await
+        if self.is_tcp() {
+            let reader = self.tcp_reader();
+            let mut reader = reader.lock().await;
+
+            reader.read_exact(len).await
+        } else {
+            let buf = self.udp_recv().await?;
+
+            if len > buf.len() {
+                return Err(format!(
+                    "read_exact error due to required len = {} is greater than udp packet size = {}",
+                    len,
+                    buf.len()
+                )
+                .into());
+            }
+
+            let ret_buf = buf.slice(0..len);
+
+            // cache rest buffer
+            if len < buf.len() {
+                let cache_buf = buf.slice(len..);
+                self.cache(cache_buf).await;
+            }
+
+            Ok(ret_buf)
+        }
     }
 
     pub async fn send(&self, buf: &[u8]) -> Result<()> {
@@ -186,7 +218,6 @@ impl Socket {
 pub struct UdpSocketWrapper {
     inner: Arc<net::UdpSocket>,
     peer_address: std::net::SocketAddr,
-    packet: Option<bytes::Bytes>,
 }
 
 impl UdpSocketWrapper {
@@ -194,7 +225,6 @@ impl UdpSocketWrapper {
         Self {
             inner: socket,
             peer_address: peer_addr,
-            packet: None,
         }
     }
 
@@ -213,7 +243,6 @@ impl UdpSocketWrapper {
                     return Ok(Self {
                         inner: Arc::new(socket),
                         peer_address: peer_addr,
-                        packet: None,
                     });
                 }
                 Err(_) => {
@@ -227,12 +256,9 @@ impl UdpSocketWrapper {
         }
     }
 
-    pub fn set_packet(&mut self, data: &[u8]) {
-        self.packet = Some(bytes::Bytes::copy_from_slice(data));
-    }
-
     pub async fn send(&self, buf: &[u8]) -> Result<()> {
         self.inner.send_to(buf, self.peer_address).await?;
+        log::info!("[{}] sent an udp packet: {} bytes", self.peer_address, buf.len());
         Ok(())
     }
 
@@ -241,6 +267,8 @@ impl UdpSocketWrapper {
         let (len, _addr) = self.inner.recv_from(&mut buf).await?;
 
         if let Some(packet) = buf.get(0..len) {
+            log::info!("[{}] received an udp packet: {} bytes", self.peer_address, len);
+
             Ok(bytes::Bytes::copy_from_slice(packet))
         } else {
             Err("error recv from remote".into())
