@@ -53,8 +53,7 @@ async fn bind_udp<A>(name: &'static str, addr: A, sender: mpsc::Sender<socket::S
 where
     A: net::ToSocketAddrs + Display,
 {
-    let socket = net::UdpSocket::bind(&addr).await?;
-    let socket = Arc::new(socket);
+    let socket = Arc::new(net::UdpSocket::bind(&addr).await?);
 
     log::info!(
         "[{}] service running at udp://{}, waiting for data packets...",
@@ -63,12 +62,13 @@ where
     );
 
     loop {
+        let socket = socket.clone();
+
         let mut buf = vec![0; 1500];
         let (len, addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(buf) = buf.get(0..len) {
-            let socket = socket::UdpSocketWrapper::new(socket.clone(), addr);
-            let socket = socket::Socket::new_udp(socket);
+            let socket = socket::Socket::new_udp(socket, addr);
 
             socket.cache(bytes::Bytes::copy_from_slice(buf)).await;
 

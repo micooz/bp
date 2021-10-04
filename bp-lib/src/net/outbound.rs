@@ -190,11 +190,11 @@ impl Outbound {
                 Arc::new(socket::Socket::new_tcp(stream))
             }
             socket::SocketType::Udp => {
-                let socket = socket::UdpSocketWrapper::bind_random_port(addr).await?;
+                let socket = socket::Socket::bind_udp_random_port(addr).await?;
 
                 // TODO: self.mark_socket(socket.as_raw_fd());
 
-                Arc::new(socket::Socket::new_udp(socket))
+                Arc::new(socket)
             }
         };
 

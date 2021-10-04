@@ -31,7 +31,7 @@ pub struct Socket {
 
     tcp_writer: Option<Arc<Mutex<io::TcpStreamWriter>>>,
 
-    udp_socket_wrapper: Option<UdpSocketWrapper>,
+    udp_socket: Option<Arc<net::UdpSocket>>,
 
     peer_addr: std::net::SocketAddr,
 
@@ -52,25 +52,49 @@ impl Socket {
             tcp_socket_fd: Some(tcp_socket_fd),
             tcp_reader: Some(split.0),
             tcp_writer: Some(split.1),
-            udp_socket_wrapper: None,
+            udp_socket: None,
             udp_cache: None,
             peer_addr,
             local_addr,
         }
     }
 
-    pub fn new_udp(socket: UdpSocketWrapper) -> Self {
-        let peer_addr = socket.peer_address;
-        let local_addr = socket.inner.local_addr().unwrap();
+    pub fn new_udp(socket: Arc<net::UdpSocket>, peer_addr: std::net::SocketAddr) -> Self {
+        let local_addr = socket.local_addr().unwrap();
 
         Self {
             tcp_socket_fd: None,
             tcp_reader: None,
             tcp_writer: None,
-            udp_socket_wrapper: Some(socket),
+            udp_socket: Some(socket),
             udp_cache: Some(Mutex::new(bytes::BytesMut::with_capacity(32))),
             peer_addr,
             local_addr,
+        }
+    }
+
+    pub async fn bind_udp_random_port(peer_addr: std::net::SocketAddr) -> Result<Self> {
+        use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
+
+        let mut max_retry_times = 10u8;
+        let mut rng = StdRng::from_rng(thread_rng()).unwrap();
+
+        loop {
+            let port: u32 = rng.gen_range(10000..65535);
+            let bind_addr = format!("0.0.0.0:{}", port);
+
+            match net::UdpSocket::bind(bind_addr).await {
+                Ok(socket) => {
+                    return Ok(Self::new_udp(Arc::new(socket), peer_addr));
+                }
+                Err(_) => {
+                    max_retry_times -= 1;
+
+                    if max_retry_times == 0 {
+                        return Err("udp socket random bind error, max retry times exceed".into());
+                    }
+                }
+            }
         }
     }
 
@@ -99,7 +123,7 @@ impl Socket {
     }
 
     pub fn is_udp(&self) -> bool {
-        self.udp_socket_wrapper.is_some()
+        self.udp_socket.is_some()
     }
 
     pub fn socket_type(&self) -> SocketType {
@@ -108,21 +132,6 @@ impl Socket {
         } else {
             SocketType::Udp
         }
-    }
-
-    async fn udp_recv(&self) -> Result<bytes::Bytes> {
-        let mut buf_mut = self.udp_cache.as_ref().unwrap().lock().await;
-
-        if !buf_mut.is_empty() {
-            let buf = buf_mut.clone().freeze();
-            buf_mut.clear();
-            return Ok(buf);
-        }
-
-        let socket = self.udp_socket_wrapper.as_ref().unwrap();
-        let buf = socket.recv().await?;
-
-        Ok(buf)
     }
 
     pub async fn cache(&self, buf: bytes::Bytes) {
@@ -194,8 +203,10 @@ impl Socket {
             writer.write_all(buf).await?;
             writer.flush().await?;
         } else {
-            let socket = self.udp_socket_wrapper.as_ref().unwrap();
-            socket.send(buf).await?;
+            let socket = self.udp_socket.as_ref().unwrap();
+
+            socket.send_to(buf, self.peer_addr).await?;
+            log::info!("[{}] sent an udp packet: {} bytes", self.peer_addr, buf.len());
         }
 
         Ok(())
@@ -212,62 +223,23 @@ impl Socket {
 
         Ok(())
     }
-}
 
-#[derive(Debug)]
-pub struct UdpSocketWrapper {
-    inner: Arc<net::UdpSocket>,
-    peer_address: std::net::SocketAddr,
-}
+    async fn udp_recv(&self) -> Result<bytes::Bytes> {
+        let mut buf_mut = self.udp_cache.as_ref().unwrap().lock().await;
 
-impl UdpSocketWrapper {
-    pub fn new(socket: Arc<net::UdpSocket>, peer_addr: std::net::SocketAddr) -> Self {
-        Self {
-            inner: socket,
-            peer_address: peer_addr,
+        if !buf_mut.is_empty() {
+            let buf = buf_mut.clone().freeze();
+            buf_mut.clear();
+            return Ok(buf);
         }
-    }
 
-    pub async fn bind_random_port(peer_addr: std::net::SocketAddr) -> Result<Self> {
-        use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
+        let socket = self.udp_socket.as_ref().unwrap();
 
-        let mut max_retry_times = 10u8;
-        let mut rng = StdRng::from_rng(thread_rng()).unwrap();
-
-        loop {
-            let port: u32 = rng.gen_range(10000..65535);
-            let bind_addr = format!("0.0.0.0:{}", port);
-
-            match net::UdpSocket::bind(bind_addr).await {
-                Ok(socket) => {
-                    return Ok(Self {
-                        inner: Arc::new(socket),
-                        peer_address: peer_addr,
-                    });
-                }
-                Err(_) => {
-                    max_retry_times -= 1;
-
-                    if max_retry_times == 0 {
-                        return Err("udp socket random bind error, max retry times exceed".into());
-                    }
-                }
-            }
-        }
-    }
-
-    pub async fn send(&self, buf: &[u8]) -> Result<()> {
-        self.inner.send_to(buf, self.peer_address).await?;
-        log::info!("[{}] sent an udp packet: {} bytes", self.peer_address, buf.len());
-        Ok(())
-    }
-
-    pub async fn recv(&self) -> Result<bytes::Bytes> {
         let mut buf = vec![0u8; 1500];
-        let (len, _addr) = self.inner.recv_from(&mut buf).await?;
+        let (len, _addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(packet) = buf.get(0..len) {
-            log::info!("[{}] received an udp packet: {} bytes", self.peer_address, len);
+            log::info!("[{}] received an udp packet: {} bytes", self.peer_addr, len);
 
             Ok(bytes::Bytes::copy_from_slice(packet))
         } else {
