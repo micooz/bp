@@ -1,11 +1,9 @@
 use crate::{
     event::EventSender,
-    net::{address::Address, socket},
-    protocol::Protocol,
-    utils, Result,
+    net::{self, socket},
+    protocol, utils, Result,
 };
 use async_trait::async_trait;
-use bytes::Bytes;
 
 const NOOP: u8 = 0x00;
 // const SOCKS_VERSION_V4: u8 = 0x04;
@@ -18,9 +16,9 @@ const METHOD_NO_AUTH: u8 = 0x00;
 const REQUEST_COMMAND_BIND: u8 = 0x02;
 // const REQUEST_COMMAND_UDP: u8 = 0x03;
 
-pub const ATYP_V4: u8 = 0x01;
-pub const ATYP_DOMAIN: u8 = 0x03;
-pub const ATYP_V6: u8 = 0x04;
+const ATYP_V4: u8 = 0x01;
+// const ATYP_DOMAIN: u8 = 0x03;
+// const ATYP_V6: u8 = 0x04;
 
 // const REPLY_GRANTED: u8 = 0x5a;
 const REPLY_SUCCEEDED: u8 = 0x00;
@@ -36,12 +34,12 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 
 pub struct Socks {
     // header_sent: bool,
-    bind_addr: Option<Address>,
-    proxy_address: Option<Address>,
+    bind_addr: Option<net::Address>,
+    proxy_address: Option<net::Address>,
 }
 
 impl Socks {
-    pub fn new(bind_addr: Option<Address>) -> Self {
+    pub fn new(bind_addr: Option<net::Address>) -> Self {
         Self {
             // header_sent: false,
             bind_addr,
@@ -60,20 +58,20 @@ impl Clone for Socks {
 }
 
 #[async_trait]
-impl Protocol for Socks {
+impl protocol::Protocol for Socks {
     fn get_name(&self) -> String {
         "socks".into()
     }
 
-    fn set_proxy_address(&mut self, addr: Address) {
+    fn set_proxy_address(&mut self, addr: net::Address) {
         self.proxy_address = Some(addr);
     }
 
-    fn get_proxy_address(&self) -> Option<Address> {
+    fn get_proxy_address(&self) -> Option<net::Address> {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
         if socket.is_udp() {
             // Socks5 UDP Request/Response
             // +----+------+------+----------+----------+----------+
@@ -84,7 +82,13 @@ impl Protocol for Socks {
             let packet = socket.read_buf(1500).await?;
             let buf = packet.slice(3..);
 
-            return Address::from_bytes(buf);
+            let (address, pending_buf) = net::Address::from_bytes(buf)?;
+
+            return Ok(protocol::ResolvedResult {
+                protocol: self.get_name(),
+                address,
+                pending_buf,
+            });
         }
 
         // 1. Parse Socks5 Identifier Message
@@ -166,7 +170,7 @@ impl Protocol for Socks {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = Address::from_socket(socket).await?;
+        let addr = net::Address::from_socket(socket).await?;
 
         // 4. Reply Socks5 Reply Message
 
@@ -192,7 +196,11 @@ impl Protocol for Socks {
 
         socket.send(reply_buf.as_slice()).await?;
 
-        Ok((addr, None))
+        Ok(protocol::ResolvedResult {
+            protocol: self.get_name(),
+            address: addr,
+            pending_buf: None,
+        })
     }
 
     async fn client_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {

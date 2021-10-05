@@ -1,8 +1,4 @@
-use crate::{
-    event::EventSender,
-    net::{address::Address, socket},
-    Result,
-};
+use crate::{event::EventSender, net, net::socket, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
 use dyn_clone::DynClone;
@@ -21,15 +17,24 @@ pub use plain::Plain;
 pub use socks::Socks;
 pub use universal::Universal;
 
+#[derive(Debug)]
+pub struct ResolvedResult {
+    pub protocol: String,
+
+    pub address: net::Address,
+
+    pub pending_buf: Option<Bytes>,
+}
+
 #[async_trait]
 pub trait Protocol: DynClone {
     fn get_name(&self) -> String;
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)>;
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<ResolvedResult>;
 
-    fn set_proxy_address(&mut self, _addr: Address) {}
+    fn set_proxy_address(&mut self, _addr: net::Address) {}
 
-    fn get_proxy_address(&self) -> Option<Address> {
+    fn get_proxy_address(&self) -> Option<net::Address> {
         unimplemented!()
     }
 

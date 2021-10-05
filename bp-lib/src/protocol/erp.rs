@@ -1,8 +1,7 @@
 use crate::{
     event::{Event, EventSender},
     net::{address::Address, socket},
-    protocol::Protocol,
-    utils, Result, ServiceType,
+    protocol, utils, Result, ServiceType,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -226,7 +225,7 @@ impl Erp {
 }
 
 #[async_trait]
-impl Protocol for Erp {
+impl protocol::Protocol for Erp {
     fn get_name(&self) -> String {
         "erp".into()
     }
@@ -239,12 +238,19 @@ impl Protocol for Erp {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
         let salt = socket.read_exact(SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
         let chunk = self.decode(socket).await?;
-        Address::from_bytes(chunk)
+
+        let (address, pending_buf) = Address::from_bytes(chunk)?;
+
+        Ok(protocol::ResolvedResult {
+            protocol: self.get_name(),
+            address,
+            pending_buf,
+        })
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {

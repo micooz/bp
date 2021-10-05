@@ -47,11 +47,11 @@ impl Socket {
 
         Self {
             fd: Some(fd),
+            socket_type: SocketType::Tcp,
             reader: split.0,
             writer: split.1,
             peer_addr,
             local_addr,
-            socket_type: SocketType::Tcp,
         }
     }
 
@@ -61,11 +61,11 @@ impl Socket {
 
         Self {
             fd: None,
+            socket_type: SocketType::Udp,
             reader: split.0,
             writer: split.1,
             peer_addr,
             local_addr,
-            socket_type: SocketType::Udp,
         }
     }
 
@@ -130,10 +130,6 @@ impl Socket {
         self.reader.cache(buf).await;
     }
 
-    pub async fn cache_size(&self) -> usize {
-        self.reader.cache_size().await
-    }
-
     pub async fn read_buf(&self, capacity: usize) -> Result<bytes::Bytes> {
         self.reader.read_buf(capacity).await
     }
@@ -144,6 +140,14 @@ impl Socket {
 
     pub async fn read_into(&self, buf: &mut bytes::BytesMut) -> Result<()> {
         self.reader.read_into(buf).await
+    }
+
+    pub async fn restore(&self) {
+        self.reader.restore().await;
+    }
+
+    pub async fn clear_restore(&self) {
+        self.reader.clear_restore().await;
     }
 
     pub async fn send(&self, buf: &[u8]) -> tokio::io::Result<()> {

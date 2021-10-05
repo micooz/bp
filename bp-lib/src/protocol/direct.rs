@@ -1,11 +1,9 @@
 use crate::{
     event::{Event, EventSender},
-    net::{address::Address, socket},
-    protocol::Protocol,
-    Result,
+    net::socket,
+    protocol, Result,
 };
 use async_trait::async_trait;
-use bytes::Bytes;
 
 const RECV_BUFFER_SIZE: usize = 4 * 1024;
 
@@ -24,12 +22,12 @@ impl Clone for Direct {
 }
 
 #[async_trait]
-impl Protocol for Direct {
+impl protocol::Protocol for Direct {
     fn get_name(&self) -> String {
         "direct".into()
     }
 
-    async fn resolve_proxy_address(&mut self, _socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
+    async fn resolve_proxy_address(&mut self, _socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
         unimplemented!("direct protocol cannot be used on inbound")
     }
 

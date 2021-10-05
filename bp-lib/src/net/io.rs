@@ -12,6 +12,8 @@ use tokio::{
 pub struct SocketReader {
     cache: sync::Mutex<BytesMut>,
 
+    restore_data: sync::Mutex<bytes::BytesMut>,
+
     tcp_reader: Option<sync::Mutex<ReadHalf<net::TcpStream>>>,
 
     udp_reader: Option<Arc<net::UdpSocket>>,
@@ -24,6 +26,7 @@ impl SocketReader {
     ) -> Self {
         Self {
             cache: sync::Mutex::new(BytesMut::with_capacity(1024)),
+            restore_data: sync::Mutex::new(bytes::BytesMut::with_capacity(64)),
             tcp_reader: tcp_read_half,
             udp_reader: udp_socket,
         }
@@ -40,21 +43,32 @@ impl SocketReader {
         let mut cache = self.cache.lock().await;
 
         if !cache.is_empty() {
-            buf.put(cache.clone().freeze());
+            let data = cache.clone().freeze();
+            buf.put(data.clone());
             cache.clear();
+
+            self.store(data).await;
             return Ok(());
         }
 
-        if self.is_tcp() {
+        let data = if self.is_tcp() {
             let mut reader = self.tcp_reader.as_ref().unwrap().lock().await;
 
-            if 0 == reader.read_buf(buf).await? {
+            let prev_len = buf.len();
+            let n = reader.read_buf(buf).await?;
+
+            if n == 0 {
                 return Err("read_buf return 0".into());
             }
+
+            buf.clone().freeze().slice(prev_len..prev_len + n)
         } else {
             let new_buf = self.udp_recv().await?;
-            buf.put(new_buf);
-        }
+            buf.put(new_buf.clone());
+            new_buf
+        };
+
+        self.store(data).await;
 
         Ok(())
     }
@@ -114,7 +128,26 @@ impl SocketReader {
             buf
         };
 
-        Ok(final_buf.into())
+        let buf: bytes::Bytes = final_buf.into();
+
+        self.store(buf.clone()).await;
+
+        Ok(buf)
+    }
+
+    async fn store(&self, buf: bytes::Bytes) {
+        let mut restore_data = self.restore_data.lock().await;
+        restore_data.put(buf);
+    }
+
+    pub async fn restore(&self) {
+        let mut restore_data = self.restore_data.lock().await;
+        self.cache(restore_data.clone().freeze()).await;
+        restore_data.clear();
+    }
+
+    pub async fn clear_restore(&self) {
+        self.restore_data.lock().await.clear();
     }
 
     pub async fn cache(&self, buf: bytes::Bytes) {
@@ -128,11 +161,6 @@ impl SocketReader {
         cache.clear();
         cache.put(buf);
         cache.put(prev);
-    }
-
-    pub async fn cache_size(&self) -> usize {
-        let cache = self.cache.lock().await;
-        cache.len()
     }
 
     async fn udp_recv(&self) -> Result<bytes::Bytes> {

@@ -1,11 +1,10 @@
 use crate::{
     event::{Event, EventSender},
     net::{address::Address, socket},
-    protocol::Protocol,
-    Result,
+    protocol, Result,
 };
 use async_trait::async_trait;
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{BufMut, BytesMut};
 
 const RECV_BUFFER_SIZE: usize = 4 * 1024;
 
@@ -22,7 +21,7 @@ pub struct Plain {
 }
 
 #[async_trait]
-impl Protocol for Plain {
+impl protocol::Protocol for Plain {
     fn get_name(&self) -> String {
         "plain".into()
     }
@@ -35,9 +34,14 @@ impl Protocol for Plain {
         self.proxy_address.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
-        let header = Address::from_socket(socket).await?;
-        Ok((header, None))
+    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
+        let address = Address::from_socket(socket).await?;
+
+        Ok(protocol::ResolvedResult {
+            protocol: self.get_name(),
+            address,
+            pending_buf: None,
+        })
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
