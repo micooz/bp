@@ -166,7 +166,7 @@ impl Protocol for Socks {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = Address::from_socket(&socket).await?;
+        let addr = Address::from_socket(socket).await?;
 
         // 4. Reply Socks5 Reply Message
 

@@ -118,14 +118,16 @@ impl SocketReader {
     }
 
     pub async fn cache(&self, buf: bytes::Bytes) {
-        if buf.len() > 0 {
-            let mut cache = self.cache.lock().await;
-            let prev = cache.clone().freeze();
-
-            cache.clear();
-            cache.put(buf);
-            cache.put(prev);
+        if buf.is_empty() {
+            return;
         }
+
+        let mut cache = self.cache.lock().await;
+        let prev = cache.clone().freeze();
+
+        cache.clear();
+        cache.put(buf);
+        cache.put(prev);
     }
 
     pub async fn cache_size(&self) -> usize {
