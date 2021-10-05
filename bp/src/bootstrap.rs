@@ -76,13 +76,8 @@ fn start_main_service(
             // put socket to new task to create a Connection
             tokio::spawn(async move {
                 let addr = socket.peer_addr().unwrap();
-                let is_tcp = socket.is_tcp();
 
-                if is_tcp {
-                    log::info!("[{}] connected", addr);
-                } else {
-                    log::info!("[{}] received an udp packet: {} bytes", addr, socket.cache_size().await);
-                }
+                log::info!("[{}] connected", addr);
 
                 let mut conn = Connection::new(
                     socket,

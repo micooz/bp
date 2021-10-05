@@ -132,6 +132,14 @@ impl Outbound {
 
     /// send data to remote
     pub async fn send(&self, buf: Bytes) -> tokio::io::Result<()> {
+        log::info!(
+            "[{}] [{}] [{}] sent an udp packet: {} bytes",
+            self.peer_address,
+            self.opts.socket_type,
+            self.protocol_name.as_ref().unwrap(),
+            buf.len()
+        );
+
         self.socket.as_ref().unwrap().send(&buf).await
     }
 

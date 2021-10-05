@@ -24,6 +24,8 @@ pub struct Inbound {
 
 impl Inbound {
     pub fn new(socket: socket::Socket, opts: InboundOptions) -> Self {
+        let socket = Arc::new(socket);
+
         let peer_address = socket.peer_addr().unwrap();
         let local_addr = socket.local_addr().unwrap();
 
@@ -47,7 +49,7 @@ impl Inbound {
 
         Self {
             opts,
-            socket: Arc::new(socket),
+            socket,
             peer_address,
             proxy_address,
             local_addr,
@@ -180,6 +182,14 @@ impl Inbound {
 
     /// send data to remote
     pub async fn send(&self, buf: bytes::Bytes) -> tokio::io::Result<()> {
+        log::info!(
+            "[{}] [{}] [{}] sent an udp packet: {} bytes",
+            self.peer_address,
+            self.socket.socket_type(),
+            self.protocol_name.as_ref().unwrap(),
+            buf.len()
+        );
+
         self.socket.send(&buf).await
     }
 

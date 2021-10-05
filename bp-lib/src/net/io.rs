@@ -4,27 +4,26 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
-    net,
-    sync::Mutex,
+    net, sync,
 };
 
 /// SocketReader
 #[derive(Debug)]
 pub struct SocketReader {
-    cache: Mutex<BytesMut>,
+    cache: sync::Mutex<BytesMut>,
 
-    tcp_reader: Option<Mutex<ReadHalf<net::TcpStream>>>,
+    tcp_reader: Option<sync::Mutex<ReadHalf<net::TcpStream>>>,
 
     udp_reader: Option<Arc<net::UdpSocket>>,
 }
 
 impl SocketReader {
     pub fn new(
-        tcp_read_half: Option<Mutex<ReadHalf<net::TcpStream>>>,
+        tcp_read_half: Option<sync::Mutex<ReadHalf<net::TcpStream>>>,
         udp_socket: Option<Arc<net::UdpSocket>>,
     ) -> Self {
         Self {
-            cache: Mutex::new(BytesMut::with_capacity(1024)),
+            cache: sync::Mutex::new(BytesMut::with_capacity(1024)),
             tcp_reader: tcp_read_half,
             udp_reader: udp_socket,
         }
@@ -141,9 +140,6 @@ impl SocketReader {
         let (len, _addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(packet) = buf.get(0..len) {
-            // TODO: replace this log
-            log::debug!("received an udp packet: {} bytes", len);
-
             Ok(bytes::Bytes::copy_from_slice(packet))
         } else {
             Err("error recv from remote".into())
@@ -160,14 +156,14 @@ impl SocketReader {
 pub struct SocketWriter {
     peer_addr: std::net::SocketAddr,
 
-    tcp_writer: Option<Mutex<WriteHalf<net::TcpStream>>>,
+    tcp_writer: Option<sync::Mutex<WriteHalf<net::TcpStream>>>,
 
     udp_writer: Option<Arc<net::UdpSocket>>,
 }
 
 impl SocketWriter {
     pub fn new(
-        tcp_write_half: Option<Mutex<WriteHalf<net::TcpStream>>>,
+        tcp_write_half: Option<sync::Mutex<WriteHalf<net::TcpStream>>>,
         udp_socket: Option<Arc<net::UdpSocket>>,
         peer_addr: std::net::SocketAddr,
     ) -> Self {
@@ -186,9 +182,6 @@ impl SocketWriter {
         } else {
             let writer = self.udp_writer.as_ref().unwrap();
             writer.send_to(buf, self.peer_addr).await?;
-
-            // TODO: replace this log
-            log::info!("sent an udp packet: {} bytes", buf.len());
         }
         Ok(())
     }
@@ -209,8 +202,8 @@ impl SocketWriter {
 pub fn split_tcp(stream: net::TcpStream, peer_addr: std::net::SocketAddr) -> (SocketReader, SocketWriter) {
     let (read_half, write_half) = tokio::io::split(stream);
 
-    let reader = SocketReader::new(Some(Mutex::new(read_half)), None);
-    let writer = SocketWriter::new(Some(Mutex::new(write_half)), None, peer_addr);
+    let reader = SocketReader::new(Some(sync::Mutex::new(read_half)), None);
+    let writer = SocketWriter::new(Some(sync::Mutex::new(write_half)), None, peer_addr);
 
     (reader, writer)
 }
