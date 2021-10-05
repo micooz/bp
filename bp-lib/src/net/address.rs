@@ -1,7 +1,4 @@
-use crate::{
-    net::{dns::lookup, io::TcpStreamReader},
-    Result,
-};
+use crate::{net::dns::lookup, net::socket, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::{
     convert::TryInto,
@@ -111,8 +108,8 @@ impl Address {
         self.as_string().parse().unwrap()
     }
 
-    pub async fn from_reader(reader: &mut TcpStreamReader) -> Result<Self> {
-        let buf = reader.read_exact(1).await?;
+    pub async fn from_socket(socket: &socket::Socket) -> Result<Self> {
+        let buf = socket.read_exact(1).await?;
 
         let atyp: AddressType = buf[0].try_into().map_err(|_| {
             format!(
@@ -126,7 +123,7 @@ impl Address {
 
         match atyp {
             AddressType::V4 => {
-                let buf = reader.read_exact(6).await?;
+                let buf = socket.read_exact(6).await?;
 
                 let host = Host::Ip(IpAddr::V4(Ipv4Addr::from([buf[0], buf[1], buf[2], buf[3]])));
                 let port = u16::from_be_bytes([buf[4], buf[5]]);
@@ -134,7 +131,7 @@ impl Address {
                 Ok(Self::new(host, port))
             }
             AddressType::V6 => {
-                let buf = reader.read_exact(18).await?;
+                let buf = socket.read_exact(18).await?;
 
                 let host = Host::Ip(IpAddr::V6(Ipv6Addr::from([
                     buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11],
@@ -145,13 +142,13 @@ impl Address {
                 Ok(Self::new(host, port))
             }
             AddressType::HostName => {
-                let buf = reader.read_exact(1).await?;
+                let buf = socket.read_exact(1).await?;
                 let len = buf[0] as usize;
 
-                let buf = reader.read_exact(len).await?;
+                let buf = socket.read_exact(len).await?;
                 let host = Host::Name(String::from_utf8(buf.to_vec())?);
 
-                let buf = reader.read_exact(2).await?;
+                let buf = socket.read_exact(2).await?;
                 let port = u16::from_be_bytes([buf[0], buf[1]]);
 
                 Ok(Self::new(host, port))

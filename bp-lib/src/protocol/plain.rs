@@ -36,10 +36,7 @@ impl Protocol for Plain {
     }
 
     async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
-        let reader = socket.tcp_reader();
-        let mut reader = reader.lock().await;
-
-        let header = Address::from_reader(&mut reader).await?;
+        let header = Address::from_socket(socket).await?;
         Ok((header, None))
     }
 

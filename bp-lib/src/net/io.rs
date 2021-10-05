@@ -1,60 +1,116 @@
+use crate::config;
+use crate::Result;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
-    net::TcpStream,
+    net,
     sync::Mutex,
 };
 
-/// TcpStreamReader
-pub struct TcpStreamReader {
-    inner: ReadHalf<TcpStream>,
-    cache: BytesMut,
+/// SocketReader
+#[derive(Debug)]
+pub struct SocketReader {
+    cache: Mutex<BytesMut>,
+
+    tcp_reader: Option<Mutex<ReadHalf<net::TcpStream>>>,
+
+    udp_reader: Option<Arc<net::UdpSocket>>,
 }
 
-impl TcpStreamReader {
-    pub fn new(read_half: ReadHalf<TcpStream>) -> Self {
+impl SocketReader {
+    pub fn new(
+        tcp_read_half: Option<Mutex<ReadHalf<net::TcpStream>>>,
+        udp_socket: Option<Arc<net::UdpSocket>>,
+    ) -> Self {
         Self {
-            inner: read_half,
-            cache: BytesMut::with_capacity(32),
+            cache: Mutex::new(BytesMut::with_capacity(1024)),
+            tcp_reader: tcp_read_half,
+            udp_reader: udp_socket,
         }
     }
 
-    pub async fn read_buf(&mut self, capacity: usize) -> crate::Result<Bytes> {
+    pub async fn read_buf(&self, capacity: usize) -> Result<Bytes> {
         let mut buf = BytesMut::with_capacity(capacity);
         self.read_into(&mut buf).await?;
+
         Ok(buf.freeze())
     }
 
-    pub async fn read_into(&mut self, buf: &mut BytesMut) -> crate::Result<()> {
-        if !self.cache.is_empty() {
-            buf.put(self.cache.clone().freeze());
-            self.cache.clear();
+    pub async fn read_into(&self, buf: &mut BytesMut) -> Result<()> {
+        let mut cache = self.cache.lock().await;
+
+        if !cache.is_empty() {
+            buf.put(cache.clone().freeze());
+            cache.clear();
             return Ok(());
         }
-        if 0 == self.inner.read_buf(buf).await? {
-            return Err("read_buf return 0".into());
+
+        if self.is_tcp() {
+            let mut reader = self.tcp_reader.as_ref().unwrap().lock().await;
+
+            if 0 == reader.read_buf(buf).await? {
+                return Err("read_buf return 0".into());
+            }
+        } else {
+            let new_buf = self.udp_recv().await?;
+            buf.put(new_buf);
         }
+
         Ok(())
     }
 
-    pub async fn read_exact(&mut self, len: usize) -> crate::Result<Bytes> {
-        let cache_len = self.cache.len();
+    pub async fn read_exact(&self, len: usize) -> Result<Bytes> {
+        let mut cache = self.cache.lock().await;
+        let cache_len = cache.len();
 
         let final_buf = if len > cache_len {
-            let mut buf = vec![0u8; len - cache_len];
-            self.inner.read_exact(&mut buf).await?;
+            // cached buffer is not enough
 
-            if cache_len > 0 {
-                buf = [self.cache.to_vec(), buf].concat();
-                self.cache.clear();
+            if self.is_tcp() {
+                let mut req_buf = vec![0u8; len - cache_len];
+                let mut reader = self.tcp_reader.as_ref().unwrap().lock().await;
+
+                reader.read_exact(&mut req_buf).await?;
+
+                let mut ret_buf = req_buf;
+
+                // with cache
+                if cache_len > 0 {
+                    ret_buf = [&cache[..], ret_buf.as_slice()].concat();
+                    cache.clear();
+                }
+
+                ret_buf
+            } else {
+                let req_buf_len = len - cache_len;
+                let new_buf = self.udp_recv().await?;
+
+                if new_buf.len() < req_buf_len {
+                    return Err(format!(
+                        "read_exact error due to: new udp packet size = {} is less than required len = {}",
+                        req_buf_len,
+                        new_buf.len()
+                    )
+                    .into());
+                }
+
+                let req_buf = new_buf.slice(0..req_buf_len);
+
+                // cache rest buffer
+                let rest_buf = new_buf.slice(req_buf_len..);
+
+                let ret = [&cache[..], &req_buf[..]].concat();
+
+                cache.clear();
+                cache.put(rest_buf);
+
+                ret
             }
-
-            buf
         } else {
-            let (left, _) = self.cache.split_at(len);
+            let (left, _) = cache.split_at(len);
             let buf = left.to_vec();
-            self.cache.advance(len);
+            cache.advance(len);
 
             buf
         };
@@ -62,51 +118,106 @@ impl TcpStreamReader {
         Ok(final_buf.into())
     }
 
-    pub fn cache(&mut self, buf: bytes::Bytes) {
-        self.cache.put(buf);
+    pub async fn cache(&self, buf: bytes::Bytes) {
+        if buf.len() > 0 {
+            let mut cache = self.cache.lock().await;
+            let prev = cache.clone().freeze();
+
+            cache.clear();
+            cache.put(buf);
+            cache.put(prev);
+        }
+    }
+
+    pub async fn cache_size(&self) -> usize {
+        let cache = self.cache.lock().await;
+        cache.len()
+    }
+
+    async fn udp_recv(&self) -> Result<bytes::Bytes> {
+        let socket = self.udp_reader.as_ref().unwrap();
+
+        let mut buf = vec![0u8; config::UDP_MTU];
+        let (len, _addr) = socket.recv_from(&mut buf).await?;
+
+        if let Some(packet) = buf.get(0..len) {
+            // TODO: replace this log
+            log::debug!("received an udp packet: {} bytes", len);
+
+            Ok(bytes::Bytes::copy_from_slice(packet))
+        } else {
+            Err("error recv from remote".into())
+        }
+    }
+
+    fn is_tcp(&self) -> bool {
+        self.tcp_reader.is_some()
     }
 }
 
 /// TcpStreamWriter
 #[derive(Debug)]
-pub struct TcpStreamWriter {
-    inner: WriteHalf<TcpStream>,
+pub struct SocketWriter {
+    peer_addr: std::net::SocketAddr,
+
+    tcp_writer: Option<Mutex<WriteHalf<net::TcpStream>>>,
+
+    udp_writer: Option<Arc<net::UdpSocket>>,
 }
 
-impl TcpStreamWriter {
-    pub fn new(write_half: WriteHalf<TcpStream>) -> Self {
-        Self { inner: write_half }
+impl SocketWriter {
+    pub fn new(
+        tcp_write_half: Option<Mutex<WriteHalf<net::TcpStream>>>,
+        udp_socket: Option<Arc<net::UdpSocket>>,
+        peer_addr: std::net::SocketAddr,
+    ) -> Self {
+        Self {
+            peer_addr,
+            tcp_writer: tcp_write_half,
+            udp_writer: udp_socket,
+        }
     }
 
-    pub async fn write(&mut self, buf: &[u8]) -> tokio::io::Result<()> {
-        self.inner.write(buf).await?;
+    pub async fn send(&self, buf: &[u8]) -> tokio::io::Result<()> {
+        if self.is_tcp() {
+            let mut writer = self.tcp_writer.as_ref().unwrap().lock().await;
+            writer.write_all(buf).await?;
+            writer.flush().await?;
+        } else {
+            let writer = self.udp_writer.as_ref().unwrap();
+            writer.send_to(buf, self.peer_addr).await?;
+
+            // TODO: replace this log
+            log::info!("sent an udp packet: {} bytes", buf.len());
+        }
         Ok(())
     }
 
-    pub async fn write_all(&mut self, buf: &[u8]) -> tokio::io::Result<()> {
-        self.inner.write_all(buf).await?;
+    pub async fn close(&self) -> tokio::io::Result<()> {
+        if self.is_tcp() {
+            let mut writer = self.tcp_writer.as_ref().unwrap().lock().await;
+            writer.shutdown().await?;
+        }
         Ok(())
     }
 
-    pub async fn flush(&mut self) -> tokio::io::Result<()> {
-        self.inner.flush().await?;
-        Ok(())
-    }
-
-    pub async fn shutdown(&mut self) -> tokio::io::Result<()> {
-        self.inner.shutdown().await?;
-        Ok(())
+    fn is_tcp(&self) -> bool {
+        self.tcp_writer.is_some()
     }
 }
 
-pub fn split_tcp_stream(stream: TcpStream) -> (Arc<Mutex<TcpStreamReader>>, Arc<Mutex<TcpStreamWriter>>) {
+pub fn split_tcp(stream: net::TcpStream, peer_addr: std::net::SocketAddr) -> (SocketReader, SocketWriter) {
     let (read_half, write_half) = tokio::io::split(stream);
 
-    let reader = TcpStreamReader::new(read_half);
-    let writer = TcpStreamWriter::new(write_half);
+    let reader = SocketReader::new(Some(Mutex::new(read_half)), None);
+    let writer = SocketWriter::new(Some(Mutex::new(write_half)), None, peer_addr);
 
-    let reader = Arc::new(Mutex::new(reader));
-    let writer = Arc::new(Mutex::new(writer));
+    (reader, writer)
+}
+
+pub fn split_udp(socket: Arc<net::UdpSocket>, peer_addr: std::net::SocketAddr) -> (SocketReader, SocketWriter) {
+    let reader = SocketReader::new(None, Some(socket.clone()));
+    let writer = SocketWriter::new(None, Some(socket), peer_addr);
 
     (reader, writer)
 }

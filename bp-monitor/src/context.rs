@@ -1,9 +1,8 @@
-use bp_lib::net::io::TcpStreamWriter;
+use bp_lib::net::socket::Socket;
 use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::Mutex;
 
 #[derive(Debug)]
 pub struct Context {
     pub peer_addr: SocketAddr,
-    pub writer: Arc<Mutex<TcpStreamWriter>>,
+    pub socket: Arc<Socket>,
 }

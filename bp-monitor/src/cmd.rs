@@ -72,9 +72,8 @@ pub struct MonitorCommand {
 
 impl MonitorCommand {
     pub async fn reply(&mut self, data: String) {
-        let mut writer = self.ctx.writer.lock().await;
-        writer.write(data.as_bytes()).await.unwrap();
-        writer.write(LINE_ENDING.as_bytes()).await.unwrap();
+        self.ctx.socket.send(data.as_bytes()).await.unwrap();
+        self.ctx.socket.send(LINE_ENDING.as_bytes()).await.unwrap();
     }
 
     pub async fn exec(&mut self, shared_data: Arc<RwLock<SharedData>>) {

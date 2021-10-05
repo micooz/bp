@@ -87,12 +87,6 @@ impl Protocol for Socks {
             return Address::from_bytes(buf);
         }
 
-        let reader = socket.tcp_reader();
-        let mut reader = reader.lock().await;
-
-        let writer = socket.tcp_writer();
-        let mut writer = writer.lock().await;
-
         // 1. Parse Socks5 Identifier Message
 
         // Socks5 Identifier Message
@@ -103,7 +97,7 @@ impl Protocol for Socks {
         // +----+----------+----------+
 
         // check the first two bytes
-        let buf = reader.read_exact(2).await?;
+        let buf = socket.read_exact(2).await?;
         let n_methods = buf[1] as usize;
 
         if buf[0] != SOCKS_VERSION_V5 || n_methods < 1 {
@@ -115,7 +109,7 @@ impl Protocol for Socks {
         }
 
         // select one method
-        let buf = reader.read_exact(n_methods).await?;
+        let buf = socket.read_exact(n_methods).await?;
 
         let mut method = None;
         let mut n = 0usize;
@@ -146,7 +140,7 @@ impl Protocol for Socks {
         // | 1  |   1    |
         // +----+--------+
 
-        writer.write(&[SOCKS_VERSION_V5, METHOD_NO_AUTH]).await?;
+        socket.send(&[SOCKS_VERSION_V5, METHOD_NO_AUTH]).await?;
 
         // 3. Parse Socks5 Request Message
 
@@ -157,7 +151,7 @@ impl Protocol for Socks {
         // | 1  |  1  | X'00' |  1   | Variable |    2     |
         // +----+-----+-------+------+----------+----------+
 
-        let buf = reader.read_exact(3).await?;
+        let buf = socket.read_exact(3).await?;
 
         if buf[0] != SOCKS_VERSION_V5 {
             return Err(format!("VER should be {:#04x} but got {:#04x}", SOCKS_VERSION_V5, buf[0]).into());
@@ -172,7 +166,7 @@ impl Protocol for Socks {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = Address::from_reader(&mut reader).await?;
+        let addr = Address::from_socket(&socket).await?;
 
         // 4. Reply Socks5 Reply Message
 
@@ -196,7 +190,7 @@ impl Protocol for Socks {
             }
         }
 
-        writer.write(reply_buf.as_slice()).await?;
+        socket.send(reply_buf.as_slice()).await?;
 
         Ok((addr, None))
     }

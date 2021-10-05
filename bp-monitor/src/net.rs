@@ -4,9 +4,12 @@ use crate::{
 };
 use bp_lib::net::socket;
 use std::convert::TryFrom;
+use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 pub fn handle_conn(socket: socket::Socket, tx: Sender<MonitorCommand>) {
+    let socket = Arc::new(socket);
+
     tokio::spawn(async move {
         let addr = socket.peer_addr().unwrap();
 
@@ -18,16 +21,15 @@ pub fn handle_conn(socket: socket::Socket, tx: Sender<MonitorCommand>) {
             cmd_type: CommandType::Help,
             ctx: Context {
                 peer_addr: addr,
-                writer: socket.tcp_writer(),
+                socket: socket.clone(),
             },
         })
         .await
         .unwrap();
 
         loop {
-            let reader = socket.tcp_reader();
-            let mut reader = reader.lock().await;
-            let res = reader.read_buf(32).await;
+            let socket = socket.clone();
+            let res = socket.read_buf(32).await;
 
             if let Err(err) = res {
                 log::error!("{}", err);
@@ -36,7 +38,7 @@ pub fn handle_conn(socket: socket::Socket, tx: Sender<MonitorCommand>) {
 
             let ctx = Context {
                 peer_addr: addr,
-                writer: socket.tcp_writer(),
+                socket,
             };
 
             let buf = res.unwrap();

@@ -131,7 +131,7 @@ impl Outbound {
     }
 
     /// send data to remote
-    pub async fn send(&self, buf: Bytes) -> Result<()> {
+    pub async fn send(&self, buf: Bytes) -> tokio::io::Result<()> {
         self.socket.as_ref().unwrap().send(&buf).await
     }
 
@@ -183,7 +183,6 @@ impl Outbound {
             }
             socket::SocketType::Udp => {
                 let socket = socket::Socket::bind_udp_random_port(addr).await?;
-
                 // TODO: self.mark_socket(socket.as_raw_fd());
 
                 Arc::new(socket)

@@ -179,7 +179,7 @@ impl Inbound {
     }
 
     /// send data to remote
-    pub async fn send(&self, buf: bytes::Bytes) -> Result<()> {
+    pub async fn send(&self, buf: bytes::Bytes) -> tokio::io::Result<()> {
         self.socket.send(&buf).await
     }
 

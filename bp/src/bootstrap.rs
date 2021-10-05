@@ -81,11 +81,7 @@ fn start_main_service(
                 if is_tcp {
                     log::info!("[{}] connected", addr);
                 } else {
-                    log::info!(
-                        "[{}] received an udp packet: {} bytes",
-                        addr,
-                        socket.udp_cache_size().await
-                    );
+                    log::info!("[{}] received an udp packet: {} bytes", addr, socket.cache_size().await);
                 }
 
                 let mut conn = Connection::new(
