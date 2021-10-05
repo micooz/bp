@@ -1,8 +1,9 @@
 use crate::{
-    event, net, net::inbound, net::outbound, net::socket, protocol, Result, ServiceType, SharedData, TransportProtocol,
+    event::Event, net, net::inbound, net::outbound, net::socket, protocol, Result, ServiceType, SharedData,
+    TransportProtocol,
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, RwLock};
 
 #[cfg(feature = "monitor")]
 use bytes::BytesMut;
@@ -82,17 +83,17 @@ impl Connection {
     pub async fn handle(&mut self) -> Result<()> {
         self.update_snapshot().await;
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<event::Event>(32);
+        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
         let trans_proto = self.create_transport_protocol();
 
         // [inbound] resolve proxy address
         let (in_proto, out_proto) = match self.opts.service_type {
             ServiceType::Client => {
-                let socks_http = Box::new(protocol::SocksHttp::new(Some(self.opts.local_addr.clone())));
+                let universal = Box::new(protocol::Universal::new(Some(self.opts.local_addr.clone())));
                 RwLock::write(&self.inbound)
                     .await
-                    .resolve_proxy_address(socks_http, trans_proto, tx.clone())
+                    .resolve_proxy_address(universal, trans_proto, tx.clone())
                     .await?
             }
             ServiceType::Server => {
@@ -115,9 +116,27 @@ impl Connection {
 
         self.update_snapshot().await;
 
-        while let Some(event) = rx.recv().await {
-            use event::Event;
+        self.handle_events(rx).await?;
 
+        self.closed = true;
+        self.update_snapshot().await;
+
+        Ok(())
+    }
+
+    pub async fn force_close(&mut self) -> Result<()> {
+        RwLock::write(&self.inbound).await.close().await?;
+        RwLock::write(&self.outbound).await.close().await?;
+
+        self.closed = true;
+        self.update_snapshot().await;
+
+        Ok(())
+    }
+
+    /// handle events from inbound and outbound
+    async fn handle_events(&self, mut rx: mpsc::Receiver<Event>) -> Result<()> {
+        while let Some(event) = rx.recv().await {
             match event {
                 Event::ClientEncodeDone(buf) => {
                     RwLock::write(&self.outbound).await.send(buf).await?;
@@ -158,19 +177,6 @@ impl Connection {
             }
         }
 
-        self.closed = true;
-        self.update_snapshot().await;
-
-        Ok(())
-    }
-
-    pub async fn force_close(&mut self) -> Result<()> {
-        RwLock::write(&self.inbound).await.close().await?;
-        RwLock::write(&self.outbound).await.close().await?;
-
-        self.closed = true;
-        self.update_snapshot().await;
-
         Ok(())
     }
 
@@ -191,7 +197,7 @@ impl Connection {
             Box::new(protocol::Direct::new())
         } else {
             match self.opts.protocol {
-                TransportProtocol::Plain => Box::new(protocol::Plain::new()),
+                TransportProtocol::Plain => Box::new(protocol::Plain::default()),
                 TransportProtocol::EncryptRandomPadding => Box::new(protocol::Erp::new(
                     self.opts.key.clone().unwrap(),
                     self.opts.service_type,

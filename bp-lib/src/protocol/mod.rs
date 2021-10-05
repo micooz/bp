@@ -12,14 +12,14 @@ mod erp;
 mod http;
 mod plain;
 mod socks;
-mod socks_http;
+mod universal;
 
 pub use direct::Direct;
 pub use erp::Erp;
 pub use http::Http;
 pub use plain::Plain;
 pub use socks::Socks;
-pub use socks_http::SocksHttp;
+pub use universal::Universal;
 
 #[async_trait]
 pub trait Protocol: DynClone {

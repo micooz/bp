@@ -1,3 +1,4 @@
+use crate::config;
 use crate::net::io;
 use crate::Result;
 use bytes::BufMut;
@@ -235,7 +236,7 @@ impl Socket {
 
         let socket = self.udp_socket.as_ref().unwrap();
 
-        let mut buf = vec![0u8; 1500];
+        let mut buf = vec![0u8; config::UDP_MTU];
         let (len, _addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(packet) = buf.get(0..len) {

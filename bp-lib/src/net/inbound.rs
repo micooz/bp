@@ -20,9 +20,6 @@ pub struct Inbound {
     local_addr: SocketAddr,
 
     protocol_name: Option<String>,
-
-    /// Whether the bound is closed
-    is_closed: bool,
 }
 
 impl Inbound {
@@ -55,7 +52,6 @@ impl Inbound {
             proxy_address,
             local_addr,
             protocol_name: None,
-            is_closed: false,
         }
     }
 
@@ -73,7 +69,7 @@ impl Inbound {
         let (proxy_address, pending_buf) = match self.proxy_address.as_ref() {
             Some(addr) => {
                 log::info!(
-                    "[{}] [{}] obtained target address [{}] from REDIRECT",
+                    "[{}] [{}] fallback to address [{}] obtained from REDIRECT",
                     self.peer_address,
                     self.socket.socket_type(),
                     addr
@@ -83,7 +79,7 @@ impl Inbound {
             }
             None => {
                 log::info!(
-                    "[{}] [{}] use [{}] protocol to resolve target address",
+                    "[{}] [{}] use [{}] to resolve target address",
                     self.peer_address,
                     self.socket.socket_type(),
                     self.protocol_name.as_ref().unwrap()
@@ -190,13 +186,8 @@ impl Inbound {
     /// close the bound
     pub async fn close(&mut self) -> Result<()> {
         self.socket.close().await?;
-        self.is_closed = true;
 
         Ok(())
-    }
-
-    pub fn is_closed(&self) -> bool {
-        self.is_closed
     }
 
     pub fn snapshot(&self) -> InboundSnapshot {

@@ -1,4 +1,4 @@
-use bp_lib::{TransportProtocol, ServiceType};
+use bp_lib::{ServiceType, TransportProtocol};
 use clap::{crate_version, Clap};
 
 /// The crate author
@@ -39,6 +39,10 @@ pub struct Options {
     /// "plain" or "erp" are supported.
     #[clap(long, default_value = "erp")]
     pub protocol: TransportProtocol,
+
+    /// enable udp relay
+    #[clap(long)]
+    pub enable_udp: bool,
 }
 
 impl Options {

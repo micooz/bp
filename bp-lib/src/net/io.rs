@@ -110,12 +110,3 @@ pub fn split_tcp_stream(stream: TcpStream) -> (Arc<Mutex<TcpStreamReader>>, Arc<
 
     (reader, writer)
 }
-
-#[test]
-fn test_buf_advance() {
-    let mut buf = BytesMut::from("123");
-    assert!(buf.len() == 3);
-
-    buf.advance(1);
-    assert!(buf.len() == 2);
-}

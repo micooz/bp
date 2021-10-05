@@ -6,3 +6,6 @@ pub const TCP_CONNECT_TIMEOUT_SECONDS: u64 = 10;
 
 /// The timeout for outbound recv
 pub const OUTBOUND_RECV_TIMEOUT_SECONDS: u64 = 10;
+
+/// The max transmission unit for udp packet
+pub const UDP_MTU: usize = 1500;

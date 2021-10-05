@@ -12,27 +12,10 @@ use bytes::{Bytes, BytesMut};
 use std::str::FromStr;
 use url::Url;
 
+#[derive(Clone, Default)]
 pub struct Http {
     header_sent: bool,
     proxy_address: Option<Address>,
-}
-
-impl Http {
-    pub fn new() -> Self {
-        Self {
-            header_sent: false,
-            proxy_address: None,
-        }
-    }
-}
-
-impl Clone for Http {
-    fn clone(&self) -> Self {
-        Self {
-            header_sent: self.header_sent,
-            proxy_address: self.proxy_address.clone(),
-        }
-    }
 }
 
 #[async_trait]
@@ -50,15 +33,10 @@ impl Protocol for Http {
     }
 
     async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<(Address, Option<Bytes>)> {
-        let reader = socket.tcp_reader();
-        let mut reader = reader.lock().await;
-
-        let writer = socket.tcp_writer();
-        let mut writer = writer.lock().await;
-
         let mut buf = BytesMut::with_capacity(1024);
+
         loop {
-            reader.read_into(&mut buf).await?;
+            socket.read_into(&mut buf).await?;
 
             let mut headers = [httparse::EMPTY_HEADER; 16];
             let mut req = httparse::Request::new(&mut headers);
@@ -78,8 +56,7 @@ impl Protocol for Http {
                 let addr = Address::from_str(path)?;
                 let resp = Bytes::from_static(b"HTTP/1.1 200 Connection Established\r\n\r\n");
 
-                writer.write_all(&resp).await?;
-                writer.flush().await?;
+                socket.send(&resp).await?;
 
                 return Ok((addr, None));
             } else {

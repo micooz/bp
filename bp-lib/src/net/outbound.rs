@@ -19,8 +19,6 @@ pub struct Outbound {
     remote_addr: Option<net::Address>,
 
     protocol_name: Option<String>,
-
-    is_closed: bool,
 }
 
 impl Outbound {
@@ -31,7 +29,6 @@ impl Outbound {
             peer_address,
             remote_addr: None,
             protocol_name: None,
-            is_closed: false,
         }
     }
 
@@ -142,14 +139,9 @@ impl Outbound {
     pub async fn close(&mut self) -> Result<()> {
         if let Some(socket) = self.socket.as_ref() {
             socket.close().await?;
-            self.is_closed = true;
         }
 
         Ok(())
-    }
-
-    pub fn is_closed(&self) -> bool {
-        self.is_closed
     }
 
     pub fn snapshot(&self) -> OutboundSnapshot {

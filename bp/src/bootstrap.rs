@@ -36,7 +36,7 @@ fn start_main_service(
     opts: Options,
     #[cfg(feature = "monitor")] mut rx: sync::mpsc::Receiver<MonitorCommand>,
 ) -> task::JoinHandle<()> {
-    let mut receiver = service::start_service("main", opts.bind.parse().unwrap());
+    let mut receiver = service::start_service("main", opts.bind.parse().unwrap(), opts.enable_udp);
 
     let shared_data = Arc::new(sync::RwLock::new(SharedData::default()));
 

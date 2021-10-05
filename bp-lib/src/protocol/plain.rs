@@ -15,27 +15,10 @@ const RECV_BUFFER_SIZE: usize = 4 * 1024;
 /// +------+----------+----------+-------------+
 /// |  1   | Variable |    2     |  Variable   |
 /// +------+----------+----------+-------------+
+#[derive(Clone, Default)]
 pub struct Plain {
     header_sent: bool,
     proxy_address: Option<Address>,
-}
-
-impl Plain {
-    pub fn new() -> Self {
-        Self {
-            header_sent: false,
-            proxy_address: None,
-        }
-    }
-}
-
-impl Clone for Plain {
-    fn clone(&self) -> Self {
-        Self {
-            header_sent: self.header_sent,
-            proxy_address: self.proxy_address.clone(),
-        }
-    }
 }
 
 #[async_trait]

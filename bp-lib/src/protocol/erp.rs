@@ -57,6 +57,7 @@ const HKDF_INFO: &str = "bp-subkey";
 ///
 /// * chacha20poly1305: https://docs.rs/chacha20poly1305/0.8.1/chacha20poly1305/
 /// * HKDF: https://docs.rs/hkdf/0.11.0/hkdf/
+#[derive(Clone)]
 pub struct Erp {
     header_sent: bool,
 
@@ -221,20 +222,6 @@ impl Erp {
         // Chunk
         let enc_chunk = socket.read_exact(chunk_len as usize + TAG_SIZE).await?;
         self.decrypt(enc_chunk)
-    }
-}
-
-impl Clone for Erp {
-    fn clone(&self) -> Self {
-        Self {
-            header_sent: self.header_sent,
-            raw_key: self.raw_key.clone(),
-            salt: self.salt.clone(),
-            derived_key: self.derived_key.clone(),
-            encrypt_nonce: self.encrypt_nonce,
-            decrypt_nonce: self.decrypt_nonce,
-            proxy_address: self.proxy_address.clone(),
-        }
     }
 }
 

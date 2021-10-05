@@ -1,3 +1,4 @@
+use crate::config;
 use crate::net::socket;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -9,7 +10,11 @@ pub enum Transport {
     Udp,
 }
 
-pub fn start_service(name: &'static str, bind_addr: std::net::SocketAddr) -> mpsc::Receiver<socket::Socket> {
+pub fn start_service(
+    name: &'static str,
+    bind_addr: std::net::SocketAddr,
+    enable_udp: bool,
+) -> mpsc::Receiver<socket::Socket> {
     let (sender, receiver) = mpsc::channel::<socket::Socket>(32);
 
     let tcp_sender = sender.clone();
@@ -21,11 +26,13 @@ pub fn start_service(name: &'static str, bind_addr: std::net::SocketAddr) -> mps
         }
     });
 
-    tokio::spawn(async move {
-        if let Err(err) = bind_udp(name, bind_addr, udp_sender).await {
-            log::error!("[{}] udp service start failed due to: {}", name, err);
-        }
-    });
+    if enable_udp {
+        tokio::spawn(async move {
+            if let Err(err) = bind_udp(name, bind_addr, udp_sender).await {
+                log::error!("[{}] udp service start failed due to: {}", name, err);
+            }
+        });
+    }
 
     receiver
 }
@@ -64,7 +71,7 @@ where
     loop {
         let socket = socket.clone();
 
-        let mut buf = vec![0; 1500];
+        let mut buf = vec![0; config::UDP_MTU];
         let (len, addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(buf) = buf.get(0..len) {

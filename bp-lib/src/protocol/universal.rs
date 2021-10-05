@@ -7,12 +7,13 @@ use crate::{
 use async_trait::async_trait;
 use bytes::Bytes;
 
-pub struct SocksHttp {
+#[derive(Clone, Default)]
+pub struct Universal {
     socks_bind_addr: Option<Address>,
     proxy_address: Option<Address>,
 }
 
-impl SocksHttp {
+impl Universal {
     pub fn new(socks_bind_addr: Option<Address>) -> Self {
         Self {
             socks_bind_addr,
@@ -21,19 +22,10 @@ impl SocksHttp {
     }
 }
 
-impl Clone for SocksHttp {
-    fn clone(&self) -> Self {
-        Self {
-            socks_bind_addr: self.socks_bind_addr.clone(),
-            proxy_address: self.proxy_address.clone(),
-        }
-    }
-}
-
 #[async_trait]
-impl Protocol for SocksHttp {
+impl Protocol for Universal {
     fn get_name(&self) -> String {
-        "socks_http".into()
+        "universal".into()
     }
 
     fn set_proxy_address(&mut self, addr: Address) {
@@ -52,25 +44,32 @@ impl Protocol for SocksHttp {
             // TODO: improve this assertion
             if buf[0] == socks::SOCKS_VERSION_V5 {
                 let mut socks = Socks::new(self.socks_bind_addr.clone());
-                socks.resolve_proxy_address(socket).await
-            } else {
-                let mut http = Http::new();
-                http.resolve_proxy_address(socket).await
+                return socks.resolve_proxy_address(socket).await;
             }
+
+            // TODO: HTTP check
+            let mut http = Http::default();
+            http.resolve_proxy_address(socket).await
+
+            // TODO: HTTPS check
         } else {
-            // Socks UDP packet goes here
+            // Socks UDP packet check
             let packet = socket.read_exact(4).await?;
             socket.cache(packet.clone()).await;
-          
+
             let atyp = packet[3];
 
             // TODO: improve this assertion
             if atyp == socks::ATYP_V4 || atyp == socks::ATYP_V6 || atyp == socks::ATYP_DOMAIN {
                 let mut socks = Socks::new(self.socks_bind_addr.clone());
-                socks.resolve_proxy_address(socket).await
-            } else {
-                Err("invalid socks5 udp packet".into())
+                return socks.resolve_proxy_address(socket).await;
             }
+
+            // TODO: DNS UDP packet check
+
+            // TODO: Unknown UDP packet
+
+            Err("invalid socks5 udp packet".into())
         }
     }
 
