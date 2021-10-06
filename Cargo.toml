@@ -2,9 +2,9 @@
 members = [
     "bp",
     "bp-lib",
-    "bp-macros",
     "bp-monitor",
 ]
 exclude = [
+    "bp-macros",
     "dns-pollution-detector"
 ]

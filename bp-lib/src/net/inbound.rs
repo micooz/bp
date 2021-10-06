@@ -1,15 +1,21 @@
-use crate::{config, event, net, net::socket, protocol, Result, ServiceType};
+use crate::{config, event::*, global, net, net::socket, protocol::*, Result};
 use bytes;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::time;
 
-pub struct InboundOptions {
-    pub service_type: ServiceType,
+type Proto = DynProtocol;
+
+pub struct InboundResolveResult {
+    pub in_proto: Proto,
+
+    pub out_proto: Proto,
+
+    pub is_proxy: bool,
 }
 
 pub struct Inbound {
-    opts: InboundOptions,
+    opts: net::ConnOptions,
 
     socket: Arc<socket::Socket>,
 
@@ -23,9 +29,8 @@ pub struct Inbound {
 }
 
 impl Inbound {
-    pub fn new(socket: socket::Socket, opts: InboundOptions) -> Self {
+    pub fn new(socket: socket::Socket, opts: net::ConnOptions) -> Self {
         let socket = Arc::new(socket);
-
         let peer_address = socket.peer_addr().unwrap();
         let local_addr = socket.local_addr().unwrap();
 
@@ -40,13 +45,8 @@ impl Inbound {
     }
 
     // parse incoming data to get proxy address
-    pub async fn resolve_proxy_address(
-        &mut self,
-        mut in_proto: protocol::DynProtocol,
-        mut out_proto: protocol::DynProtocol,
-        tx: event::EventSender,
-    ) -> Result<(protocol::DynProtocol, protocol::DynProtocol)> {
-        self.protocol_name = Some(in_proto.get_name());
+    pub async fn resolve_addr(&mut self, mut proto: Proto, tx: EventSender) -> Result<InboundResolveResult> {
+        self.protocol_name = Some(proto.get_name());
 
         log::info!(
             "[{}] [{}] use [{}] to resolve target address",
@@ -67,7 +67,7 @@ impl Inbound {
 
         let resolve_result = time::timeout(
             time::Duration::from_secs(config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
-            in_proto.resolve_proxy_address(&self.socket),
+            proto.resolve_proxy_address(&self.socket),
         )
         .await
         .map_err(|err| map_err(err.to_string()))?;
@@ -84,7 +84,7 @@ impl Inbound {
                         self.socket.socket_type(),
                         addr
                     );
-                    protocol::ResolvedResult {
+                    ResolvedResult {
                         protocol: String::from("REDIRECT"),
                         address: addr,
                         pending_buf: None,
@@ -107,7 +107,9 @@ impl Inbound {
             self.proxy_address.as_ref().unwrap(),
         );
 
-        in_proto.set_proxy_address(proxy_address.clone());
+        let (mut out_proto, is_proxy) = self.create_outbound_protocol().await;
+
+        proto.set_proxy_address(proxy_address.clone());
         out_proto.set_proxy_address(proxy_address);
 
         log::info!(
@@ -117,22 +119,26 @@ impl Inbound {
             self.protocol_name.as_ref().unwrap()
         );
 
-        let ret = (in_proto.clone(), out_proto.clone());
+        let ret = InboundResolveResult {
+            in_proto: proto.clone(),
+            out_proto: out_proto.clone(),
+            is_proxy,
+        };
 
         let service_type = self.opts.service_type;
 
         // handle pending_buf
         if let Some(buf) = resolved.pending_buf {
             match service_type {
-                ServiceType::Client => {
+                net::ServiceType::Client => {
                     self.socket.cache(buf.clone()).await;
 
                     if let Err(err) = out_proto.client_encode(&self.socket, tx.clone()).await {
-                        let _ = tx.send(event::Event::InboundError(err)).await;
+                        let _ = tx.send(Event::InboundError(err)).await;
                     }
                 }
-                ServiceType::Server => {
-                    let _ = tx.send(event::Event::ServerDecodeDone(buf)).await;
+                net::ServiceType::Server => {
+                    let _ = tx.send(Event::ServerDecodeDone(buf)).await;
                 }
             }
         }
@@ -144,12 +150,12 @@ impl Inbound {
             tokio::spawn(async move {
                 loop {
                     let res = match service_type {
-                        ServiceType::Client => out_proto.client_encode(&socket, tx.clone()).await,
-                        ServiceType::Server => in_proto.server_decode(&socket, tx.clone()).await,
+                        net::ServiceType::Client => out_proto.client_encode(&socket, tx.clone()).await,
+                        net::ServiceType::Server => proto.server_decode(&socket, tx.clone()).await,
                     };
 
                     if let Err(err) = res {
-                        let _ = tx.send(event::Event::InboundError(err)).await;
+                        let _ = tx.send(Event::InboundError(err)).await;
                         break;
                     }
                 }
@@ -187,6 +193,50 @@ impl Inbound {
             local_addr: self.local_addr,
             protocol_name: self.protocol_name.clone(),
         }
+    }
+
+    async fn create_outbound_protocol(&self) -> (Proto, bool) {
+        let direct = Box::new(Direct::default());
+
+        // server address not provided on client
+        if self.opts.service_type.is_client() && self.opts.server_addr.is_none() {
+            return (direct, false);
+        }
+
+        // check acl
+        let proxy_addr = self.proxy_address.as_ref().unwrap();
+        let proxy_addr_host = proxy_addr.host.to_string();
+
+        // white list
+        if self.opts.service_type.is_client() && self.opts.enable_white_list {
+            let acl = global::SHARED_DATA.get_acl();
+
+            if !acl.is_host_hit(&proxy_addr_host) {
+                log::info!(
+                    "[{}] [{}] [{}] is not matched in white list, will use [direct] protocol for outbound",
+                    self.peer_address,
+                    self.socket.socket_type(),
+                    proxy_addr_host,
+                );
+                return (direct, false);
+            }
+
+            log::info!(
+                "[{}] [{}] [{}] is matched in white list",
+                self.peer_address,
+                self.socket.socket_type(),
+                proxy_addr_host,
+            );
+        }
+
+        let proto: Proto = match self.opts.protocol {
+            TransportProtocol::Plain => Box::new(Plain::default()),
+            TransportProtocol::EncryptRandomPadding => {
+                Box::new(Erp::new(self.opts.key.clone().unwrap(), self.opts.service_type))
+            }
+        };
+
+        (proto, true)
     }
 
     fn get_redirected_dest_addr(&self) -> Option<net::Address> {

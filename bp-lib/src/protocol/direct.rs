@@ -7,19 +7,8 @@ use async_trait::async_trait;
 
 const RECV_BUFFER_SIZE: usize = 4 * 1024;
 
+#[derive(Default, Clone)]
 pub struct Direct {}
-
-impl Direct {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Clone for Direct {
-    fn clone(&self) -> Self {
-        Self {}
-    }
-}
 
 #[async_trait]
 impl protocol::Protocol for Direct {

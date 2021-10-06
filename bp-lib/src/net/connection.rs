@@ -1,9 +1,6 @@
-use crate::{
-    event::Event, net, net::inbound, net::outbound, net::socket, protocol, Result, ServiceType, SharedData,
-    TransportProtocol,
-};
+use crate::{event::Event, net, net::inbound, net::outbound, net::socket, protocol, Result};
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync;
 
 #[cfg(feature = "monitor")]
 use bytes::BytesMut;
@@ -16,23 +13,18 @@ struct MonitorCollectData {
     last_decoded_data: BytesMut,
 }
 
-pub struct ConnectionOptions {
-    pub id: usize,
-    pub service_type: ServiceType,
-    pub protocol: TransportProtocol,
-    pub key: Option<String>,
-    pub local_addr: net::Address,
-    pub server_addr: Option<net::Address>,
-    pub shared_data: Arc<RwLock<SharedData>>,
-}
-
 pub struct Connection {
     #[allow(dead_code)]
     id: usize,
-    inbound: Arc<RwLock<inbound::Inbound>>,
-    outbound: Arc<RwLock<outbound::Outbound>>,
+
+    opts: net::ConnOptions,
+
+    inbound: Arc<sync::RwLock<inbound::Inbound>>,
+
+    outbound: Arc<sync::RwLock<outbound::Outbound>>,
+
     proxy_address: Option<net::Address>,
-    opts: ConnectionOptions,
+
     closed: bool,
 
     #[cfg(feature = "monitor")]
@@ -40,32 +32,20 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(socket: socket::Socket, opts: ConnectionOptions) -> Self {
+    pub fn new(socket: socket::Socket, opts: net::ConnOptions) -> Self {
         let peer_address = socket.peer_addr().unwrap();
         let socket_type = socket.socket_type();
 
         // create inbound
-        let inbound = inbound::Inbound::new(
-            socket,
-            inbound::InboundOptions {
-                service_type: opts.service_type,
-            },
-        );
+        let inbound = inbound::Inbound::new(socket, opts.clone());
 
         // create outbound
-        let outbound = outbound::Outbound::new(
-            peer_address,
-            outbound::OutboundOptions {
-                service_type: opts.service_type,
-                server_addr: opts.server_addr.clone(),
-                socket_type,
-            },
-        );
+        let outbound = outbound::Outbound::new(peer_address, socket_type, opts.clone());
 
         Connection {
             id: opts.id,
-            inbound: Arc::new(RwLock::new(inbound)),
-            outbound: Arc::new(RwLock::new(outbound)),
+            inbound: Arc::new(sync::RwLock::new(inbound)),
+            outbound: Arc::new(sync::RwLock::new(outbound)),
             proxy_address: None,
             opts,
             #[cfg(feature = "monitor")]
@@ -85,34 +65,44 @@ impl Connection {
 
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        let trans_proto = self.create_transport_protocol();
-
         // [inbound] resolve proxy address
-        let (in_proto, out_proto) = match self.opts.service_type {
-            ServiceType::Client => {
+        let resolved = match self.opts.service_type {
+            net::ServiceType::Client => {
                 let universal = Box::new(protocol::Universal::new(Some(self.opts.local_addr.clone())));
-                RwLock::write(&self.inbound)
+
+                sync::RwLock::write(&self.inbound)
                     .await
-                    .resolve_proxy_address(universal, trans_proto, tx.clone())
+                    .resolve_addr(universal, tx.clone())
                     .await?
             }
-            ServiceType::Server => {
-                let direct = Box::new(protocol::Direct::new());
-                RwLock::write(&self.inbound)
+            net::ServiceType::Server => {
+                use protocol::*;
+
+                let trans_proto: DynProtocol = match self.opts.protocol {
+                    TransportProtocol::Plain => Box::new(Plain::default()),
+                    TransportProtocol::EncryptRandomPadding => {
+                        Box::new(Erp::new(self.opts.key.clone().unwrap(), self.opts.service_type))
+                    }
+                };
+
+                sync::RwLock::write(&self.inbound)
                     .await
-                    .resolve_proxy_address(trans_proto, direct, tx.clone())
+                    .resolve_addr(trans_proto, tx.clone())
                     .await?
             }
         };
 
-        self.proxy_address = in_proto.get_proxy_address();
+        self.proxy_address = resolved.in_proto.get_proxy_address();
         self.update_snapshot().await;
 
         // [outbound] apply protocol
-        RwLock::write(&self.outbound)
-            .await
-            .use_protocol(out_proto, in_proto, tx.clone())
+        let mut outbound = sync::RwLock::write(&self.outbound).await;
+        outbound.set_is_proxy(resolved.is_proxy);
+        outbound
+            .use_protocol(resolved.out_proto, resolved.in_proto, tx.clone())
             .await?;
+
+        drop(outbound);
 
         self.update_snapshot().await;
 
@@ -125,8 +115,8 @@ impl Connection {
     }
 
     pub async fn force_close(&mut self) -> Result<()> {
-        RwLock::write(&self.inbound).await.close().await?;
-        RwLock::write(&self.outbound).await.close().await?;
+        sync::RwLock::write(&self.inbound).await.close().await?;
+        sync::RwLock::write(&self.outbound).await.close().await?;
 
         self.closed = true;
         self.update_snapshot().await;
@@ -135,14 +125,14 @@ impl Connection {
     }
 
     /// handle events from inbound and outbound
-    async fn handle_events(&self, mut rx: mpsc::Receiver<Event>) -> Result<()> {
+    async fn handle_events(&self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
         while let Some(event) = rx.recv().await {
             match event {
                 Event::ClientEncodeDone(buf) => {
-                    RwLock::write(&self.outbound).await.send(buf).await?;
+                    sync::RwLock::write(&self.outbound).await.send(buf).await?;
                 }
                 Event::ServerEncodeDone(buf) => {
-                    RwLock::write(&self.inbound).await.send(buf).await?;
+                    sync::RwLock::write(&self.inbound).await.send(buf).await?;
                 }
                 Event::ClientDecodeDone(buf) => {
                     // TODO: store last decoded data, for monitoring
@@ -153,24 +143,24 @@ impl Connection {
                     //         .last_decoded_data
                     //         .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
                     // }
-                    RwLock::write(&self.inbound).await.send(buf).await?;
+                    sync::RwLock::write(&self.inbound).await.send(buf).await?;
                 }
                 Event::ServerDecodeDone(buf) => {
-                    RwLock::write(&self.outbound).await.send(buf).await?;
+                    sync::RwLock::write(&self.outbound).await.send(buf).await?;
                 }
                 Event::InboundError(_) => {
                     // close self
-                    RwLock::write(&self.inbound).await.close().await?;
+                    sync::RwLock::write(&self.inbound).await.close().await?;
                     // close outbound as well
-                    RwLock::write(&self.outbound).await.close().await?;
+                    sync::RwLock::write(&self.outbound).await.close().await?;
 
                     break;
                 }
                 Event::OutboundError(_) => {
                     // close self
-                    RwLock::write(&self.outbound).await.close().await?;
+                    sync::RwLock::write(&self.outbound).await.close().await?;
                     // close inbound as well
-                    RwLock::write(&self.inbound).await.close().await?;
+                    sync::RwLock::write(&self.inbound).await.close().await?;
 
                     break;
                 }
@@ -181,28 +171,17 @@ impl Connection {
     }
 
     async fn update_snapshot(&self) {
-        let mut shared_data = self.opts.shared_data.write().await;
-        let snapshot = ConnectionSnapshot {
-            id: self.id,
-            closed: self.closed,
-            proxy_address: self.proxy_address.clone(),
-            inbound_snapshot: self.inbound.read().await.snapshot(),
-            outbound_snapshot: self.outbound.read().await.snapshot(),
-        };
-        shared_data.conns.insert(self.id, snapshot);
-    }
-
-    fn create_transport_protocol(&self) -> protocol::DynProtocol {
-        if self.opts.service_type.is_client() && self.opts.server_addr.is_none() {
-            Box::new(protocol::Direct::new())
-        } else {
-            match self.opts.protocol {
-                TransportProtocol::Plain => Box::new(protocol::Plain::default()),
-                TransportProtocol::EncryptRandomPadding => Box::new(protocol::Erp::new(
-                    self.opts.key.clone().unwrap(),
-                    self.opts.service_type,
-                )),
-            }
+        #[cfg(feature = "monitor")]
+        {
+            let mut shared_data = self.opts.shared_data.write().await;
+            let snapshot = ConnectionSnapshot {
+                id: self.id,
+                closed: self.closed,
+                proxy_address: self.proxy_address.clone(),
+                inbound_snapshot: self.inbound.read().await.snapshot(),
+                outbound_snapshot: self.outbound.read().await.snapshot(),
+            };
+            shared_data.connection_snapshots.insert(self.id, snapshot);
         }
     }
 }

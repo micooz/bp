@@ -1,4 +1,5 @@
-use bp_lib::{ServiceType, TransportProtocol};
+use bp_lib::net;
+use bp_lib::TransportProtocol;
 use clap::{crate_version, Clap};
 
 /// The crate author
@@ -43,16 +44,20 @@ pub struct Options {
     /// enable udp relay
     #[clap(long)]
     pub enable_udp: bool,
+
+    /// check white list before proxy
+    #[clap(long)]
+    pub proxy_list_path: Option<String>,
 }
 
 impl Options {
     /// Return local service type
-    pub fn get_service_type(&self) -> Result<ServiceType, &'static str> {
+    pub fn get_service_type(&self) -> Result<net::ServiceType, &'static str> {
         if !self.server && self.client {
-            return Ok(ServiceType::Client);
+            return Ok(net::ServiceType::Client);
         }
         if self.server && !self.client {
-            return Ok(ServiceType::Server);
+            return Ok(net::ServiceType::Server);
         }
         Err("cannot determine service type")
     }

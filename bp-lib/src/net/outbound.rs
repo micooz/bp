@@ -1,46 +1,48 @@
-use crate::{config, event, net, net::socket, protocol, Result, ServiceType};
+use crate::{config, event, net, net::socket, protocol, Result};
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpSocket, time};
 
-pub struct OutboundOptions {
-    pub service_type: ServiceType,
-    pub server_addr: Option<net::Address>,
-    pub socket_type: socket::SocketType,
-}
+type Proto = protocol::DynProtocol;
 
 pub struct Outbound {
-    opts: OutboundOptions,
+    opts: net::ConnOptions,
 
     socket: Option<Arc<socket::Socket>>,
+
+    socket_type: socket::SocketType,
 
     peer_address: SocketAddr,
 
     remote_addr: Option<net::Address>,
 
     protocol_name: Option<String>,
+
+    is_proxy: bool,
 }
 
 impl Outbound {
-    pub fn new(peer_address: SocketAddr, opts: OutboundOptions) -> Self {
+    pub fn new(peer_address: SocketAddr, socket_type: socket::SocketType, opts: net::ConnOptions) -> Self {
         Self {
             opts,
             socket: None,
+            socket_type,
             peer_address,
             remote_addr: None,
             protocol_name: None,
+            is_proxy: false,
         }
     }
 
     // apply transport protocol then make connection to remote
     pub async fn use_protocol(
         &mut self,
-        mut out_proto: protocol::DynProtocol,
-        mut in_proto: protocol::DynProtocol,
+        mut out_proto: Proto,
+        mut in_proto: Proto,
         tx: event::EventSender,
     ) -> Result<()> {
         let service_type = self.opts.service_type;
-        let socket_type = self.opts.socket_type;
+        let socket_type = self.socket_type;
         let peer_address = self.peer_address;
 
         let protocol_name = out_proto.get_name();
@@ -99,8 +101,8 @@ impl Outbound {
         tokio::spawn(async move {
             loop {
                 let future = match service_type {
-                    ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
-                    ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
+                    net::ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
+                    net::ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
                 };
 
                 let res = time::timeout(time::Duration::from_secs(config::OUTBOUND_RECV_TIMEOUT_SECONDS), future).await;
@@ -138,7 +140,7 @@ impl Outbound {
             log::info!(
                 "[{}] [{}] [{}] sent an udp packet: {} bytes",
                 self.peer_address,
-                self.opts.socket_type,
+                self.socket_type,
                 self.protocol_name.as_ref().unwrap(),
                 buf.len()
             );
@@ -163,8 +165,12 @@ impl Outbound {
         }
     }
 
-    fn get_remote_addr(&self, in_proto: &protocol::DynProtocol) -> net::Address {
-        if self.opts.service_type.is_server() || self.opts.server_addr.is_none() {
+    pub fn set_is_proxy(&mut self, is_proxy: bool) {
+        self.is_proxy = is_proxy;
+    }
+
+    fn get_remote_addr(&self, in_proto: &Proto) -> net::Address {
+        if self.opts.service_type.is_server() || self.opts.server_addr.is_none() || !self.is_proxy {
             in_proto.get_proxy_address().unwrap()
         } else {
             self.opts.server_addr.as_ref().unwrap().clone()
@@ -172,7 +178,7 @@ impl Outbound {
     }
 
     async fn connect(&self, addr: SocketAddr) -> Result<Arc<socket::Socket>> {
-        let socket = match self.opts.socket_type {
+        let socket = match self.socket_type {
             socket::SocketType::Tcp => {
                 #[cfg(target_os = "linux")]
                 use std::os::unix::io::AsRawFd;

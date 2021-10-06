@@ -1,8 +1,7 @@
 use crate::context::Context;
-use bp_lib::SharedData;
+use bp_lib::context;
 use bytes::Bytes;
 use std::{convert::TryFrom, fmt::Display, net::SocketAddr, sync::Arc};
-use tokio::sync::RwLock;
 
 #[cfg(windows)]
 const LINE_ENDING: &str = "\r\n";
@@ -76,7 +75,7 @@ impl MonitorCommand {
         self.ctx.socket.send(LINE_ENDING.as_bytes()).await.unwrap();
     }
 
-    pub async fn exec(&mut self, shared_data: Arc<RwLock<SharedData>>) {
+    pub async fn exec(&mut self, shared_data: Arc<context::SharedData>) {
         log::info!("[{}] execute command: <{}>", self.peer_addr, self.cmd_type);
 
         match &self.cmd_type {
@@ -84,8 +83,8 @@ impl MonitorCommand {
                 self.reply(format!("\n{}", include_str!("help.txt"))).await;
             }
             CommandType::List => {
-                let shared_data = shared_data.read().await;
-                let snapshot_list = shared_data.conns.values();
+                let shared_data = shared_data.get_connection_snapshots().lock().await;
+                let snapshot_list = shared_data.values();
 
                 let msg = snapshot_list
                     .map(|v| format!("[{}] {}\n", v.id(), v.get_abstract()))

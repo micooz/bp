@@ -1,14 +1,6 @@
 use crate::options::Options;
-use bp_lib::{
-    net::{
-        address::Address,
-        connection::{Connection, ConnectionOptions},
-        service,
-    },
-    SharedData,
-};
-use std::sync::Arc;
-use tokio::{sync, task, time};
+use bp_lib::{global, net};
+use tokio::{task, time};
 
 #[cfg(feature = "monitor")]
 use bp_monitor::MonitorCommand;
@@ -36,17 +28,32 @@ fn start_main_service(
     opts: Options,
     #[cfg(feature = "monitor")] mut rx: sync::mpsc::Receiver<MonitorCommand>,
 ) -> task::JoinHandle<()> {
-    let mut receiver = service::start_service("main", opts.bind.parse().unwrap(), opts.enable_udp);
-
-    let shared_data = Arc::new(sync::RwLock::new(SharedData::default()));
-
-    #[cfg(feature = "monitor")]
-    let shared_data_monitor = shared_data.clone();
+    let mut receiver = net::service::start_service("main", opts.bind.parse().unwrap(), opts.enable_udp);
 
     #[cfg(feature = "monitor")]
     tokio::spawn(async move {
         while let Some(mut cmd) = rx.recv().await {
             cmd.exec(shared_data_monitor.clone()).await;
+        }
+    });
+
+    let opts_for_acl = opts.clone();
+
+    // load acl
+    tokio::spawn(async move {
+        if let Some(ref path) = opts_for_acl.proxy_list_path {
+            let acl = global::SHARED_DATA.get_acl();
+
+            if let Err(err) = acl.load_from_file(path.clone()) {
+                log::error!("[acl] load white list failed due to: {}", err);
+                return;
+            }
+
+            let path = path.clone();
+
+            tokio::spawn(async move {
+                acl.watch(path).unwrap();
+            });
         }
     });
 
@@ -57,7 +64,7 @@ fn start_main_service(
             id += 1;
 
             let opts = opts.clone();
-            let local_addr = opts.bind.parse::<Address>().unwrap();
+            let local_addr = opts.bind.parse::<net::Address>().unwrap();
             let server_addr = if opts.server_host.is_some() && opts.server_port.is_some() {
                 Some(
                     format!(
@@ -65,13 +72,12 @@ fn start_main_service(
                         opts.server_host.as_ref().unwrap(),
                         opts.server_port.as_ref().unwrap()
                     )
-                    .parse::<Address>()
+                    .parse::<net::Address>()
                     .unwrap(),
                 )
             } else {
                 None
             };
-            let shared_data = shared_data.clone();
 
             // put socket to new task to create a Connection
             tokio::spawn(async move {
@@ -79,18 +85,17 @@ fn start_main_service(
 
                 log::info!("[{}] connected", addr);
 
-                let mut conn = Connection::new(
-                    socket,
-                    ConnectionOptions {
-                        id,
-                        service_type: opts.get_service_type().unwrap(),
-                        protocol: opts.protocol.clone(),
-                        key: opts.key.clone(),
-                        local_addr: local_addr.clone(),
-                        server_addr: server_addr.clone(),
-                        shared_data: shared_data.clone(),
-                    },
-                );
+                let opts = net::ConnOptions {
+                    id,
+                    service_type: opts.get_service_type().unwrap(),
+                    protocol: opts.protocol.clone(),
+                    key: opts.key.clone(),
+                    local_addr: local_addr.clone(),
+                    server_addr: server_addr.clone(),
+                    enable_white_list: opts.proxy_list_path.is_some(),
+                };
+
+                let mut conn = net::Connection::new(socket, opts);
 
                 if let Err(err) = conn.handle().await {
                     log::error!("{}", err);
@@ -103,7 +108,8 @@ fn start_main_service(
 
                 // remove item from shared_data after 1min
                 time::sleep(time::Duration::from_secs(60)).await;
-                sync::RwLock::write(&shared_data).await.conns.remove(&id);
+
+                global::SHARED_DATA.remove_connection_snapshot(id).await;
             });
         }
     })

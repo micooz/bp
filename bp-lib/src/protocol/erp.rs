@@ -1,7 +1,7 @@
 use crate::{
     event::{Event, EventSender},
-    net::{address::Address, socket},
-    protocol, utils, Result, ServiceType,
+    net::{address::Address, socket, ServiceType},
+    protocol, utils, Result,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};

@@ -46,6 +46,12 @@ async fn main() {
         log::warn!("--server-host or --server-port not set, bp will relay directly.");
     }
 
+    // check --proxy-list-path
+    if opts.server && opts.proxy_list_path.is_some() {
+        log::error!("--proxy-list-path can only be used on client");
+        exit(ExitError::ArgumentsError.into());
+    }
+
     if let Err(err) = bootstrap(opts).await {
         log::error!("{}", err);
     }

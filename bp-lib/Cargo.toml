@@ -33,3 +33,6 @@ sha2 = "0.9.5"
 
 ### logging
 log = "0.4.0"
+
+### others
+notify = "4.0.0"
