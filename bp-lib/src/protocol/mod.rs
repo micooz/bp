@@ -8,11 +8,13 @@ mod erp;
 mod http;
 mod plain;
 mod socks;
+mod https;
 mod universal;
 
 pub use direct::Direct;
 pub use erp::Erp;
 pub use http::Http;
+pub use https::Https;
 pub use plain::Plain;
 pub use socks::Socks;
 pub use universal::Universal;

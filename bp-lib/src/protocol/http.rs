@@ -10,7 +10,6 @@ use url::Url;
 
 #[derive(Clone, Default)]
 pub struct Http {
-    header_sent: bool,
     proxy_address: Option<net::Address>,
 }
 
@@ -87,7 +86,7 @@ impl protocol::Protocol for Http {
                 return Ok(protocol::ResolvedResult {
                     protocol: self.get_name(),
                     address: net::Address::new(address::Host::Name(host), port),
-                    pending_buf: Some(buf.into()),
+                    pending_buf: Some(buf.freeze()),
                 });
             }
         }

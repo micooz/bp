@@ -79,7 +79,7 @@ impl Inbound {
             Err(err) => match self.get_redirected_dest_addr() {
                 Some(addr) => {
                     log::info!(
-                        "[{}] [{}] fallback to address [{}] obtained from REDIRECT",
+                        "[{}] [{}] fallback to use iptables's REDIRECT target address {}",
                         self.peer_address,
                         self.socket.socket_type(),
                         addr

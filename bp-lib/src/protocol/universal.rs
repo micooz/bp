@@ -2,7 +2,7 @@ use crate::{
     event, net,
     net::socket,
     protocol,
-    protocol::{http::Http, socks::Socks},
+    protocol::{http::Http, https::Https, socks::Socks},
     Result,
 };
 use async_trait::async_trait;
@@ -62,6 +62,20 @@ impl protocol::Protocol for Universal {
         }
 
         log::debug!("use [http] to detect proxy address...failed due to: {}", res.unwrap_err());
+
+        socket.restore().await;
+
+        log::debug!("use [https] to detect proxy address...");
+
+        // HTTPS
+        let mut http = Https::default();
+        let res = http.resolve_proxy_address(socket).await;
+
+        if res.is_ok() {
+            return res;
+        }
+
+        log::debug!("use [https] to detect proxy address...failed due to: {}", res.unwrap_err());
 
         Err("cannot resolve proxy address ".into())
     }
