@@ -84,7 +84,7 @@ jobs:
       - name: Build release
         shell: bash
         run: |
-          cd build
+          cd scripts
           ./build-host-release -t ${{ matrix.target }}
 
       - name: Upload Github Assets
@@ -110,7 +110,7 @@ jobs:
 
       - name: Build release
         run: |
-          cd build
+          cd scripts
           pwsh build-host-release.ps1
 
       - name: Upload Github Assets
