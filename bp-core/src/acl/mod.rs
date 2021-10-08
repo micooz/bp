@@ -2,6 +2,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::fmt::Display;
 use std::fs;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::sync;
 use std::time;
 
@@ -34,17 +35,18 @@ impl AccessControlList {
         Ok(())
     }
 
-    pub fn save_to_file(&self, path: String) -> std::io::Result<()> {
+    pub fn save_to_file(&self, path: PathBuf) -> std::io::Result<()> {
         let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
 
         let buf = self.stringify();
 
         file.write_all(buf.as_bytes())?;
+        file.flush()?;
 
         Ok(())
     }
 
-    pub fn insert(&self, host: &str, rule: DomainRule) {
+    pub fn push(&self, host: &str, rule: DomainRule) {
         self.domain_white_list.lock().unwrap().insert(
             0,
             DomainItem {
