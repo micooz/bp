@@ -1,6 +1,8 @@
-use crate::options::Options;
-use crate::ServiceContext;
-use bp_core::{global, net};
+use crate::{Options, ServiceContext};
+use bp_core::{
+    global,
+    net::{self, Address},
+};
 use tokio::{sync::oneshot, task, time};
 
 #[cfg(feature = "monitor")]
@@ -69,16 +71,8 @@ fn start_main_service(
 
             let opts = opts.clone();
             let local_addr = opts.bind.parse::<net::Address>().unwrap();
-            let server_addr = if opts.server_host.is_some() && opts.server_port.is_some() {
-                Some(
-                    format!(
-                        "{}:{}",
-                        opts.server_host.as_ref().unwrap(),
-                        opts.server_port.as_ref().unwrap()
-                    )
-                    .parse::<net::Address>()
-                    .unwrap(),
-                )
+            let server_addr: Option<Address> = if let Some(addr) = opts.server_bind.as_ref() {
+                Some(addr.parse().unwrap())
             } else {
                 None
             };

@@ -24,13 +24,9 @@ pub struct Options {
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
     pub bind: String,
 
-    /// bp server host, client only. if not set, bp will relay directly
+    /// bp server bind address, client only. if not set, bp will relay directly
     #[clap(long)]
-    pub server_host: Option<String>,
-
-    /// bp server port, client only. if not set, bp will relay directly
-    #[clap(long)]
-    pub server_port: Option<u16>,
+    pub server_bind: Option<String>,
 
     /// symmetric encryption key
     #[clap(short, long)]
@@ -83,13 +79,13 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
         return Err("-c or -s can only be set one.");
     }
 
-    // check --server-host and --server-port
-    if opts.client && (opts.server_host == None || opts.server_port == None) {
+    // check --server-bind
+    if opts.client && opts.server_bind.is_none() {
         log::warn!("--server-host or --server-port not set, bp will relay directly.");
     }
 
     // check --key
-    if opts.key.is_none() && ((opts.server_host != None && opts.server_port != None) || opts.server) {
+    if opts.key.is_none() && (opts.server_bind.is_some() || opts.server) {
         return Err("-k or --key must be set.");
     }
 
