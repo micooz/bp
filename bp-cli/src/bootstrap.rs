@@ -1,11 +1,12 @@
 use crate::options::Options;
-use bp_lib::{global, net};
-use tokio::{task, time};
+use crate::ServiceContext;
+use bp_core::{global, net};
+use tokio::{sync::oneshot, task, time};
 
 #[cfg(feature = "monitor")]
 use bp_monitor::MonitorCommand;
 
-pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
+pub async fn bootstrap(opts: Options, sender: oneshot::Sender<ServiceContext>) -> std::io::Result<()> {
     #[cfg(feature = "monitor")]
     let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
 
@@ -14,6 +15,7 @@ pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
 
     start_main_service(
         opts.clone(),
+        sender,
         #[cfg(feature = "monitor")]
         rx,
     )
@@ -26,6 +28,7 @@ pub async fn bootstrap(opts: Options) -> std::io::Result<()> {
 
 fn start_main_service(
     opts: Options,
+    sender: oneshot::Sender<ServiceContext>,
     #[cfg(feature = "monitor")] mut rx: sync::mpsc::Receiver<MonitorCommand>,
 ) -> task::JoinHandle<()> {
     let mut receiver = net::service::start_service("main", opts.bind.parse().unwrap(), opts.enable_udp);
@@ -37,6 +40,7 @@ fn start_main_service(
         }
     });
 
+    let bind = opts.bind.clone();
     let opts_for_acl = opts.clone();
 
     // load acl
@@ -57,7 +61,7 @@ fn start_main_service(
         }
     });
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         let mut id = 0usize;
 
         while let Some(socket) = receiver.recv().await {
@@ -112,7 +116,11 @@ fn start_main_service(
                 global::SHARED_DATA.remove_connection_snapshot(id).await;
             });
         }
-    })
+    });
+
+    sender.send(ServiceContext { bind_addr: bind }).unwrap();
+
+    handle
 }
 
 #[cfg(feature = "monitor")]

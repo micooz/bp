@@ -69,3 +69,9 @@ impl str::FromStr for TransportProtocol {
         }
     }
 }
+
+impl Default for TransportProtocol {
+    fn default() -> Self {
+        Self::EncryptRandomPadding
+    }
+}

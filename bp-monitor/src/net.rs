@@ -2,7 +2,7 @@ use crate::{
     cmd::{CommandType, MonitorCommand},
     context::Context,
 };
-use bp_lib::net::socket;
+use bp_core::net::socket;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;

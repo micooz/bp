@@ -1,11 +1,10 @@
 [package]
 name = "bp-monitor"
 version = "0.1.0"
-license = "MIT"
 edition = "2018"
 
 [dependencies]
-bp-lib = { path = "../bp-lib" }
+bp-core = { path = "../bp-core" }
 
 ### network
 bytes = "1.0.1"

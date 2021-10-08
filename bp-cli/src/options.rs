@@ -1,5 +1,5 @@
-use bp_lib::net;
-use bp_lib::TransportProtocol;
+use bp_core::net;
+use bp_core::TransportProtocol;
 use clap::{crate_version, Clap};
 
 /// The crate author
@@ -9,7 +9,7 @@ const CRATE_AUTHOR: &str = "Micooz Lee <micooz@hotmail.com>";
 const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
 
 /// Lightweight and efficient proxy written in pure Rust
-#[derive(Clap, Debug, Clone)]
+#[derive(Clap, Default, Debug, Clone)]
 #[clap(version = crate_version!(), author = CRATE_AUTHOR)]
 pub struct Options {
     /// run as server
@@ -72,4 +72,31 @@ impl Options {
 
         addr.as_string()
     }
+}
+
+pub fn check_options(opts: &Options) -> Result<(), &'static str> {
+    if !opts.client && !opts.server {
+        return Err("--c or --s must be set.");
+    }
+
+    if opts.client && opts.server {
+        return Err("-c or -s can only be set one.");
+    }
+
+    // check --server-host and --server-port
+    if opts.client && (opts.server_host == None || opts.server_port == None) {
+        log::warn!("--server-host or --server-port not set, bp will relay directly.");
+    }
+
+    // check --key
+    if opts.key.is_none() && ((opts.server_host != None && opts.server_port != None) || opts.server) {
+        return Err("-k or --key must be set.");
+    }
+
+    // check --proxy-list-path
+    if opts.server && opts.proxy_list_path.is_some() {
+        return Err("--proxy-list-path can only be used on client");
+    }
+
+    Ok(())
 }

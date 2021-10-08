@@ -1,4 +1,5 @@
 use crate::net::io;
+use crate::utils::net::create_udp_client_with_random_port;
 use crate::Result;
 use std::fmt::Display;
 use std::os::unix::io::{AsRawFd, RawFd};
@@ -70,28 +71,8 @@ impl Socket {
     }
 
     pub async fn bind_udp_random_port(peer_addr: std::net::SocketAddr) -> Result<Self> {
-        use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
-
-        let mut max_retry_times = 10u8;
-        let mut rng = StdRng::from_rng(thread_rng()).unwrap();
-
-        loop {
-            let port: u32 = rng.gen_range(10000..65535);
-            let bind_addr = format!("0.0.0.0:{}", port);
-
-            match net::UdpSocket::bind(bind_addr).await {
-                Ok(socket) => {
-                    return Ok(Self::new_udp(Arc::new(socket), peer_addr));
-                }
-                Err(_) => {
-                    max_retry_times -= 1;
-
-                    if max_retry_times == 0 {
-                        return Err("udp socket random bind error, max retry times exceed".into());
-                    }
-                }
-            }
-        }
+        let socket = create_udp_client_with_random_port().await?;
+        Ok(Self::new_udp(Arc::new(socket), peer_addr))
     }
 
     pub fn get_socket_fd(&self) -> Option<RawFd> {
