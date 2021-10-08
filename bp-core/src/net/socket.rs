@@ -2,6 +2,7 @@ use crate::net::io;
 use crate::utils::net::create_udp_client_with_random_port;
 use crate::Result;
 use std::fmt::Display;
+#[cfg(not(target_os = "windows"))]
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync::Arc;
 use tokio::net;
@@ -25,6 +26,7 @@ impl Display for SocketType {
 
 #[derive(Debug)]
 pub struct Socket {
+    #[cfg(not(target_os = "windows"))]
     fd: Option<RawFd>,
 
     socket_type: SocketType,
@@ -75,6 +77,7 @@ impl Socket {
         Ok(Self::new_udp(Arc::new(socket), peer_addr))
     }
 
+    #[cfg(not(target_os = "windows"))]
     pub fn get_socket_fd(&self) -> Option<RawFd> {
         self.fd
     }

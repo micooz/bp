@@ -240,21 +240,22 @@ impl Inbound {
     }
 
     fn get_redirected_dest_addr(&self) -> Option<net::Address> {
-        let fd = self.socket.get_socket_fd();
+        #[cfg(target_os = "linux")]
+        {
+            // TODO: get_original_destination_addr always return a value on linux
+            use crate::net::linux::get_original_destination_addr;
 
-        if self.socket.is_udp() || fd.is_none() {
-            return None;
+            let fd = self.socket.get_socket_fd();
+
+            if self.socket.is_udp() || fd.is_none() {
+                return None;
+            }
+
+            return match get_original_destination_addr(self.local_addr, fd.unwrap()) {
+                Ok(addr) => Some(addr.into()),
+                Err(_) => None,
+            };
         }
-
-        // TODO: get_original_destination_addr always return a value on linux
-        #[cfg(target_os = "linux")]
-        use crate::net::linux::get_original_destination_addr;
-
-        #[cfg(target_os = "linux")]
-        return match get_original_destination_addr(self.local_addr, fd.unwrap()) {
-            Ok(addr) => Some(addr.into()),
-            Err(_) => None,
-        };
 
         #[cfg(not(target_os = "linux"))]
         None
