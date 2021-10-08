@@ -251,10 +251,10 @@ impl Inbound {
                 return None;
             }
 
-            return match get_original_destination_addr(self.local_addr, fd.unwrap()) {
+            match get_original_destination_addr(self.local_addr, fd.unwrap()) {
                 Ok(addr) => Some(addr.into()),
                 Err(_) => None,
-            };
+            }
         }
 
         #[cfg(not(target_os = "linux"))]
