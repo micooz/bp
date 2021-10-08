@@ -1,4 +1,5 @@
-use bp_cli::{bootstrap, check_options, logging, Options, ServiceContext};
+use bp_cli::{bootstrap, check_options, logging, Options};
+use bp_core::net::service::StartupInfo;
 use clap::Clap;
 use std::process::exit;
 use tokio::sync::oneshot;
@@ -12,7 +13,7 @@ async fn main() {
 
     match check_options(&opts) {
         Ok(_) => {
-            let (tx, _rx) = oneshot::channel::<ServiceContext>();
+            let (tx, _rx) = oneshot::channel::<StartupInfo>();
 
             if let Err(err) = bootstrap(opts, tx).await {
                 log::error!("{}", err);

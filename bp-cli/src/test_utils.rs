@@ -1,6 +1,6 @@
 use crate::bootstrap::bootstrap;
 use crate::options::{check_options, Options};
-use crate::ServiceContext;
+use bp_core::net::service::StartupInfo;
 use std::sync::Mutex;
 use tokio::sync::oneshot;
 
@@ -8,7 +8,7 @@ lazy_static::lazy_static! {
     static ref INCREMENTAL_PORT_NUM:Mutex<u16> = Mutex::new(1080);
 }
 
-pub async fn run_bp(mut opts: Options) -> ServiceContext {
+pub async fn run_bp(mut opts: Options) -> StartupInfo {
     let opts = {
         let mut port = INCREMENTAL_PORT_NUM.lock().unwrap();
         *port += 1;
@@ -18,7 +18,7 @@ pub async fn run_bp(mut opts: Options) -> ServiceContext {
 
     check_options(&opts).unwrap();
 
-    let (tx, rx) = oneshot::channel::<ServiceContext>();
+    let (tx, rx) = oneshot::channel::<StartupInfo>();
 
     tokio::spawn(async {
         bootstrap(opts, tx).await.unwrap();

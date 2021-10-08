@@ -1,5 +1,6 @@
 use bp_cli::test_utils::run_bp;
-use bp_cli::{Options, ServiceContext};
+use bp_cli::Options;
+use bp_core::net::service::StartupInfo;
 use bp_test::http_server::{run_http_mock_server, HttpServerContext};
 use bp_test::send_recv::udp_oneshot;
 use cmd_lib::run_fun;
@@ -14,7 +15,7 @@ async fn test_socks5() {
         ..Default::default()
     };
 
-    let ServiceContext { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
 
     assert_eq!(run_fun!(curl --socks5 $bind_addr $http_addr).unwrap(), http_resp);
     assert_eq!(
@@ -31,7 +32,7 @@ async fn test_socks5_udp() {
         ..Default::default()
     };
 
-    let ServiceContext { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
 
     let buf = udp_oneshot(&bind_addr, include_bytes!("fixtures/socks5_dns_query.bin")).await;
 
@@ -48,7 +49,7 @@ async fn test_http() {
         ..Default::default()
     };
 
-    let ServiceContext { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
 
     assert_eq!(run_fun!(curl -x $bind_addr $http_addr).unwrap(), http_resp);
 }

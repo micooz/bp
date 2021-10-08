@@ -30,7 +30,7 @@ async fn run_test(protocol: TransportProtocol) {
     let client_opts = Options {
         client: true,
         key: Some("key".to_string()),
-        server_bind: Some(server.bind_addr.clone()),
+        server_bind: Some(server.bind_addr.to_string()),
         protocol,
         ..Default::default()
     };

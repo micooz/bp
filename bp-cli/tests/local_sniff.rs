@@ -1,4 +1,5 @@
-use bp_cli::{test_utils::run_bp, Options, ServiceContext};
+use bp_cli::{test_utils::run_bp, Options};
+use bp_core::net::service::StartupInfo;
 use bp_test::send_recv::tcp_oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -9,7 +10,7 @@ async fn test_http_sniff() {
         ..Default::default()
     };
 
-    let ServiceContext { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
 
     let buf = tcp_oneshot(&bind_addr, include_bytes!("fixtures/http_req.bin")).await;
     let resp = String::from_utf8(buf).unwrap();
@@ -24,7 +25,7 @@ async fn test_https_sniff() {
         ..Default::default()
     };
 
-    let ServiceContext { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
 
     let buf = tcp_oneshot(&bind_addr, include_bytes!("fixtures/https_client_hello.bin")).await;
     let server_hello_partial = &[0x16, 0x03, 0x03];

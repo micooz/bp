@@ -1,14 +1,18 @@
-use crate::{Options, ServiceContext};
+use crate::Options;
 use bp_core::{
     global,
-    net::{self, Address},
+    net::{
+        self,
+        service::{start_service, StartupInfo},
+        Address,
+    },
 };
 use tokio::{sync::oneshot, task, time};
 
 #[cfg(feature = "monitor")]
 use bp_monitor::MonitorCommand;
 
-pub async fn bootstrap(opts: Options, sender: oneshot::Sender<ServiceContext>) -> std::io::Result<()> {
+pub async fn bootstrap(opts: Options, sender: oneshot::Sender<StartupInfo>) -> std::io::Result<()> {
     #[cfg(feature = "monitor")]
     let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
 
@@ -30,10 +34,10 @@ pub async fn bootstrap(opts: Options, sender: oneshot::Sender<ServiceContext>) -
 
 fn start_main_service(
     opts: Options,
-    sender: oneshot::Sender<ServiceContext>,
+    sender_ready: oneshot::Sender<StartupInfo>,
     #[cfg(feature = "monitor")] mut rx: sync::mpsc::Receiver<MonitorCommand>,
 ) -> task::JoinHandle<()> {
-    let mut receiver = net::service::start_service("main", opts.bind.parse().unwrap(), opts.enable_udp);
+    let mut receiver = start_service("main", opts.bind.parse().unwrap(), opts.enable_udp, sender_ready);
 
     #[cfg(feature = "monitor")]
     tokio::spawn(async move {
@@ -42,7 +46,6 @@ fn start_main_service(
         }
     });
 
-    let bind = opts.bind.clone();
     let opts_for_acl = opts.clone();
 
     // load acl
@@ -63,7 +66,7 @@ fn start_main_service(
         }
     });
 
-    let handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         let mut id = 0usize;
 
         while let Some(socket) = receiver.recv().await {
@@ -71,11 +74,7 @@ fn start_main_service(
 
             let opts = opts.clone();
             let local_addr = opts.bind.parse::<net::Address>().unwrap();
-            let server_addr: Option<Address> = if let Some(addr) = opts.server_bind.as_ref() {
-                Some(addr.parse().unwrap())
-            } else {
-                None
-            };
+            let server_addr: Option<Address> = opts.server_bind.as_ref().map(|addr| addr.parse().unwrap());
 
             // put socket to new task to create a Connection
             tokio::spawn(async move {
@@ -110,11 +109,7 @@ fn start_main_service(
                 global::SHARED_DATA.remove_connection_snapshot(id).await;
             });
         }
-    });
-
-    sender.send(ServiceContext { bind_addr: bind }).unwrap();
-
-    handle
+    })
 }
 
 #[cfg(feature = "monitor")]

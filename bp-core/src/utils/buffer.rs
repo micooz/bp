@@ -5,9 +5,7 @@ pub fn get_chunks(arr: Bytes, len: usize) -> Vec<Bytes> {
     let mut chunks = vec![];
     let mut ptr = 0;
 
-    if len == 0 {
-        panic!("len should be greater than 0");
-    }
+    assert!(len != 0, "len should be greater than 0");
 
     loop {
         let end = min(arr.len(), ptr + len);

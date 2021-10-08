@@ -277,6 +277,7 @@ name = "bp"
 version = "0.1.0"
 dependencies = [
  "bp-cli",
+ "bp-core",
  "clap",
  "log",
  "tokio",

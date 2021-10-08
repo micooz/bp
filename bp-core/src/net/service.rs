@@ -1,27 +1,35 @@
 use crate::config;
-use crate::net::socket;
+use crate::net::socket::Socket;
+use bytes::Bytes;
 use std::fmt::Display;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 pub enum Transport {
     Tcp,
     Udp,
 }
 
+#[derive(Debug)]
+pub struct StartupInfo {
+    pub bind_addr: SocketAddr,
+}
+
 pub fn start_service(
     name: &'static str,
-    bind_addr: std::net::SocketAddr,
+    bind_addr: SocketAddr,
     enable_udp: bool,
-) -> mpsc::Receiver<socket::Socket> {
-    let (sender, receiver) = mpsc::channel::<socket::Socket>(32);
+    sender_ready: oneshot::Sender<StartupInfo>,
+) -> mpsc::Receiver<Socket> {
+    let (sender, receiver) = mpsc::channel::<Socket>(32);
 
     let tcp_sender = sender.clone();
     let udp_sender = sender;
 
     tokio::spawn(async move {
-        if let Err(err) = bind_tcp(name, bind_addr, tcp_sender).await {
+        if let Err(err) = bind_tcp(name, bind_addr, tcp_sender, sender_ready).await {
             log::error!("[{}] tcp service start failed due to: {}", name, err);
         }
     });
@@ -39,10 +47,11 @@ pub fn start_service(
 
 async fn bind_tcp(
     name: &'static str,
-    addr: std::net::SocketAddr,
-    sender: mpsc::Sender<socket::Socket>,
+    addr: SocketAddr,
+    sender: mpsc::Sender<Socket>,
+    sender_ready: oneshot::Sender<StartupInfo>,
 ) -> std::io::Result<()> {
-    let listener = net::TcpListener::bind(addr).await?;
+    let listener = net::TcpListener::bind(&addr).await?;
 
     log::info!(
         "[{}] service running at tcp://{}, waiting for connection...",
@@ -50,13 +59,15 @@ async fn bind_tcp(
         addr
     );
 
+    sender_ready.send(StartupInfo { bind_addr: addr }).unwrap();
+
     loop {
         let (stream, _) = listener.accept().await?;
-        let _res = sender.send(socket::Socket::new_tcp(stream)).await;
+        let _res = sender.send(Socket::new_tcp(stream)).await;
     }
 }
 
-async fn bind_udp<A>(name: &'static str, addr: A, sender: mpsc::Sender<socket::Socket>) -> std::io::Result<()>
+async fn bind_udp<A>(name: &'static str, addr: A, sender: mpsc::Sender<Socket>) -> std::io::Result<()>
 where
     A: net::ToSocketAddrs + Display,
 {
@@ -75,9 +86,9 @@ where
         let (len, addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(buf) = buf.get(0..len) {
-            let socket = socket::Socket::new_udp(socket, addr);
+            let socket = Socket::new_udp(socket, addr);
 
-            socket.cache(bytes::Bytes::copy_from_slice(buf)).await;
+            socket.cache(Bytes::copy_from_slice(buf)).await;
 
             let _res = sender.send(socket).await;
         }
