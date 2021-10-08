@@ -39,7 +39,7 @@ jobs:
       - name: Build ${{ matrix.target }}
         timeout-minutes: 120
         run: |
-          cd scripts
+          cd build
           ./build-release -t ${{ matrix.target }}
 
       - name: Upload Github Assets
@@ -84,7 +84,7 @@ jobs:
       - name: Build release
         shell: bash
         run: |
-          cd scripts
+          cd build
           ./build-host-release -t ${{ matrix.target }}
 
       - name: Upload Github Assets
@@ -110,7 +110,7 @@ jobs:
 
       - name: Build release
         run: |
-          cd scripts
+          cd build
           pwsh build-host-release.ps1
 
       - name: Upload Github Assets
