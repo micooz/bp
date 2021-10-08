@@ -5,6 +5,7 @@ use std::collections::HashMap;
 fn test_event_emitter() {
     #[derive(Debug, Default)]
     struct Param {
+        #[allow(dead_code)]
         inner: Option<HashMap<String, String>>,
     }
 

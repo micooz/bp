@@ -9,10 +9,12 @@ lazy_static::lazy_static! {
 }
 
 pub async fn run_bp(mut opts: Options) -> ServiceContext {
-    let mut port = INCREMENTAL_PORT_NUM.lock().unwrap();
-    *port += 1;
-
-    opts.bind = format!("{}:{}", "127.0.0.1", port);
+    let opts = {
+        let mut port = INCREMENTAL_PORT_NUM.lock().unwrap();
+        *port += 1;
+        opts.bind = format!("{}:{}", "127.0.0.1", port);
+        opts
+    };
 
     check_options(&opts).unwrap();
 
