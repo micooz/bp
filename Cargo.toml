@@ -34,7 +34,7 @@ exclude = [
 ]
 
 [dependencies]
-bp-cli = { path = "./bp-cli" }
+bp-cli = { path = "./bp-cli", version = "0.1.0" }
 clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
 log = "0.4.0"
