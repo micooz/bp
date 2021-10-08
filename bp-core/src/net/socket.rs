@@ -44,11 +44,13 @@ impl Socket {
     pub fn new_tcp(stream: net::TcpStream) -> Self {
         let peer_addr = stream.peer_addr().unwrap();
         let local_addr = stream.local_addr().unwrap();
+        #[cfg(not(target_os = "windows"))]
         let fd = stream.as_raw_fd();
 
         let split = io::split_tcp(stream, peer_addr);
 
         Self {
+            #[cfg(not(target_os = "windows"))]
             fd: Some(fd),
             socket_type: SocketType::Tcp,
             reader: split.0,
@@ -63,6 +65,7 @@ impl Socket {
         let split = io::split_udp(socket, peer_addr);
 
         Self {
+            #[cfg(not(target_os = "windows"))]
             fd: None,
             socket_type: SocketType::Udp,
             reader: split.0,
