@@ -7,13 +7,13 @@ Lightweight and efficient proxy written in pure Rust.
 ### Run as client
 
 ```
-$ bp -c --bind 127.0.0.1:1080 --key test --server-host somewhere --server-port 9090
+$ bp -c --bind 127.0.0.1:1080 --key key --server-bind <host:port>
 ```
 
 ### Run as server
 
 ```
-$ bp -s --bind 127.0.0.1:9000 --key test
+$ bp -s --bind 127.0.0.1:9000 --key key
 ```
 
 ### Test with Curl
