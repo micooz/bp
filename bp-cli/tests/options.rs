@@ -18,22 +18,10 @@ fn test_set_client() {
 }
 
 #[test]
-fn test_set_client_and_server_host() {
-    let opts = Options {
-        client: true,
-        server_host: Some("localhost".to_string()),
-        ..Default::default()
-    };
-
-    assert!(check_options(&opts).is_ok());
-}
-
-#[test]
 fn test_set_client_and_server_host_port() {
     let opts = Options {
         client: true,
-        server_host: Some("localhost".to_string()),
-        server_port: Some(8888),
+        server_bind: Some("localhost:8888".to_string()),
         ..Default::default()
     };
 
@@ -44,8 +32,7 @@ fn test_set_client_and_server_host_port() {
 fn test_set_client_and_server_host_port_and_key() {
     let opts = Options {
         client: true,
-        server_host: Some("localhost".to_string()),
-        server_port: Some(8888),
+        server_bind: Some("localhost:8888".to_string()),
         key: Some("key".to_string()),
         ..Default::default()
     };
