@@ -11,7 +11,8 @@ edition = "2018"
 
 [dependencies]
 bp-core = { path = "../bp-core" }
-tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
-lazy_static = "1.4.0"
+bytes = "1.0.1"
 cmd_lib = "1.2.4"
 httpmock = "0.6.2"
+lazy_static = "1.4.0"
+tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }

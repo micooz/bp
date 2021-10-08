@@ -338,6 +338,7 @@ name = "bp-test"
 version = "0.1.0"
 dependencies = [
  "bp-core",
+ "bytes",
  "cmd_lib",
  "httpmock",
  "lazy_static",
