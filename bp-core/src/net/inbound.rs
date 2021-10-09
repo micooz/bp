@@ -1,7 +1,8 @@
 use crate::{config, event::*, global, net, net::socket, protocol::*, Options, Result};
-use bytes;
+use bytes::Bytes;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
 use tokio::time;
 
 type Proto = DynProtocol;
@@ -86,8 +87,6 @@ impl Inbound {
             .await
             .map_err(|err| map_err(err.to_string()))?;
 
-            self.socket.clear_restore().await;
-
             match resolve_result {
                 Ok(v) => v,
                 Err(err) => match self.get_redirected_dest_addr() {
@@ -108,6 +107,8 @@ impl Inbound {
                 },
             }
         };
+
+        self.socket.clear_restore().await;
 
         let proxy_address = resolved.address;
 
@@ -140,41 +141,14 @@ impl Inbound {
             is_proxy,
         };
 
-        let service_type = self.opts.service_type();
-
         // handle pending_buf
         if let Some(buf) = resolved.pending_buf {
-            match service_type {
-                net::ServiceType::Client => {
-                    self.socket.cache(buf.clone()).await;
-
-                    if let Err(err) = out_proto.client_encode(&self.socket, tx.clone()).await {
-                        let _ = tx.send(Event::InboundError(err)).await;
-                    }
-                }
-                net::ServiceType::Server => {
-                    let _ = tx.send(Event::ServerDecodeDone(buf)).await;
-                }
-            }
+            self.handle_pending_data(buf, &mut out_proto, tx.clone()).await;
         }
 
+        // start receiving data from inbound
         if self.socket.is_tcp() {
-            let socket = self.socket.clone();
-
-            // start receiving data from inbound
-            tokio::spawn(async move {
-                loop {
-                    let res = match service_type {
-                        net::ServiceType::Client => out_proto.client_encode(&socket, tx.clone()).await,
-                        net::ServiceType::Server => proto.server_decode(&socket, tx.clone()).await,
-                    };
-
-                    if let Err(err) = res {
-                        let _ = tx.send(Event::InboundError(err)).await;
-                        break;
-                    }
-                }
-            });
+            self.handle_incoming_data(proto, out_proto, tx).await;
         }
 
         Ok(ret)
@@ -251,6 +225,40 @@ impl Inbound {
         };
 
         (proto, true)
+    }
+
+    async fn handle_pending_data(&self, buf: Bytes, out_proto: &mut Proto, tx: Sender<Event>) {
+        match self.opts.service_type() {
+            net::ServiceType::Client => {
+                self.socket.cache(buf).await;
+
+                if let Err(err) = out_proto.client_encode(&self.socket, tx.clone()).await {
+                    let _ = tx.send(Event::InboundError(err)).await;
+                }
+            }
+            net::ServiceType::Server => {
+                let _ = tx.send(Event::ServerDecodeDone(buf)).await;
+            }
+        }
+    }
+
+    async fn handle_incoming_data(&self, mut in_proto: Proto, mut out_proto: Proto, tx: Sender<Event>) {
+        let service_type = self.opts.service_type();
+        let socket = self.socket.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let res = match service_type {
+                    net::ServiceType::Client => out_proto.client_encode(&socket, tx.clone()).await,
+                    net::ServiceType::Server => in_proto.server_decode(&socket, tx.clone()).await,
+                };
+
+                if let Err(err) = res {
+                    let _ = tx.send(Event::InboundError(err)).await;
+                    break;
+                }
+            }
+        });
     }
 
     fn get_redirected_dest_addr(&self) -> Option<net::Address> {

@@ -29,7 +29,7 @@ pub fn handle_conn(socket: socket::Socket, tx: Sender<MonitorCommand>) {
 
         loop {
             let socket = socket.clone();
-            let res = socket.read_buf(32).await;
+            let res = socket.read_some().await;
 
             if let Err(err) = res {
                 log::error!("{}", err);

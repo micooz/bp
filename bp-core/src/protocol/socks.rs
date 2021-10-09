@@ -79,7 +79,7 @@ impl protocol::Protocol for Socks {
             // +----+------+------+----------+----------+----------+
             // | 2  |  1   |  1   | Variable |    2     | Variable |
             // +----+------+------+----------+----------+----------+
-            let packet = socket.read_buf(1500).await?;
+            let packet = socket.read_some().await?;
             let buf = packet.slice(3..);
 
             let (address, pending_buf) = net::Address::from_bytes(buf)?;

@@ -10,7 +10,6 @@ use chacha20poly1305::{
     ChaCha20Poly1305, Key, Nonce,
 };
 
-const RECV_BUFFER_SIZE: usize = 4 * 1024;
 const MAX_CHUNK_SIZE: usize = 0x3FFF;
 const SALT_SIZE: usize = 32;
 const KEY_SIZE: usize = 32;
@@ -254,7 +253,7 @@ impl protocol::Protocol for Erp {
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        let buf = socket.read_some().await?;
         let mut data = BytesMut::with_capacity(buf.len() + 200);
 
         // attach header
@@ -283,7 +282,7 @@ impl protocol::Protocol for Erp {
     }
 
     async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        let buf = socket.read_some().await?;
         let data = self.encode(buf)?;
         tx.send(Event::ServerEncodeDone(data)).await?;
         Ok(())

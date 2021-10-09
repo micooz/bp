@@ -1,7 +1,13 @@
-use crate::{config, event, net, net::socket, protocol, Options, Result};
+use crate::{
+    config,
+    event::{Event, EventSender},
+    net,
+    net::socket,
+    protocol, Options, Result,
+};
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
-use tokio::{net::TcpSocket, time};
+use tokio::{net::TcpSocket, sync::mpsc::Sender, time};
 
 type Proto = protocol::DynProtocol;
 
@@ -35,13 +41,7 @@ impl Outbound {
     }
 
     // apply transport protocol then make connection to remote
-    pub async fn use_protocol(
-        &mut self,
-        mut out_proto: Proto,
-        mut in_proto: Proto,
-        tx: event::EventSender,
-    ) -> Result<()> {
-        let service_type = self.opts.service_type();
+    pub async fn use_protocol(&mut self, out_proto: Proto, in_proto: Proto, tx: EventSender) -> Result<()> {
         let socket_type = self.socket_type;
         let peer_address = self.peer_address;
 
@@ -98,36 +98,7 @@ impl Outbound {
         );
 
         // start receiving data from outbound
-        tokio::spawn(async move {
-            loop {
-                let future = match service_type {
-                    net::ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
-                    net::ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
-                };
-
-                let res = time::timeout(time::Duration::from_secs(config::OUTBOUND_RECV_TIMEOUT_SECONDS), future).await;
-
-                match res {
-                    Ok(res) => {
-                        if let Err(err) = res {
-                            let _ = tx.send(event::Event::OutboundError(err)).await;
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        log::warn!(
-                            "[{}] [{}] [{}] no data received from outbound for {} seconds",
-                            peer_address,
-                            socket_type,
-                            protocol_name,
-                            config::OUTBOUND_RECV_TIMEOUT_SECONDS
-                        );
-                        let _ = tx.send(event::Event::OutboundError(Box::new(err))).await;
-                        break;
-                    }
-                }
-            }
-        });
+        self.handle_incoming_data(in_proto, out_proto, tx).await;
 
         Ok(())
     }
@@ -210,6 +181,47 @@ impl Outbound {
         };
 
         Ok(socket)
+    }
+
+    async fn handle_incoming_data(&self, mut in_proto: Proto, mut out_proto: Proto, tx: Sender<Event>) {
+        let service_type = self.opts.service_type();
+
+        let socket = self.socket.clone().unwrap();
+        let socket_type = socket.socket_type();
+
+        let peer_address = self.peer_address;
+        let protocol_name = self.protocol_name.as_ref().unwrap().clone();
+
+        tokio::spawn(async move {
+            loop {
+                let future = match service_type {
+                    net::ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
+                    net::ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
+                };
+
+                let res = time::timeout(time::Duration::from_secs(config::OUTBOUND_RECV_TIMEOUT_SECONDS), future).await;
+
+                match res {
+                    Ok(res) => {
+                        if let Err(err) = res {
+                            let _ = tx.send(Event::OutboundError(err)).await;
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        log::warn!(
+                            "[{}] [{}] [{}] no data received from outbound for {} seconds",
+                            peer_address,
+                            socket_type,
+                            protocol_name,
+                            config::OUTBOUND_RECV_TIMEOUT_SECONDS
+                        );
+                        let _ = tx.send(Event::OutboundError(Box::new(err))).await;
+                        break;
+                    }
+                }
+            }
+        });
     }
 
     #[cfg(target_os = "linux")]

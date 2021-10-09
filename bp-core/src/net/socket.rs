@@ -1,6 +1,7 @@
 use crate::net::io;
 use crate::utils::net::create_udp_client_with_random_port;
 use crate::Result;
+use bytes::Bytes;
 use std::fmt::Display;
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::io::{AsRawFd, RawFd};
@@ -112,11 +113,11 @@ impl Socket {
         self.reader.cache(buf).await;
     }
 
-    pub async fn read_buf(&self, capacity: usize) -> Result<bytes::Bytes> {
-        self.reader.read_buf(capacity).await
+    pub async fn read_some(&self) -> Result<Bytes> {
+        self.reader.read_some().await
     }
 
-    pub async fn read_exact(&self, len: usize) -> Result<bytes::Bytes> {
+    pub async fn read_exact(&self, len: usize) -> Result<Bytes> {
         self.reader.read_exact(len).await
     }
 

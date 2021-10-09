@@ -6,8 +6,6 @@ use crate::{
 use async_trait::async_trait;
 use bytes::{BufMut, BytesMut};
 
-const RECV_BUFFER_SIZE: usize = 4 * 1024;
-
 /// # Protocol
 /// +------+----------+----------+-------------+
 /// | ATYP | DST.ADDR | DST.PORT |    Data     |
@@ -53,7 +51,7 @@ impl protocol::Protocol for Plain {
             self.header_sent = true;
         }
 
-        let buf = socket.read_buf(1024).await?;
+        let buf = socket.read_some().await?;
         frame.put(buf);
 
         tx.send(Event::ClientEncodeDone(frame.freeze())).await?;
@@ -62,19 +60,19 @@ impl protocol::Protocol for Plain {
     }
 
     async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        let buf = socket.read_some().await?;
         tx.send(Event::ServerEncodeDone(buf)).await?;
         Ok(())
     }
 
     async fn client_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        let buf = socket.read_some().await?;
         tx.send(Event::ClientDecodeDone(buf)).await?;
         Ok(())
     }
 
     async fn server_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_buf(RECV_BUFFER_SIZE).await?;
+        let buf = socket.read_some().await?;
         tx.send(Event::ServerDecodeDone(buf)).await?;
         Ok(())
     }

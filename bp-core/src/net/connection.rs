@@ -3,7 +3,8 @@ use crate::{
     net::inbound::{Inbound, InboundSnapshot},
     net::outbound::{Outbound, OutboundSnapshot},
     net::{socket, Address, ServiceType},
-    protocol, Options, Result,
+    protocol::{DynProtocol, Erp, Plain, TransportProtocol, Universal},
+    Options, Result,
 };
 use tokio::sync;
 
@@ -68,18 +69,16 @@ impl Connection {
     pub async fn handle(&mut self) -> Result<()> {
         self.update_snapshot().await;
 
-        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
+        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(512);
 
         // [inbound] resolve proxy address
         let resolved = match self.opts.service_type() {
             ServiceType::Client => {
-                let universal = Box::new(protocol::Universal::new(Some(self.opts.bind.clone())));
+                let universal = Box::new(Universal::new(Some(self.opts.bind.clone())));
 
                 self.inbound.resolve_addr(universal, tx.clone()).await?
             }
             ServiceType::Server => {
-                use protocol::*;
-
                 let trans_proto: DynProtocol = match self.opts.protocol {
                     TransportProtocol::Plain => Box::new(Plain::default()),
                     TransportProtocol::EncryptRandomPadding => {
