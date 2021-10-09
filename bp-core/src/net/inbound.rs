@@ -259,7 +259,7 @@ impl Inbound {
             // TODO: get_original_destination_addr always return a value on linux
             use crate::net::linux::get_original_destination_addr;
 
-            let fd = self.socket.get_socket_fd();
+            let fd = self.socket.as_raw_fd();
 
             if self.socket.is_udp() || fd.is_none() {
                 return None;
