@@ -2,15 +2,12 @@ use crate::net::{Address, ServiceType};
 use crate::TransportProtocol;
 use clap::{crate_version, Clap};
 
-/// The crate author
-const CRATE_AUTHOR: &str = "Micooz Lee <micooz@hotmail.com>";
-
 /// The default local service host
 const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
 
 /// Lightweight and efficient proxy written in pure Rust
 #[derive(Clap, Default, Debug, Clone)]
-#[clap(version = crate_version!(), author = CRATE_AUTHOR)]
+#[clap(name = "bp", version = crate_version!())]
 pub struct Options {
     /// run as server
     #[clap(short, long)]

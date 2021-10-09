@@ -258,6 +258,7 @@ impl Inbound {
         {
             // TODO: get_original_destination_addr always return a value on linux
             use crate::net::linux::get_original_destination_addr;
+            use std::os::unix::io::AsRawFd;
 
             let fd = self.socket.as_raw_fd();
 
