@@ -65,33 +65,48 @@ impl Inbound {
             )
         };
 
-        let resolve_result = time::timeout(
-            time::Duration::from_secs(config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
-            proto.resolve_proxy_address(&self.socket),
-        )
-        .await
-        .map_err(|err| map_err(err.to_string()))?;
+        let resolved = if let Some(addr) = &self.opts.force_dest_addr {
+            log::warn!(
+                "[{}] [{}] --force-dest-addr set, will relay to the fixed target address {}",
+                self.peer_address,
+                self.socket.socket_type(),
+                addr,
+            );
 
-        self.socket.clear_restore().await;
+            ResolvedResult {
+                protocol: String::from("none"),
+                address: addr.clone(),
+                pending_buf: None,
+            }
+        } else {
+            let resolve_result = time::timeout(
+                time::Duration::from_secs(config::PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS),
+                proto.resolve_proxy_address(&self.socket),
+            )
+            .await
+            .map_err(|err| map_err(err.to_string()))?;
 
-        let resolved = match resolve_result {
-            Ok(v) => v,
-            Err(err) => match self.get_redirected_dest_addr() {
-                Some(addr) => {
-                    log::info!(
-                        "[{}] [{}] fallback to use iptables's REDIRECT target address {}",
-                        self.peer_address,
-                        self.socket.socket_type(),
-                        addr
-                    );
-                    ResolvedResult {
-                        protocol: String::from("REDIRECT"),
-                        address: addr,
-                        pending_buf: None,
+            self.socket.clear_restore().await;
+
+            match resolve_result {
+                Ok(v) => v,
+                Err(err) => match self.get_redirected_dest_addr() {
+                    Some(addr) => {
+                        log::info!(
+                            "[{}] [{}] fallback to use iptables's REDIRECT target address {}",
+                            self.peer_address,
+                            self.socket.socket_type(),
+                            addr
+                        );
+                        ResolvedResult {
+                            protocol: String::from("REDIRECT"),
+                            address: addr,
+                            pending_buf: None,
+                        }
                     }
-                }
-                None => return Err(err),
-            },
+                    None => return Err(err),
+                },
+            }
         };
 
         let proxy_address = resolved.address;
