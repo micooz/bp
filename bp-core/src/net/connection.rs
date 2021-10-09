@@ -1,5 +1,10 @@
-use crate::{event::Event, net, net::inbound, net::outbound, net::socket, protocol, Options, Result};
-use std::sync::Arc;
+use crate::{
+    event::Event,
+    net::inbound::{Inbound, InboundSnapshot},
+    net::outbound::{Outbound, OutboundSnapshot},
+    net::{socket, Address, ServiceType},
+    protocol, Options, Result,
+};
 use tokio::sync;
 
 #[cfg(feature = "monitor")]
@@ -19,11 +24,11 @@ pub struct Connection {
 
     opts: Options,
 
-    inbound: Arc<sync::RwLock<inbound::Inbound>>,
+    inbound: Inbound,
 
-    outbound: Arc<sync::RwLock<outbound::Outbound>>,
+    outbound: Outbound,
 
-    proxy_address: Option<net::Address>,
+    proxy_address: Option<Address>,
 
     closed: bool,
 
@@ -37,15 +42,15 @@ impl Connection {
         let socket_type = socket.socket_type();
 
         // create inbound
-        let inbound = inbound::Inbound::new(socket, opts.clone());
+        let inbound = Inbound::new(socket, opts.clone());
 
         // create outbound
-        let outbound = outbound::Outbound::new(peer_address, socket_type, opts.clone());
+        let outbound = Outbound::new(peer_address, socket_type, opts.clone());
 
         Connection {
             id,
-            inbound: Arc::new(sync::RwLock::new(inbound)),
-            outbound: Arc::new(sync::RwLock::new(outbound)),
+            inbound,
+            outbound,
             proxy_address: None,
             opts,
             #[cfg(feature = "monitor")]
@@ -67,15 +72,12 @@ impl Connection {
 
         // [inbound] resolve proxy address
         let resolved = match self.opts.service_type() {
-            net::ServiceType::Client => {
+            ServiceType::Client => {
                 let universal = Box::new(protocol::Universal::new(Some(self.opts.bind.clone())));
 
-                sync::RwLock::write(&self.inbound)
-                    .await
-                    .resolve_addr(universal, tx.clone())
-                    .await?
+                self.inbound.resolve_addr(universal, tx.clone()).await?
             }
-            net::ServiceType::Server => {
+            ServiceType::Server => {
                 use protocol::*;
 
                 let trans_proto: DynProtocol = match self.opts.protocol {
@@ -85,10 +87,7 @@ impl Connection {
                     }
                 };
 
-                sync::RwLock::write(&self.inbound)
-                    .await
-                    .resolve_addr(trans_proto, tx.clone())
-                    .await?
+                self.inbound.resolve_addr(trans_proto, tx.clone()).await?
             }
         };
 
@@ -96,13 +95,10 @@ impl Connection {
         self.update_snapshot().await;
 
         // [outbound] apply protocol
-        let mut outbound = sync::RwLock::write(&self.outbound).await;
-        outbound.set_is_proxy(resolved.is_proxy);
-        outbound
+        self.outbound.set_is_proxy(resolved.is_proxy);
+        self.outbound
             .use_protocol(resolved.out_proto, resolved.in_proto, tx.clone())
             .await?;
-
-        drop(outbound);
 
         self.update_snapshot().await;
 
@@ -115,8 +111,8 @@ impl Connection {
     }
 
     pub async fn force_close(&mut self) -> Result<()> {
-        sync::RwLock::write(&self.inbound).await.close().await?;
-        sync::RwLock::write(&self.outbound).await.close().await?;
+        self.inbound.close().await?;
+        self.outbound.close().await?;
 
         self.closed = true;
         self.update_snapshot().await;
@@ -125,14 +121,14 @@ impl Connection {
     }
 
     /// handle events from inbound and outbound
-    async fn handle_events(&self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
+    async fn handle_events(&mut self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
         while let Some(event) = rx.recv().await {
             match event {
                 Event::ClientEncodeDone(buf) => {
-                    sync::RwLock::write(&self.outbound).await.send(buf).await?;
+                    self.outbound.send(buf).await?;
                 }
                 Event::ServerEncodeDone(buf) => {
-                    sync::RwLock::write(&self.inbound).await.send(buf).await?;
+                    self.inbound.send(buf).await?;
                 }
                 Event::ClientDecodeDone(buf) => {
                     // TODO: store last decoded data, for monitoring
@@ -143,24 +139,24 @@ impl Connection {
                     //         .last_decoded_data
                     //         .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
                     // }
-                    sync::RwLock::write(&self.inbound).await.send(buf).await?;
+                    self.inbound.send(buf).await?;
                 }
                 Event::ServerDecodeDone(buf) => {
-                    sync::RwLock::write(&self.outbound).await.send(buf).await?;
+                    self.outbound.send(buf).await?;
                 }
                 Event::InboundError(_) => {
                     // close self
-                    sync::RwLock::write(&self.inbound).await.close().await?;
+                    self.inbound.close().await?;
                     // close outbound as well
-                    sync::RwLock::write(&self.outbound).await.close().await?;
+                    self.outbound.close().await?;
 
                     break;
                 }
                 Event::OutboundError(_) => {
                     // close self
-                    sync::RwLock::write(&self.outbound).await.close().await?;
+                    self.outbound.close().await?;
                     // close inbound as well
-                    sync::RwLock::write(&self.inbound).await.close().await?;
+                    self.inbound.close().await?;
 
                     break;
                 }
@@ -190,9 +186,9 @@ impl Connection {
 pub struct ConnectionSnapshot {
     id: usize,
     closed: bool,
-    proxy_address: Option<net::Address>,
-    inbound_snapshot: inbound::InboundSnapshot,
-    outbound_snapshot: outbound::OutboundSnapshot,
+    proxy_address: Option<Address>,
+    inbound_snapshot: InboundSnapshot,
+    outbound_snapshot: OutboundSnapshot,
 }
 
 impl ConnectionSnapshot {
