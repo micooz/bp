@@ -71,3 +71,14 @@ fn test_set_server_and_proxy_list_path() {
 
     assert!(check_options(&opts).is_err());
 }
+
+#[test]
+fn test_set_server_and_force_dest_addr() {
+    let opts = Options {
+        server: true,
+        force_dest_addr: Some("example.com:443".parse().unwrap()),
+        ..Default::default()
+    };
+
+    assert!(check_options(&opts).is_err());
+}

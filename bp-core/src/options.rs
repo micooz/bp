@@ -95,7 +95,12 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
 
     // check --proxy-list-path
     if opts.server && opts.proxy_list_path.is_some() {
-        return Err("--proxy-list-path can only be used on client");
+        return Err("--proxy-list-path can only be set on client.");
+    }
+
+    // check --force-dest-addr
+    if opts.force_dest_addr.is_some() && !opts.client {
+        return Err("--force-dest-addr can only be set on client.");
     }
 
     Ok(())
