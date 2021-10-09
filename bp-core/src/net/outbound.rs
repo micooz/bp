@@ -25,6 +25,8 @@ pub struct Outbound {
     protocol_name: Option<String>,
 
     is_proxy: bool,
+
+    is_closed: bool,
 }
 
 impl Outbound {
@@ -37,6 +39,7 @@ impl Outbound {
             remote_addr: None,
             protocol_name: None,
             is_proxy: false,
+            is_closed: false,
         }
     }
 
@@ -58,7 +61,7 @@ impl Outbound {
         let remote_addr = self.get_remote_addr(&in_proto);
         self.remote_addr = Some(remote_addr.clone());
 
-        log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr,);
+        log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr);
 
         // resolve target ip address
         let remote_ip_addr = if !remote_addr.is_ip() {
@@ -80,10 +83,12 @@ impl Outbound {
 
         // make connection
         let socket = self.connect(remote_ip_addr).await.map_err(|err| {
-            format!(
-                "[{}] [{}] connect to {} failed due to {}",
+            let msg = format!(
+                "[{}] [{}] connect to {} failed due to: {}",
                 peer_address, socket_type, remote_addr, err
-            )
+            );
+            log::error!("{}", msg);
+            msg
         })?;
 
         self.socket = Some(socket.clone());
@@ -122,9 +127,12 @@ impl Outbound {
 
     /// close the bound
     pub async fn close(&mut self) -> Result<()> {
-        if let Some(socket) = self.socket.as_ref() {
-            socket.close().await?;
+        if !self.is_closed {
+            if let Some(socket) = self.socket.as_ref() {
+                socket.close().await?;
+            }
         }
+        self.is_closed = true;
 
         Ok(())
     }
@@ -185,12 +193,7 @@ impl Outbound {
 
     async fn handle_incoming_data(&self, mut in_proto: Proto, mut out_proto: Proto, tx: Sender<Event>) {
         let service_type = self.opts.service_type();
-
         let socket = self.socket.clone().unwrap();
-        let socket_type = socket.socket_type();
-
-        let peer_address = self.peer_address;
-        let protocol_name = self.protocol_name.as_ref().unwrap().clone();
 
         tokio::spawn(async move {
             loop {
@@ -199,26 +202,9 @@ impl Outbound {
                     net::ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
                 };
 
-                let res = time::timeout(time::Duration::from_secs(config::OUTBOUND_RECV_TIMEOUT_SECONDS), future).await;
-
-                match res {
-                    Ok(res) => {
-                        if let Err(err) = res {
-                            let _ = tx.send(Event::OutboundError(err)).await;
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        log::warn!(
-                            "[{}] [{}] [{}] no data received from outbound for {} seconds",
-                            peer_address,
-                            socket_type,
-                            protocol_name,
-                            config::OUTBOUND_RECV_TIMEOUT_SECONDS
-                        );
-                        let _ = tx.send(Event::OutboundError(Box::new(err))).await;
-                        break;
-                    }
+                if let Err(err) = future.await {
+                    let _ = tx.send(Event::OutboundError(err)).await;
+                    break;
                 }
             }
         });

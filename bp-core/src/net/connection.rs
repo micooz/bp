@@ -1,4 +1,5 @@
 use crate::{
+    config,
     event::Event,
     net::inbound::{Inbound, InboundSnapshot},
     net::outbound::{Outbound, OutboundSnapshot},
@@ -7,6 +8,7 @@ use crate::{
     Options, Result,
 };
 use tokio::sync;
+use tokio::time;
 
 #[cfg(feature = "monitor")]
 use bytes::BytesMut;
@@ -28,6 +30,8 @@ pub struct Connection {
     inbound: Inbound,
 
     outbound: Outbound,
+
+    peer_address: Address,
 
     proxy_address: Option<Address>,
 
@@ -52,6 +56,7 @@ impl Connection {
             id,
             inbound,
             outbound,
+            peer_address: peer_address.into(),
             proxy_address: None,
             opts,
             #[cfg(feature = "monitor")]
@@ -109,7 +114,7 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn force_close(&mut self) -> Result<()> {
+    pub async fn close(&mut self) -> Result<()> {
         self.inbound.close().await?;
         self.outbound.close().await?;
 
@@ -121,7 +126,33 @@ impl Connection {
 
     /// handle events from inbound and outbound
     async fn handle_events(&mut self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
-        while let Some(event) = rx.recv().await {
+        let peer_address = self.peer_address.clone();
+
+        loop {
+            let future = rx.recv();
+
+            // timeout check
+            let timeout = time::timeout(time::Duration::from_secs(config::READ_WRITE_TIMEOUT_SECONDS), future).await;
+
+            if timeout.is_err() {
+                log::warn!(
+                    "[{}] no data read/write for {} seconds",
+                    peer_address,
+                    config::READ_WRITE_TIMEOUT_SECONDS
+                );
+                self.close().await?;
+                break;
+            }
+
+            // message check
+            let res = timeout.unwrap();
+            if res.is_none() {
+                break;
+            }
+
+            let event = res.unwrap();
+
+            // event handle
             match event {
                 Event::ClientEncodeDone(buf) => {
                     self.outbound.send(buf).await?;
@@ -144,19 +175,11 @@ impl Connection {
                     self.outbound.send(buf).await?;
                 }
                 Event::InboundError(_) => {
-                    // close self
-                    self.inbound.close().await?;
-                    // close outbound as well
-                    self.outbound.close().await?;
-
+                    self.close().await?;
                     break;
                 }
                 Event::OutboundError(_) => {
-                    // close self
-                    self.outbound.close().await?;
-                    // close inbound as well
-                    self.inbound.close().await?;
-
+                    self.close().await?;
                     break;
                 }
             }

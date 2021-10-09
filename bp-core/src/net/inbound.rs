@@ -27,6 +27,8 @@ pub struct Inbound {
     local_addr: SocketAddr,
 
     protocol_name: Option<String>,
+
+    is_closed: bool,
 }
 
 impl Inbound {
@@ -42,6 +44,7 @@ impl Inbound {
             proxy_address: None,
             local_addr,
             protocol_name: None,
+            is_closed: false,
         }
     }
 
@@ -171,7 +174,10 @@ impl Inbound {
 
     /// close the bound
     pub async fn close(&mut self) -> Result<()> {
-        self.socket.close().await?;
+        if !self.is_closed {
+            self.socket.close().await?;
+        }
+        self.is_closed = true;
 
         Ok(())
     }

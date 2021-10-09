@@ -87,9 +87,9 @@ async fn start_main_service(
 
                 let mut conn = Connection::new(id, socket, opts);
 
-                if let Err(err) = conn.handle().await {
-                    log::error!("{}", err);
-                    let _ = conn.force_close().await;
+                if let Err(_err) = conn.handle().await {
+                    // log::error!("{}", err);
+                    let _ = conn.close().await;
                 }
 
                 log::info!("[{}] closed", peer_addr);
