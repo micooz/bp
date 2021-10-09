@@ -260,13 +260,13 @@ impl Inbound {
             use crate::net::linux::get_original_destination_addr;
             use std::os::unix::io::AsRawFd;
 
-            let fd = self.socket.as_raw_fd();
-
-            if self.socket.is_udp() || fd.is_none() {
+            if self.socket.is_udp() {
                 return None;
             }
 
-            match get_original_destination_addr(self.local_addr, fd.unwrap()) {
+            let fd = self.socket.as_raw_fd();
+
+            match get_original_destination_addr(self.local_addr, fd) {
                 Ok(addr) => Some(addr.into()),
                 Err(_) => None,
             }
