@@ -80,11 +80,6 @@ impl Socket {
         Ok(Self::new_udp(Arc::new(socket), peer_addr))
     }
 
-    #[cfg(not(target_os = "windows"))]
-    pub fn get_socket_fd(&self) -> Option<RawFd> {
-        self.fd
-    }
-
     pub fn peer_addr(&self) -> std::io::Result<std::net::SocketAddr> {
         Ok(self.peer_addr)
     }
@@ -143,5 +138,12 @@ impl Socket {
 
     pub async fn close(&self) -> tokio::io::Result<()> {
         self.writer.close().await
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+impl AsRawFd for Socket {
+    fn as_raw_fd(&self) -> RawFd {
+        self.fd.unwrap()
     }
 }

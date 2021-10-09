@@ -1,7 +1,7 @@
 use crate::bootstrap::bootstrap;
-use crate::options::{check_options, Options};
 use bp_core::net::service::StartupInfo;
 use bp_core::net::Address;
+use bp_core::{check_options, Options};
 use std::str::FromStr;
 use std::sync::Mutex;
 use tokio::sync::oneshot;

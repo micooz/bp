@@ -1,4 +1,4 @@
-use crate::{config, event, net, net::socket, protocol, Result};
+use crate::{config, event, net, net::socket, protocol, Options, Result};
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpSocket, time};
@@ -6,7 +6,7 @@ use tokio::{net::TcpSocket, time};
 type Proto = protocol::DynProtocol;
 
 pub struct Outbound {
-    opts: net::ConnOptions,
+    opts: Options,
 
     socket: Option<Arc<socket::Socket>>,
 
@@ -22,7 +22,7 @@ pub struct Outbound {
 }
 
 impl Outbound {
-    pub fn new(peer_address: SocketAddr, socket_type: socket::SocketType, opts: net::ConnOptions) -> Self {
+    pub fn new(peer_address: SocketAddr, socket_type: socket::SocketType, opts: Options) -> Self {
         Self {
             opts,
             socket: None,
@@ -41,7 +41,7 @@ impl Outbound {
         mut in_proto: Proto,
         tx: event::EventSender,
     ) -> Result<()> {
-        let service_type = self.opts.service_type;
+        let service_type = self.opts.service_type();
         let socket_type = self.socket_type;
         let peer_address = self.peer_address;
 
@@ -170,10 +170,12 @@ impl Outbound {
     }
 
     fn get_remote_addr(&self, in_proto: &Proto) -> net::Address {
-        if self.opts.service_type.is_server() || self.opts.server_addr.is_none() || !self.is_proxy {
+        let service_type = self.opts.service_type();
+
+        if service_type.is_server() || self.opts.server_bind.is_none() || !self.is_proxy {
             in_proto.get_proxy_address().unwrap()
         } else {
-            self.opts.server_addr.as_ref().unwrap().clone()
+            self.opts.server_bind.as_ref().unwrap().clone()
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::{config, event::*, global, net, net::socket, protocol::*, Result};
+use crate::{config, event::*, global, net, net::socket, protocol::*, Options, Result};
 use bytes;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -15,7 +15,7 @@ pub struct InboundResolveResult {
 }
 
 pub struct Inbound {
-    opts: net::ConnOptions,
+    opts: Options,
 
     socket: Arc<socket::Socket>,
 
@@ -29,7 +29,7 @@ pub struct Inbound {
 }
 
 impl Inbound {
-    pub fn new(socket: socket::Socket, opts: net::ConnOptions) -> Self {
+    pub fn new(socket: socket::Socket, opts: Options) -> Self {
         let socket = Arc::new(socket);
         let peer_address = socket.peer_addr().unwrap();
         let local_addr = socket.local_addr().unwrap();
@@ -125,7 +125,7 @@ impl Inbound {
             is_proxy,
         };
 
-        let service_type = self.opts.service_type;
+        let service_type = self.opts.service_type();
 
         // handle pending_buf
         if let Some(buf) = resolved.pending_buf {
@@ -196,10 +196,11 @@ impl Inbound {
     }
 
     async fn create_outbound_protocol(&self) -> (Proto, bool) {
+        let service_type = self.opts.service_type();
         let direct = Box::new(Direct::default());
 
         // server address not provided on client
-        if self.opts.service_type.is_client() && self.opts.server_addr.is_none() {
+        if service_type.is_client() && self.opts.server_bind.is_none() {
             return (direct, false);
         }
 
@@ -208,7 +209,7 @@ impl Inbound {
         let proxy_addr_host = proxy_addr.host.to_string();
 
         // white list
-        if self.opts.service_type.is_client() && self.opts.enable_white_list {
+        if service_type.is_client() && self.opts.proxy_list_path.is_some() {
             let acl = global::SHARED_DATA.get_acl();
 
             if !acl.is_host_hit(&proxy_addr_host) {
@@ -231,9 +232,7 @@ impl Inbound {
 
         let proto: Proto = match self.opts.protocol {
             TransportProtocol::Plain => Box::new(Plain::default()),
-            TransportProtocol::EncryptRandomPadding => {
-                Box::new(Erp::new(self.opts.key.clone().unwrap(), self.opts.service_type))
-            }
+            TransportProtocol::EncryptRandomPadding => Box::new(Erp::new(self.opts.key.clone().unwrap(), service_type)),
         };
 
         (proto, true)

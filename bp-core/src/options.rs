@@ -1,6 +1,5 @@
-use bp_core::net;
-use bp_core::TransportProtocol;
-use bp_core::net::Address;
+use crate::net::{Address, ServiceType};
+use crate::TransportProtocol;
 use clap::{crate_version, Clap};
 
 /// The crate author
@@ -53,14 +52,14 @@ pub struct Options {
 
 impl Options {
     /// Return local service type
-    pub fn get_service_type(&self) -> Result<net::ServiceType, &'static str> {
+    pub fn service_type(&self) -> ServiceType {
         if !self.server && self.client {
-            return Ok(net::ServiceType::Client);
+            return ServiceType::Client;
         }
         if self.server && !self.client {
-            return Ok(net::ServiceType::Server);
+            return ServiceType::Server;
         }
-        Err("cannot determine service type")
+        panic!("cannot determine service type");
     }
 
     #[cfg(feature = "monitor")]

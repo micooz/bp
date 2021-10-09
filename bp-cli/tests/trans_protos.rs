@@ -1,5 +1,5 @@
 use bp_cli::test_utils::run_bp;
-use bp_cli::Options;
+use bp_core::Options;
 use bp_core::TransportProtocol;
 use bp_test::http_server::{run_http_mock_server, HttpServerContext};
 use cmd_lib::run_fun;

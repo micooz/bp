@@ -1,4 +1,4 @@
-use crate::{event::Event, net, net::inbound, net::outbound, net::socket, protocol, Result};
+use crate::{event::Event, net, net::inbound, net::outbound, net::socket, protocol, Options, Result};
 use std::sync::Arc;
 use tokio::sync;
 
@@ -17,7 +17,7 @@ pub struct Connection {
     #[allow(dead_code)]
     id: usize,
 
-    opts: net::ConnOptions,
+    opts: Options,
 
     inbound: Arc<sync::RwLock<inbound::Inbound>>,
 
@@ -32,7 +32,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(socket: socket::Socket, opts: net::ConnOptions) -> Self {
+    pub fn new(id: usize, socket: socket::Socket, opts: Options) -> Self {
         let peer_address = socket.peer_addr().unwrap();
         let socket_type = socket.socket_type();
 
@@ -43,7 +43,7 @@ impl Connection {
         let outbound = outbound::Outbound::new(peer_address, socket_type, opts.clone());
 
         Connection {
-            id: opts.id,
+            id,
             inbound: Arc::new(sync::RwLock::new(inbound)),
             outbound: Arc::new(sync::RwLock::new(outbound)),
             proxy_address: None,
@@ -66,9 +66,9 @@ impl Connection {
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
         // [inbound] resolve proxy address
-        let resolved = match self.opts.service_type {
+        let resolved = match self.opts.service_type() {
             net::ServiceType::Client => {
-                let universal = Box::new(protocol::Universal::new(Some(self.opts.local_addr.clone())));
+                let universal = Box::new(protocol::Universal::new(Some(self.opts.bind.clone())));
 
                 sync::RwLock::write(&self.inbound)
                     .await
@@ -81,7 +81,7 @@ impl Connection {
                 let trans_proto: DynProtocol = match self.opts.protocol {
                     TransportProtocol::Plain => Box::new(Plain::default()),
                     TransportProtocol::EncryptRandomPadding => {
-                        Box::new(Erp::new(self.opts.key.clone().unwrap(), self.opts.service_type))
+                        Box::new(Erp::new(self.opts.key.clone().unwrap(), self.opts.service_type()))
                     }
                 };
 

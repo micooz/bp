@@ -1,10 +1,10 @@
-use crate::Options;
 use bp_core::{
     global,
     net::{
         service::{start_service, StartupInfo},
-        ConnOptions, Connection,
+        Connection,
     },
+    Options,
 };
 use tokio::{sync::oneshot, task, time};
 
@@ -85,17 +85,7 @@ async fn start_main_service(
 
                 log::info!("[{}] connected", peer_addr);
 
-                let opts = ConnOptions {
-                    id,
-                    service_type: opts.get_service_type().unwrap(),
-                    protocol: opts.protocol.clone(),
-                    key: opts.key.clone(),
-                    local_addr: opts.bind.clone(),
-                    server_addr: opts.server_bind.clone(),
-                    enable_white_list: opts.proxy_list_path.is_some(),
-                };
-
-                let mut conn = Connection::new(socket, opts);
+                let mut conn = Connection::new(id, socket, opts);
 
                 if let Err(err) = conn.handle().await {
                     log::error!("{}", err);

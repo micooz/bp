@@ -1,5 +1,6 @@
-use bp_cli::{bootstrap, check_options, logging, Options};
+use bp_cli::{bootstrap, logging};
 use bp_core::net::service::StartupInfo;
+use bp_core::{check_options, Options};
 use clap::Clap;
 use std::process::exit;
 use tokio::sync::oneshot;

@@ -1,5 +1,6 @@
-use bp_cli::{test_utils::run_bp, Options};
+use bp_cli::test_utils::run_bp;
 use bp_core::net::service::StartupInfo;
+use bp_core::Options;
 use bp_test::send_recv::tcp_oneshot;
 
 #[tokio::test(flavor = "multi_thread")]

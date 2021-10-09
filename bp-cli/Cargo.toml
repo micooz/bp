@@ -7,7 +7,6 @@ edition = "2018"
 bp-core = { path = "../bp-core" }
 bp-monitor = { path = "../bp-monitor" }
 lazy_static = "1.4.0"
-clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
 dirs = "4.0.0"
 env_logger = "0.9.0"

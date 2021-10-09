@@ -1,4 +1,4 @@
-use bp_cli::{check_options, Options};
+use bp_core::{check_options, Options};
 
 #[test]
 fn test_empty() {
