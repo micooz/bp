@@ -1,3 +1,5 @@
+pub const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
+
 /// The timeout for proxy address resolving
 pub const PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS: u64 = 10;
 

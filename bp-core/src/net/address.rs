@@ -268,3 +268,12 @@ impl From<SocketAddr> for Address {
         }
     }
 }
+
+impl Default for Address {
+    fn default() -> Self {
+        Self {
+            host: Host::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+            port: Default::default(),
+        }
+    }
+}

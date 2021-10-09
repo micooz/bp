@@ -1,11 +1,10 @@
 use crate::config;
 use crate::net::socket::Socket;
+use crate::net::Address;
 use bytes::Bytes;
-use std::fmt::Display;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 
 pub enum Transport {
     Tcp,
@@ -14,83 +13,79 @@ pub enum Transport {
 
 #[derive(Debug)]
 pub struct StartupInfo {
-    pub bind_addr: SocketAddr,
+    pub bind_addr: Address,
 }
 
-pub fn start_service(
+pub async fn start_service(
     name: &'static str,
-    bind_addr: SocketAddr,
+    bind_addr: &Address,
     enable_udp: bool,
-    sender_ready: oneshot::Sender<StartupInfo>,
-) -> mpsc::Receiver<Socket> {
-    let (sender, receiver) = mpsc::channel::<Socket>(32);
+) -> std::result::Result<mpsc::Receiver<Socket>, String> {
+    let (sender, receiver) = mpsc::channel::<Socket>(config::SERVICE_CONNECTION_THRESHOLD);
 
-    let tcp_sender = sender.clone();
-    let udp_sender = sender;
+    let sender_tcp = sender.clone();
+    let sender_udp = sender;
 
-    tokio::spawn(async move {
-        if let Err(err) = bind_tcp(name, bind_addr, tcp_sender, sender_ready).await {
-            log::error!("[{}] tcp service start failed due to: {}", name, err);
-        }
-    });
+    let bind_addr_tcp = bind_addr.clone();
+    let bind_addr_udp = bind_addr.clone();
+
+    bind_tcp(name, &bind_addr_tcp, sender_tcp)
+        .await
+        .map_err(|err| format!("[{}] tcp service start failed due to: {}", name, err))?;
 
     if enable_udp {
-        tokio::spawn(async move {
-            if let Err(err) = bind_udp(name, bind_addr, udp_sender).await {
-                log::error!("[{}] udp service start failed due to: {}", name, err);
-            }
-        });
+        bind_udp(name, &bind_addr_udp, sender_udp)
+            .await
+            .map_err(|err| format!("[{}] udp service start failed due to: {}", name, err))?;
     }
 
-    receiver
+    Ok(receiver)
 }
 
-async fn bind_tcp(
-    name: &'static str,
-    addr: SocketAddr,
-    sender: mpsc::Sender<Socket>,
-    sender_ready: oneshot::Sender<StartupInfo>,
-) -> std::io::Result<()> {
-    let listener = net::TcpListener::bind(&addr).await?;
+async fn bind_tcp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socket>) -> std::io::Result<()> {
+    let listener = net::TcpListener::bind(addr.as_socket_addr()).await?;
 
     log::info!(
         "[{}] service running at tcp://{}, waiting for connection...",
         name,
-        addr
+        addr.as_string()
     );
 
-    sender_ready.send(StartupInfo { bind_addr: addr }).unwrap();
+    tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            let _res = sender.send(Socket::new_tcp(stream)).await;
+        }
+    });
 
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let _res = sender.send(Socket::new_tcp(stream)).await;
-    }
+    Ok(())
 }
 
-async fn bind_udp<A>(name: &'static str, addr: A, sender: mpsc::Sender<Socket>) -> std::io::Result<()>
-where
-    A: net::ToSocketAddrs + Display,
-{
-    let socket = Arc::new(net::UdpSocket::bind(&addr).await?);
+async fn bind_udp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socket>) -> std::io::Result<()> {
+    let socket = Arc::new(net::UdpSocket::bind(addr.as_socket_addr()).await?);
 
     log::info!(
         "[{}] service running at udp://{}, waiting for data packets...",
         name,
-        addr
+        addr.as_string()
     );
 
-    loop {
-        let socket = socket.clone();
+    tokio::spawn(async move {
+        loop {
+            let socket = socket.clone();
 
-        let mut buf = vec![0; config::UDP_MTU];
-        let (len, addr) = socket.recv_from(&mut buf).await?;
+            let mut buf = vec![0; config::UDP_MTU];
+            let (len, addr) = socket.recv_from(&mut buf).await.unwrap();
 
-        if let Some(buf) = buf.get(0..len) {
-            let socket = Socket::new_udp(socket, addr);
+            if let Some(buf) = buf.get(0..len) {
+                let socket = Socket::new_udp(socket, addr);
 
-            socket.cache(Bytes::copy_from_slice(buf)).await;
+                socket.cache(Bytes::copy_from_slice(buf)).await;
 
-            let _res = sender.send(socket).await;
+                let _res = sender.send(socket).await;
+            }
         }
-    }
+    });
+
+    Ok(())
 }

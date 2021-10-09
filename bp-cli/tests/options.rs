@@ -21,7 +21,7 @@ fn test_set_client() {
 fn test_set_client_and_server_host_port() {
     let opts = Options {
         client: true,
-        server_bind: Some("localhost:8888".to_string()),
+        server_bind: Some("localhost:8888".parse().unwrap()),
         ..Default::default()
     };
 
@@ -32,7 +32,7 @@ fn test_set_client_and_server_host_port() {
 fn test_set_client_and_server_host_port_and_key() {
     let opts = Options {
         client: true,
-        server_bind: Some("localhost:8888".to_string()),
+        server_bind: Some("localhost:8888".parse().unwrap()),
         key: Some("key".to_string()),
         ..Default::default()
     };

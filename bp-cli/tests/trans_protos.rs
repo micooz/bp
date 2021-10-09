@@ -30,13 +30,13 @@ async fn run_test(protocol: TransportProtocol) {
     let client_opts = Options {
         client: true,
         key: Some("key".to_string()),
-        server_bind: Some(server.bind_addr.to_string()),
+        server_bind: Some(server.bind_addr.clone()),
         protocol,
         ..Default::default()
     };
     let client = run_bp(client_opts).await;
 
-    let bind_addr = client.bind_addr;
+    let bind_addr = client.bind_addr.as_string();
 
     assert_eq!(run_fun!(curl --socks5 $bind_addr $http_addr).unwrap(), http_resp);
     assert_eq!(

@@ -1,5 +1,6 @@
 use bp_core::net;
 use bp_core::TransportProtocol;
+use bp_core::net::Address;
 use clap::{crate_version, Clap};
 
 /// The crate author
@@ -22,11 +23,11 @@ pub struct Options {
 
     /// local service bind address
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
-    pub bind: String,
+    pub bind: Address,
 
     /// bp server bind address, client only. if not set, bp will relay directly
     #[clap(long)]
-    pub server_bind: Option<String>,
+    pub server_bind: Option<Address>,
 
     /// symmetric encryption key
     #[clap(short, long)]
@@ -44,6 +45,10 @@ pub struct Options {
     /// check white list before proxy
     #[clap(long)]
     pub proxy_list_path: Option<String>,
+
+    /// force all incoming data relay to this destination, usually for testing
+    #[clap(long)]
+    pub force_dest_addr: Option<Address>,
 }
 
 impl Options {

@@ -16,6 +16,7 @@ async fn test_socks5() {
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let bind_addr = bind_addr.as_string();
 
     assert_eq!(run_fun!(curl --socks5 $bind_addr $http_addr).unwrap(), http_resp);
     assert_eq!(
@@ -50,6 +51,7 @@ async fn test_http() {
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let bind_addr = bind_addr.as_string();
 
     assert_eq!(run_fun!(curl -x $bind_addr $http_addr).unwrap(), http_resp);
 }
