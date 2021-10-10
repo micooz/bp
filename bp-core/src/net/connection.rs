@@ -74,9 +74,10 @@ impl Connection {
     pub async fn handle(&mut self) -> Result<()> {
         self.update_snapshot().await;
 
-        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(512);
+        // NOTE: higher buffer size leads to higher memory & cpu usage
+        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        // [inbound] resolve proxy address
+        // resolve proxy address
         let resolved = match self.opts.service_type() {
             ServiceType::Client => {
                 let universal = Box::new(Universal::new(Some(self.opts.bind.clone())));
@@ -99,7 +100,7 @@ impl Connection {
         self.update_snapshot().await;
 
         // [outbound] apply protocol
-        self.outbound.set_is_proxy(resolved.is_proxy);
+        self.outbound.set_use_proxy(resolved.use_proxy);
         self.outbound
             .use_protocol(resolved.out_proto, resolved.in_proto, tx.clone())
             .await?;
@@ -146,6 +147,7 @@ impl Connection {
 
             // message check
             let res = timeout.unwrap();
+
             if res.is_none() {
                 break;
             }

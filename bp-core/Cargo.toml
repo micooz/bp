@@ -16,7 +16,6 @@ libc = "0.2.102"
 ### network
 bytes = "1.0.1"
 trust-dns-resolver = "0.20.3"
-trust-dns-server = "0.20.3"
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "net", "sync", "io-util", "time"] }
 socket2 = "0.4.2"
 

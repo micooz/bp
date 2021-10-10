@@ -15,7 +15,7 @@ pub struct Https {
 #[async_trait]
 impl Protocol for Https {
     fn get_name(&self) -> String {
-        "tls".into()
+        "https".into()
     }
 
     fn set_proxy_address(&mut self, addr: net::Address) {

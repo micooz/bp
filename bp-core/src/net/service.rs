@@ -3,7 +3,7 @@ use crate::net::socket::Socket;
 use crate::net::Address;
 use bytes::Bytes;
 use std::sync::Arc;
-use tokio::net;
+use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc;
 
 pub enum Transport {
@@ -20,20 +20,20 @@ pub async fn start_service(
     name: &'static str,
     bind_addr: &Address,
     enable_udp: bool,
-) -> std::result::Result<mpsc::Receiver<Socket>, String> {
+) -> Result<mpsc::Receiver<Socket>, String> {
     let (sender, receiver) = mpsc::channel::<Socket>(config::SERVICE_CONNECTION_THRESHOLD);
 
     let sender_tcp = sender.clone();
-    let sender_udp = sender;
-
     let bind_addr_tcp = bind_addr.clone();
-    let bind_addr_udp = bind_addr.clone();
 
     bind_tcp(name, &bind_addr_tcp, sender_tcp)
         .await
         .map_err(|err| format!("[{}] tcp service start failed due to: {}", name, err))?;
 
     if enable_udp {
+        let sender_udp = sender;
+        let bind_addr_udp = bind_addr.clone();
+
         bind_udp(name, &bind_addr_udp, sender_udp)
             .await
             .map_err(|err| format!("[{}] udp service start failed due to: {}", name, err))?;
@@ -43,7 +43,7 @@ pub async fn start_service(
 }
 
 async fn bind_tcp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socket>) -> std::io::Result<()> {
-    let listener = net::TcpListener::bind(addr.as_socket_addr()).await?;
+    let listener = TcpListener::bind(addr.as_socket_addr()).await?;
 
     log::info!(
         "[{}] service running at tcp://{}, waiting for connection...",
@@ -62,7 +62,7 @@ async fn bind_tcp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socke
 }
 
 async fn bind_udp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socket>) -> std::io::Result<()> {
-    let socket = Arc::new(net::UdpSocket::bind(addr.as_socket_addr()).await?);
+    let socket = Arc::new(UdpSocket::bind(addr.as_socket_addr()).await?);
 
     log::info!(
         "[{}] service running at udp://{}, waiting for data packets...",

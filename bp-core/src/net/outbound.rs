@@ -24,7 +24,7 @@ pub struct Outbound {
 
     protocol_name: Option<String>,
 
-    is_proxy: bool,
+    use_proxy: bool,
 
     is_closed: bool,
 }
@@ -38,7 +38,7 @@ impl Outbound {
             peer_address,
             remote_addr: None,
             protocol_name: None,
-            is_proxy: false,
+            use_proxy: false,
             is_closed: false,
         }
     }
@@ -144,14 +144,14 @@ impl Outbound {
         }
     }
 
-    pub fn set_is_proxy(&mut self, is_proxy: bool) {
-        self.is_proxy = is_proxy;
+    pub fn set_use_proxy(&mut self, use_proxy: bool) {
+        self.use_proxy = use_proxy;
     }
 
     fn get_remote_addr(&self, in_proto: &Proto) -> net::Address {
         let service_type = self.opts.service_type();
 
-        if service_type.is_server() || self.opts.server_bind.is_none() || !self.is_proxy {
+        if service_type.is_server() || self.opts.server_bind.is_none() || !self.use_proxy {
             in_proto.get_proxy_address().unwrap()
         } else {
             self.opts.server_bind.as_ref().unwrap().clone()

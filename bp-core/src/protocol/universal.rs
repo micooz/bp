@@ -37,7 +37,7 @@ impl protocol::Protocol for Universal {
     }
 
     async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
-        log::debug!("use [socks] to detect proxy address...");
+        log::trace!("use [socks] to detect proxy address...");
 
         // SOCKS
         let mut socks = Socks::new(self.socks_bind_addr.clone());
@@ -47,11 +47,11 @@ impl protocol::Protocol for Universal {
             return res;
         }
 
-        log::debug!("use [socks] to detect proxy address...failed due to: {}", res.unwrap_err());
+        log::trace!("use [socks] to detect proxy address...failed due to: {}", res.unwrap_err());
 
         socket.restore().await;
 
-        log::debug!("use [http] to detect proxy address...");
+        log::trace!("use [http] to detect proxy address...");
 
         // HTTP
         let mut http = Http::default();
@@ -61,11 +61,11 @@ impl protocol::Protocol for Universal {
             return res;
         }
 
-        log::debug!("use [http] to detect proxy address...failed due to: {}", res.unwrap_err());
+        log::trace!("use [http] to detect proxy address...failed due to: {}", res.unwrap_err());
 
         socket.restore().await;
 
-        log::debug!("use [https] to detect proxy address...");
+        log::trace!("use [https] to detect proxy address...");
 
         // HTTPS
         let mut http = Https::default();
@@ -75,7 +75,7 @@ impl protocol::Protocol for Universal {
             return res;
         }
 
-        log::debug!("use [https] to detect proxy address...failed due to: {}", res.unwrap_err());
+        log::trace!("use [https] to detect proxy address...failed due to: {}", res.unwrap_err());
 
         Err("cannot resolve proxy address ".into())
     }

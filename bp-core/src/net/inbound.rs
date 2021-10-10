@@ -12,7 +12,7 @@ pub struct InboundResolveResult {
 
     pub out_proto: Proto,
 
-    pub is_proxy: bool,
+    pub use_proxy: bool,
 }
 
 pub struct Inbound {
@@ -59,14 +59,16 @@ impl Inbound {
             self.protocol_name.as_ref().unwrap()
         );
 
-        let map_err = |err: String| {
-            format!(
+        let map_err = |err_msg: &str| {
+            let msg = format!(
                 "[{}] [{}] [{}] resolve proxy address failed due to: {}",
                 self.peer_address,
                 self.socket.socket_type(),
                 self.protocol_name.as_ref().unwrap(),
-                err
-            )
+                err_msg
+            );
+            log::error!("{}", msg);
+            msg
         };
 
         let resolved = if let Some(addr) = &self.opts.force_dest_addr {
@@ -88,7 +90,7 @@ impl Inbound {
                 proto.resolve_proxy_address(&self.socket),
             )
             .await
-            .map_err(|err| map_err(err.to_string()))?;
+            .map_err(|err| map_err(&err.to_string()))?;
 
             match resolve_result {
                 Ok(v) => v,
@@ -106,7 +108,7 @@ impl Inbound {
                             pending_buf: None,
                         }
                     }
-                    None => return Err(err),
+                    None => return Err(map_err(&err.to_string()).into()),
                 },
             }
         };
@@ -126,7 +128,7 @@ impl Inbound {
             self.proxy_address.as_ref().unwrap(),
         );
 
-        let (mut out_proto, is_proxy) = self.create_outbound_protocol().await;
+        let (mut out_proto, use_proxy) = self.create_outbound_protocol().await;
 
         proto.set_proxy_address(proxy_address.clone());
         out_proto.set_proxy_address(proxy_address);
@@ -141,7 +143,7 @@ impl Inbound {
         let ret = InboundResolveResult {
             in_proto: proto.clone(),
             out_proto: out_proto.clone(),
-            is_proxy,
+            use_proxy,
         };
 
         // handle pending_buf

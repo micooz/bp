@@ -88,7 +88,7 @@ async fn start_main_service(
                 let mut conn = Connection::new(id, socket, opts);
 
                 if let Err(_err) = conn.handle().await {
-                    // log::error!("{}", err);
+                    // log::error!("uncaught error: {}", err);
                     let _ = conn.close().await;
                 }
 

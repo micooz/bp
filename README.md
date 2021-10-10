@@ -4,7 +4,7 @@ Lightweight and efficient proxy written in pure Rust.
 
 ## Usage
 
-> please check -h/--help first.
+Please check -h/--help first.
 
 ```
 $ bp -h
