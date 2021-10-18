@@ -9,7 +9,7 @@ use bytes::Buf;
 
 #[derive(Clone, Default)]
 pub struct Https {
-    proxy_address: Option<net::Address>,
+    resolved_result: Option<ResolvedResult>,
 }
 
 #[async_trait]
@@ -18,15 +18,15 @@ impl Protocol for Https {
         "https".into()
     }
 
-    fn set_proxy_address(&mut self, addr: net::Address) {
-        self.proxy_address = Some(addr);
+    fn set_resolved_result(&mut self, res: ResolvedResult) {
+        self.resolved_result = Some(res);
     }
 
-    fn get_proxy_address(&self) -> Option<net::Address> {
-        self.proxy_address.clone()
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        self.resolved_result.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<ResolvedResult> {
+    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
         let content_type = socket.read_exact(1).await?;
 
         if content_type[0] != 0x16 {
@@ -122,11 +122,13 @@ impl Protocol for Https {
                 let server_name_len = sni.get_u16() as usize;
                 let server_name = String::from_utf8(sni.slice(0..server_name_len).to_vec())?;
 
-                return Ok(ResolvedResult {
+                self.set_resolved_result(ResolvedResult {
                     protocol: self.get_name(),
                     address: net::Address::new(net::address::Host::Name(server_name), 443),
                     pending_buf: None,
                 });
+
+                return Ok(());
             }
 
             // skip Type and Length

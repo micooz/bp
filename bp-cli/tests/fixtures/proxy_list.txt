@@ -1,0 +1,4 @@
+cn.bing.com
+#baidu.com
+~baidu.com
+!example.com

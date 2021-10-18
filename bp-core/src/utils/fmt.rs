@@ -24,10 +24,6 @@ impl ToHex {
             }
         });
     }
-
-    // pub fn print_all(&self) {
-    //     todo!();
-    // }
 }
 
 impl Display for ToHex {

@@ -5,7 +5,6 @@ use bp_test::send_recv::tcp_oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_http_sniff() {
-    // cmd_lib::init_builtin_logger();
     let opts = Options {
         client: true,
         ..Default::default()

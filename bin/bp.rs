@@ -1,7 +1,7 @@
 use bp_cli::{bootstrap, logging};
 use bp_core::net::service::StartupInfo;
 use bp_core::{check_options, Options};
-use clap::Clap;
+use clap::Parser;
 use std::process::exit;
 use tokio::sync::oneshot;
 
@@ -10,7 +10,7 @@ async fn main() {
     #[cfg(feature = "logging")]
     logging::setup().await;
 
-    let opts: Options = Clap::parse();
+    let opts: Options = Parser::parse();
 
     match check_options(&opts) {
         Ok(_) => {

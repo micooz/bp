@@ -1,7 +1,8 @@
 use crate::{
     event::EventSender,
-    net::{self, socket},
-    protocol, utils, Result,
+    net::{socket::Socket, Address},
+    protocol::{Protocol, ResolvedResult},
+    utils, Result,
 };
 use async_trait::async_trait;
 
@@ -32,46 +33,36 @@ const REPLY_SUCCEEDED: u8 = 0x00;
 // const REPLY_ADDRESS_TYPE_NOT_SUPPORTED: u8 = 0x08;
 // const REPLY_UNASSIGNED: u8 = 0xff;
 
+#[derive(Clone)]
 pub struct Socks {
-    // header_sent: bool,
-    bind_addr: Option<net::Address>,
-    proxy_address: Option<net::Address>,
+    bind_addr: Option<Address>,
+    resolved_result: Option<ResolvedResult>,
 }
 
 impl Socks {
-    pub fn new(bind_addr: Option<net::Address>) -> Self {
+    pub fn new(bind_addr: Option<Address>) -> Self {
         Self {
-            // header_sent: false,
             bind_addr,
-            proxy_address: None,
-        }
-    }
-}
-
-impl Clone for Socks {
-    fn clone(&self) -> Self {
-        Self {
-            bind_addr: self.bind_addr.clone(),
-            proxy_address: self.proxy_address.clone(),
+            resolved_result: None,
         }
     }
 }
 
 #[async_trait]
-impl protocol::Protocol for Socks {
+impl Protocol for Socks {
     fn get_name(&self) -> String {
         "socks".into()
     }
 
-    fn set_proxy_address(&mut self, addr: net::Address) {
-        self.proxy_address = Some(addr);
+    fn set_resolved_result(&mut self, res: ResolvedResult) {
+        self.resolved_result = Some(res);
     }
 
-    fn get_proxy_address(&self) -> Option<net::Address> {
-        self.proxy_address.clone()
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        self.resolved_result.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
         if socket.is_udp() {
             // Socks5 UDP Request/Response
             // +----+------+------+----------+----------+----------+
@@ -82,13 +73,15 @@ impl protocol::Protocol for Socks {
             let packet = socket.read_some().await?;
             let buf = packet.slice(3..);
 
-            let (address, pending_buf) = net::Address::from_bytes(buf)?;
+            let (address, pending_buf) = Address::from_bytes(buf)?;
 
-            return Ok(protocol::ResolvedResult {
+            self.set_resolved_result(ResolvedResult {
                 protocol: self.get_name(),
                 address,
                 pending_buf,
             });
+
+            return Ok(());
         }
 
         // 1. Parse Socks5 Identifier Message
@@ -170,7 +163,7 @@ impl protocol::Protocol for Socks {
             return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
         }
 
-        let addr = net::Address::from_socket(socket).await?;
+        let addr = Address::from_socket(socket).await?;
 
         // 4. Reply Socks5 Reply Message
 
@@ -196,40 +189,28 @@ impl protocol::Protocol for Socks {
 
         socket.send(reply_buf.as_slice()).await?;
 
-        Ok(protocol::ResolvedResult {
+        self.set_resolved_result(ResolvedResult {
             protocol: self.get_name(),
             address: addr,
             pending_buf: None,
-        })
+        });
+
+        Ok(())
     }
 
-    async fn client_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
-        unimplemented!()
-        // let mut frame = BytesMut::new();
-
-        // if !self.header_sent {
-        //     let header = self.proxy_address.as_ref().unwrap();
-        //     frame.put(header.as_bytes());
-        //     self.header_sent = true;
-        // }
-
-        // let buf = reader.read_buf(reader, 1024).await?;
-        // frame.put(buf);
-
-        // tx.send(Event::EncodeDone(frame.freeze())).await?;
-
-        // Ok(())
-    }
-
-    async fn server_encode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _socket: &socket::Socket, _tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn server_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 }

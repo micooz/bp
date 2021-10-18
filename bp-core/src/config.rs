@@ -1,7 +1,10 @@
 pub const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
-/// The timeout for proxy address resolving
-pub const PROXY_ADDRESS_RESOLVE_TIMEOUT_SECONDS: u64 = 10;
+/// The timeout for resolving destination address
+pub const DEST_ADDR_RESOLVE_TIMEOUT_SECONDS: u64 = 10;
+
+/// The timeout for resolving ip address
+pub const DNS_RESOLVE_TIMEOUT_SECONDS: u64 = 10;
 
 /// The timeout for tcp connect
 pub const TCP_CONNECT_TIMEOUT_SECONDS: u64 = 10;

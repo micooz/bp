@@ -1,10 +1,14 @@
 use crate::{
     config,
     event::Event,
-    net::inbound::{Inbound, InboundSnapshot},
+    global,
+    net::inbound::{Inbound, InboundResolveResult, InboundSnapshot},
     net::outbound::{Outbound, OutboundSnapshot},
-    net::{socket, Address, ServiceType},
-    protocol::{DynProtocol, Erp, Plain, TransportProtocol, Universal},
+    net::{
+        socket::{Socket, SocketType},
+        Address,
+    },
+    protocol::{init_transport_protocol, Direct, DynProtocol},
     Options, Result,
 };
 use tokio::sync;
@@ -31,9 +35,13 @@ pub struct Connection {
 
     outbound: Outbound,
 
-    peer_address: Address,
+    socket_type: SocketType,
 
-    proxy_address: Option<Address>,
+    use_proxy: bool,
+
+    peer_addr: Address,
+
+    dest_addr: Option<Address>,
 
     closed: bool,
 
@@ -42,22 +50,24 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(id: usize, socket: socket::Socket, opts: Options) -> Self {
-        let peer_address = socket.peer_addr().unwrap();
+    pub fn new(id: usize, socket: Socket, opts: Options) -> Self {
+        let peer_addr = socket.peer_addr().unwrap();
         let socket_type = socket.socket_type();
 
         // create inbound
         let inbound = Inbound::new(socket, opts.clone());
 
         // create outbound
-        let outbound = Outbound::new(peer_address, socket_type, opts.clone());
+        let outbound = Outbound::new(peer_addr, socket_type, opts.clone());
 
         Connection {
             id,
             inbound,
             outbound,
-            peer_address: peer_address.into(),
-            proxy_address: None,
+            socket_type,
+            use_proxy: true,
+            peer_addr: peer_addr.into(),
+            dest_addr: None,
             opts,
             #[cfg(feature = "monitor")]
             monitor_collect_data: MonitorCollectData {
@@ -77,33 +87,49 @@ impl Connection {
         // NOTE: higher buffer size leads to higher memory & cpu usage
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        // resolve proxy address
-        let resolved = match self.opts.service_type() {
-            ServiceType::Client => {
-                let universal = Box::new(Universal::new(Some(self.opts.bind.clone())));
-
-                self.inbound.resolve_addr(universal, tx.clone()).await?
-            }
-            ServiceType::Server => {
-                let trans_proto: DynProtocol = match self.opts.protocol {
-                    TransportProtocol::Plain => Box::new(Plain::default()),
-                    TransportProtocol::EncryptRandomPadding => {
-                        Box::new(Erp::new(self.opts.key.clone().unwrap(), self.opts.service_type()))
-                    }
-                };
-
-                self.inbound.resolve_addr(trans_proto, tx.clone()).await?
+        let in_proto = match self.inbound.try_resolve().await? {
+            InboundResolveResult::Proxy(proto) => proto,
+            InboundResolveResult::Direct(proto) => proto,
+            InboundResolveResult::Deny => {
+                return Err("cannot handle incoming data".into());
             }
         };
+        self.inbound.clear_restore().await;
 
-        self.proxy_address = resolved.in_proto.get_proxy_address();
+        let resolved = in_proto.get_resolved_result().unwrap();
+        self.dest_addr = Some(resolved.address.clone());
+
+        // check proxy rules
+        let mut out_proto = if self.check_proxy_rules() {
+            self.create_outbound_protocol().await
+        } else {
+            self.use_proxy = false;
+            Box::new(Direct::default())
+        };
+
+        // sync resolve result to outbound protocol
+        out_proto.set_resolved_result(resolved.clone());
+
+        // handle pending_buf at inbound
+        if let Some(buf) = resolved.pending_buf {
+            self.inbound.handle_pending_data(buf, &mut out_proto, tx.clone()).await;
+        }
+
+        // start receiving data from inbound
+        if let SocketType::Tcp = self.socket_type {
+            self.inbound
+                .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone())
+                .await;
+        }
+
         self.update_snapshot().await;
 
-        // [outbound] apply protocol
-        self.outbound.set_use_proxy(resolved.use_proxy);
-        self.outbound
-            .use_protocol(resolved.out_proto, resolved.in_proto, tx.clone())
-            .await?;
+        // connect to remote from outbound
+        let remote_addr = self.get_remote_addr(&in_proto);
+        self.outbound.start_connect(&out_proto.get_name(), remote_addr).await?;
+
+        // start receiving data from outbound
+        self.outbound.handle_incoming_data(in_proto, out_proto, tx).await;
 
         self.update_snapshot().await;
 
@@ -125,9 +151,58 @@ impl Connection {
         Ok(())
     }
 
+    fn check_proxy_rules(&self) -> bool {
+        let service_type = self.opts.service_type();
+        let dest_addr = self.dest_addr.as_ref().unwrap();
+        let dest_addr_host = dest_addr.host.to_string();
+
+        // white list
+        if service_type.is_client() && self.opts.proxy_list_path.is_some() {
+            let acl = global::SHARED_DATA.get_acl();
+
+            if !acl.is_host_hit(&dest_addr_host) {
+                log::warn!(
+                    "[{}] [{}] [{}] is not matched in white list, will use [direct] protocol for outbound",
+                    self.peer_addr,
+                    self.socket_type,
+                    dest_addr_host,
+                );
+                return false;
+            }
+
+            log::info!(
+                "[{}] [{}] [{}] is matched in white list",
+                self.peer_addr,
+                self.socket_type,
+                dest_addr_host,
+            );
+        }
+
+        true
+    }
+
+    async fn create_outbound_protocol(&self) -> DynProtocol {
+        if self.opts.service_type().is_client() && self.opts.server_bind.is_some() {
+            init_transport_protocol(&self.opts)
+        } else {
+            Box::new(Direct::default())
+        }
+    }
+
+    fn get_remote_addr(&self, in_proto: &DynProtocol) -> Address {
+        let service_type = self.opts.service_type();
+
+        if service_type.is_server() || self.opts.server_bind.is_none() || !self.use_proxy {
+            let resolved = in_proto.get_resolved_result();
+            resolved.unwrap().address
+        } else {
+            self.opts.server_bind.as_ref().unwrap().clone()
+        }
+    }
+
     /// handle events from inbound and outbound
     async fn handle_events(&mut self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
-        let peer_address = self.peer_address.clone();
+        let peer_addr = self.peer_addr.clone();
 
         loop {
             let future = rx.recv();
@@ -138,7 +213,7 @@ impl Connection {
             if timeout.is_err() {
                 log::warn!(
                     "[{}] no data read/write for {} seconds",
-                    peer_address,
+                    peer_addr,
                     config::READ_WRITE_TIMEOUT_SECONDS
                 );
                 self.close().await?;
@@ -197,7 +272,7 @@ impl Connection {
             let snapshot = ConnectionSnapshot {
                 id: self.id,
                 closed: self.closed,
-                proxy_address: self.proxy_address.clone(),
+                dest_addr: self.dest_addr.clone(),
                 inbound_snapshot: self.inbound.read().await.snapshot(),
                 outbound_snapshot: self.outbound.read().await.snapshot(),
             };
@@ -210,7 +285,7 @@ impl Connection {
 pub struct ConnectionSnapshot {
     id: usize,
     closed: bool,
-    proxy_address: Option<Address>,
+    dest_addr: Option<Address>,
     inbound_snapshot: InboundSnapshot,
     outbound_snapshot: OutboundSnapshot,
 }
@@ -239,7 +314,7 @@ impl ConnectionSnapshot {
             None => "<?>",
         };
 
-        let proxy_address = match self.proxy_address.as_ref() {
+        let dest_addr = match self.dest_addr.as_ref() {
             Some(addr) => addr.as_string(),
             None => "<?>".into(),
         };
@@ -248,7 +323,7 @@ impl ConnectionSnapshot {
             "{} <--[{} => {}]--> {} <--[{}]--> {} {}",
             peer_addr,
             in_proto_name,
-            proxy_address,
+            dest_addr,
             local_addr,
             out_proto_name,
             remote_addr,

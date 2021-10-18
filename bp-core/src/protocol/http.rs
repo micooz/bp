@@ -1,7 +1,8 @@
 use crate::{
     event,
     net::{self, address, socket},
-    protocol, Result,
+    protocol::{Protocol, ResolvedResult},
+    Result,
 };
 use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
@@ -10,24 +11,24 @@ use url::Url;
 
 #[derive(Clone, Default)]
 pub struct Http {
-    proxy_address: Option<net::Address>,
+    resolved_result: Option<ResolvedResult>,
 }
 
 #[async_trait]
-impl protocol::Protocol for Http {
+impl Protocol for Http {
     fn get_name(&self) -> String {
         "http".into()
     }
 
-    fn set_proxy_address(&mut self, addr: net::Address) {
-        self.proxy_address = Some(addr);
+    fn set_resolved_result(&mut self, res: ResolvedResult) {
+        self.resolved_result = Some(res);
     }
 
-    fn get_proxy_address(&self) -> Option<net::Address> {
-        self.proxy_address.clone()
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        self.resolved_result.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
+    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
         let mut buf = BytesMut::with_capacity(1024);
 
         loop {
@@ -53,11 +54,13 @@ impl protocol::Protocol for Http {
 
                 socket.send(&resp).await?;
 
-                return Ok(protocol::ResolvedResult {
+                self.set_resolved_result(ResolvedResult {
                     protocol: self.get_name(),
                     address: addr,
                     pending_buf: None,
                 });
+
+                return Ok(());
             } else {
                 // for direct HTTP requests
                 let (host, port) = match Url::parse(path) {
@@ -70,24 +73,26 @@ impl protocol::Protocol for Http {
                     Err(err) => {
                         // fallback to read Host header
                         let host_header = headers.iter().find(|&item| item.name.to_lowercase() == "host");
-                        
+
                         match host_header {
                             Some(v) => {
                                 let host = String::from_utf8(v.value.to_vec()).unwrap();
                                 let port = 80u16;
 
                                 (host, port)
-                            },
+                            }
                             None => return Err(Box::new(err)),
                         }
                     }
                 };
 
-                return Ok(protocol::ResolvedResult {
+                self.set_resolved_result(ResolvedResult {
                     protocol: self.get_name(),
                     address: net::Address::new(address::Host::Name(host), port),
                     pending_buf: Some(buf.freeze()),
                 });
+
+                return Ok(());
             }
         }
     }

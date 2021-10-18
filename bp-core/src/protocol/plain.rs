@@ -1,7 +1,8 @@
 use crate::{
     event::{Event, EventSender},
     net::{address::Address, socket},
-    protocol, Result,
+    protocol::{Protocol, ResolvedResult},
+    Result,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, BytesMut};
@@ -15,39 +16,41 @@ use bytes::{BufMut, BytesMut};
 #[derive(Clone, Default)]
 pub struct Plain {
     header_sent: bool,
-    proxy_address: Option<Address>,
+    resolved_result: Option<ResolvedResult>,
 }
 
 #[async_trait]
-impl protocol::Protocol for Plain {
+impl Protocol for Plain {
     fn get_name(&self) -> String {
         "plain".into()
     }
 
-    fn set_proxy_address(&mut self, addr: Address) {
-        self.proxy_address = Some(addr);
+    fn set_resolved_result(&mut self, res: ResolvedResult) {
+        self.resolved_result = Some(res);
     }
 
-    fn get_proxy_address(&self) -> Option<Address> {
-        self.proxy_address.clone()
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        self.resolved_result.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
+    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
         let address = Address::from_socket(socket).await?;
 
-        Ok(protocol::ResolvedResult {
+        self.set_resolved_result(ResolvedResult {
             protocol: self.get_name(),
             address,
             pending_buf: None,
-        })
+        });
+
+        Ok(())
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
         let mut frame = BytesMut::new();
 
         if !self.header_sent {
-            let header = self.proxy_address.as_ref().unwrap();
-            frame.put(header.as_bytes());
+            let resolved = self.get_resolved_result().unwrap();
+            frame.put(resolved.address.as_bytes());
             self.header_sent = true;
         }
 

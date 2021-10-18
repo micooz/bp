@@ -1,13 +1,12 @@
 use crate::net::{Address, ServiceType};
 use crate::TransportProtocol;
-use clap::{crate_version, Clap};
 
 /// The default local service host
 const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
 
 /// Lightweight and efficient proxy written in pure Rust
-#[derive(Clap, Default, Debug, Clone)]
-#[clap(name = "bp", version = crate_version!())]
+#[derive(clap::Parser, Default, Debug, Clone)]
+#[clap(name = "bp", version = clap::crate_version!())]
 pub struct Options {
     /// run as server
     #[clap(short, long)]
@@ -45,6 +44,10 @@ pub struct Options {
     /// force all incoming data relay to this destination, usually for testing
     #[clap(long)]
     pub force_dest_addr: Option<Address>,
+
+    /// proxy DNS queries via TCP
+    #[clap(long)]
+    pub dns_over_tcp: bool,
 }
 
 impl Options {

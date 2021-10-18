@@ -60,14 +60,15 @@ async fn start_main_service(
 
             if let Err(err) = acl.load_from_file(path.clone()) {
                 log::error!("[acl] load white list failed due to: {}", err);
-                return;
+                // return;
             }
 
-            let path = path.clone();
+            // TODO: enable watch
+            // let path = path.clone();
 
-            tokio::spawn(async move {
-                acl.watch(path).unwrap();
-            });
+            // tokio::spawn(async move {
+            //     acl.watch(path).unwrap();
+            // });
         }
     });
 
@@ -87,8 +88,8 @@ async fn start_main_service(
 
                 let mut conn = Connection::new(id, socket, opts);
 
-                if let Err(_err) = conn.handle().await {
-                    // log::error!("uncaught error: {}", err);
+                if let Err(err) = conn.handle().await {
+                    log::trace!("{}", err);
                     let _ = conn.close().await;
                 }
 

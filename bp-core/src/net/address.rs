@@ -211,18 +211,20 @@ impl Address {
     }
 
     // use trust dns resolve addr
-    pub async fn dns_resolve(&self) -> Vec<SocketAddr> {
+    pub async fn dns_resolve(&self) -> Result<Vec<SocketAddr>> {
         match &self.host {
             Host::Ip(ip) => {
                 let addr = SocketAddr::new(*ip, self.port);
-                [addr].to_vec()
+                Ok([addr].to_vec())
             }
             Host::Name(name) => {
-                let response = lookup(name).await.unwrap();
-                response
+                let response = lookup(name).await?;
+                let response = response
                     .iter()
                     .map(|addr| SocketAddr::new(addr, self.port))
-                    .collect::<Vec<SocketAddr>>()
+                    .collect::<Vec<SocketAddr>>();
+
+                Ok(response)
             }
         }
     }
@@ -230,11 +232,11 @@ impl Address {
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (address_type, addr) = match &self.host {
+        let (_, addr) = match &self.host {
             Host::Ip(ip) => ("Ip", ip.to_string()),
             Host::Name(name) => ("HostName", name.to_string()),
         };
-        write!(f, "{}({}:{})", address_type, addr, self.port)
+        write!(f, "{}:{}", addr, self.port)
     }
 }
 
@@ -272,7 +274,7 @@ impl From<SocketAddr> for Address {
 impl Default for Address {
     fn default() -> Self {
         Self {
-            host: Host::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+            host: Host::Ip(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             port: Default::default(),
         }
     }

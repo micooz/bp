@@ -1,24 +1,24 @@
-use crate::{event, net, net::socket, Result};
+use crate::{event, net, net::socket, Options, Result};
 use async_trait::async_trait;
 use std::str;
 
 mod direct;
+mod dns;
 mod erp;
 mod http;
 mod https;
 mod plain;
 mod socks;
-mod universal;
 
 pub use direct::Direct;
+pub use dns::Dns;
 pub use erp::Erp;
 pub use http::Http;
 pub use https::Https;
 pub use plain::Plain;
 pub use socks::Socks;
-pub use universal::Universal;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResolvedResult {
     pub protocol: String,
 
@@ -31,13 +31,15 @@ pub struct ResolvedResult {
 pub trait Protocol: dyn_clone::DynClone {
     fn get_name(&self) -> String;
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<ResolvedResult>;
-
-    fn set_proxy_address(&mut self, _addr: net::Address) {}
-
-    fn get_proxy_address(&self) -> Option<net::Address> {
-        unimplemented!()
+    fn set_resolved_result(&mut self, _res: ResolvedResult) {
+        unimplemented!();
     }
+
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        unimplemented!();
+    }
+
+    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()>;
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: event::EventSender) -> Result<()>;
 
@@ -73,5 +75,12 @@ impl str::FromStr for TransportProtocol {
 impl Default for TransportProtocol {
     fn default() -> Self {
         Self::EncryptRandomPadding
+    }
+}
+
+pub fn init_transport_protocol(opts: &Options) -> DynProtocol {
+    match opts.protocol {
+        TransportProtocol::Plain => Box::new(Plain::default()),
+        TransportProtocol::EncryptRandomPadding => Box::new(Erp::new(opts.key.clone().unwrap(), opts.service_type())),
     }
 }

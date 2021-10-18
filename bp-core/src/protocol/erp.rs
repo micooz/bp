@@ -1,7 +1,8 @@
 use crate::{
     event::{Event, EventSender},
     net::{address::Address, socket, ServiceType},
-    protocol, utils, Result,
+    protocol::{Protocol, ResolvedResult},
+    utils, Result,
 };
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -69,7 +70,7 @@ pub struct Erp {
 
     decrypt_nonce: u128,
 
-    proxy_address: Option<Address>,
+    resolved_result: Option<ResolvedResult>,
 }
 
 impl Erp {
@@ -92,7 +93,7 @@ impl Erp {
             encrypt_nonce: 0,
             decrypt_nonce: 0,
             header_sent: false,
-            proxy_address: None,
+            resolved_result: None,
         }
     }
 
@@ -224,20 +225,20 @@ impl Erp {
 }
 
 #[async_trait]
-impl protocol::Protocol for Erp {
+impl Protocol for Erp {
     fn get_name(&self) -> String {
         "erp".into()
     }
 
-    fn set_proxy_address(&mut self, addr: Address) {
-        self.proxy_address = Some(addr);
+    fn set_resolved_result(&mut self, res: ResolvedResult) {
+        self.resolved_result = Some(res);
     }
 
-    fn get_proxy_address(&self) -> Option<Address> {
-        self.proxy_address.clone()
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        self.resolved_result.clone()
     }
 
-    async fn resolve_proxy_address(&mut self, socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
+    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
         let salt = socket.read_exact(SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
@@ -245,11 +246,13 @@ impl protocol::Protocol for Erp {
 
         let (address, pending_buf) = Address::from_bytes(chunk)?;
 
-        Ok(protocol::ResolvedResult {
+        self.set_resolved_result(ResolvedResult {
             protocol: self.get_name(),
             address,
             pending_buf,
-        })
+        });
+
+        Ok(())
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
@@ -258,7 +261,8 @@ impl protocol::Protocol for Erp {
 
         // attach header
         if !self.header_sent {
-            data.put(self.proxy_address.as_ref().unwrap().as_bytes());
+            let resolved = self.get_resolved_result().unwrap();
+            data.put(resolved.address.as_bytes());
         }
 
         data.put(buf);

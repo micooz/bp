@@ -1,21 +1,32 @@
 use crate::{
     event::{Event, EventSender},
     net::socket,
-    protocol, Result,
+    protocol::{Protocol, ResolvedResult},
+    Result,
 };
 use async_trait::async_trait;
 
 #[derive(Default, Clone)]
-pub struct Direct {}
+pub struct Direct {
+    resolved_result: Option<ResolvedResult>,
+}
 
 #[async_trait]
-impl protocol::Protocol for Direct {
+impl Protocol for Direct {
     fn get_name(&self) -> String {
         "direct".into()
     }
 
-    async fn resolve_proxy_address(&mut self, _socket: &socket::Socket) -> Result<protocol::ResolvedResult> {
-        unimplemented!("direct protocol cannot be used on inbound")
+    fn set_resolved_result(&mut self, res: ResolvedResult) {
+        self.resolved_result = Some(res);
+    }
+
+    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+        self.resolved_result.clone()
+    }
+
+    async fn resolve_dest_addr(&mut self, _socket: &socket::Socket) -> Result<()> {
+        panic!("direct protocol cannot be used on inbound")
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {

@@ -1,36 +1,39 @@
 use crate::{
     config,
-    event::{Event, EventSender},
-    net,
-    net::socket,
-    protocol, Options, Result,
+    event::Event,
+    net::{
+        socket::{Socket, SocketType},
+        Address, ServiceType,
+    },
+    protocol::DynProtocol,
+    Options, Result,
 };
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
-use tokio::{net::TcpSocket, sync::mpsc::Sender, time};
-
-type Proto = protocol::DynProtocol;
+use tokio::{
+    net::TcpSocket,
+    sync::mpsc::Sender,
+    time::{timeout, Duration},
+};
 
 pub struct Outbound {
     opts: Options,
 
-    socket: Option<Arc<socket::Socket>>,
+    socket: Option<Arc<Socket>>,
 
-    socket_type: socket::SocketType,
+    socket_type: SocketType,
 
     peer_address: SocketAddr,
 
-    remote_addr: Option<net::Address>,
+    remote_addr: Option<Address>,
 
     protocol_name: Option<String>,
-
-    use_proxy: bool,
 
     is_closed: bool,
 }
 
 impl Outbound {
-    pub fn new(peer_address: SocketAddr, socket_type: socket::SocketType, opts: Options) -> Self {
+    pub fn new(peer_address: SocketAddr, socket_type: SocketType, opts: Options) -> Self {
         Self {
             opts,
             socket: None,
@@ -38,48 +41,30 @@ impl Outbound {
             peer_address,
             remote_addr: None,
             protocol_name: None,
-            use_proxy: false,
             is_closed: false,
         }
     }
 
-    // apply transport protocol then make connection to remote
-    pub async fn use_protocol(&mut self, out_proto: Proto, in_proto: Proto, tx: EventSender) -> Result<()> {
+    pub async fn start_connect(&mut self, protocol_name: &str, remote_addr: Address) -> Result<()> {
         let socket_type = self.socket_type;
         let peer_address = self.peer_address;
 
-        let protocol_name = out_proto.get_name();
-        self.protocol_name = Some(protocol_name.clone());
+        log::info!("[{}] [{}] use [{}] protocol", peer_address, socket_type, protocol_name);
 
-        log::info!(
-            "[{}] [{}] use [{}] protocol",
-            self.peer_address,
-            socket_type,
-            protocol_name
-        );
-
-        let remote_addr = self.get_remote_addr(&in_proto);
+        self.protocol_name = Some(protocol_name.to_string());
         self.remote_addr = Some(remote_addr.clone());
 
         log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr);
 
-        // resolve target ip address
-        let remote_ip_addr = if !remote_addr.is_ip() {
-            // dns resolve
-            let ip_list = remote_addr.dns_resolve().await;
-
-            log::info!(
-                "[{}] [{}] resolved {} to {:?}",
-                peer_address,
-                socket_type,
-                remote_addr,
-                ip_list
+        // resolve dest ip address
+        let remote_ip_addr = self.dns_resolve(&remote_addr).await.map_err(|err| {
+            let msg = format!(
+                "[{}] [{}] resolve ip address of {} failed due to: {}",
+                peer_address, socket_type, remote_addr, err
             );
-
-            ip_list[0]
-        } else {
-            remote_addr.as_socket_addr()
-        };
+            log::error!("{}", msg);
+            msg
+        })?;
 
         // make connection
         let socket = self.connect(remote_ip_addr).await.map_err(|err| {
@@ -91,9 +76,17 @@ impl Outbound {
             msg
         })?;
 
-        self.socket = Some(socket.clone());
+        self.socket = Some(socket);
 
         log::info!("[{}] [{}] connected to {}", peer_address, socket_type, remote_addr);
+
+        Ok(())
+    }
+
+    pub async fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
+        let socket_type = self.socket_type;
+        let peer_address = self.peer_address;
+        let protocol_name = out_proto.get_name();
 
         log::info!(
             "[{}] [{}] [{}] start relaying data...",
@@ -102,22 +95,36 @@ impl Outbound {
             protocol_name
         );
 
-        // start receiving data from outbound
-        self.handle_incoming_data(in_proto, out_proto, tx).await;
+        let service_type = self.opts.service_type();
+        let socket = self.socket.clone().unwrap();
 
-        Ok(())
+        tokio::spawn(async move {
+            loop {
+                let future = match service_type {
+                    ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
+                    ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
+                };
+
+                if let Err(err) = future.await {
+                    let _ = tx.send(Event::OutboundError(err)).await;
+                    break;
+                }
+            }
+        });
     }
 
-    /// send data to remote
     pub async fn send(&self, buf: Bytes) -> tokio::io::Result<()> {
+        let socket_type = self.socket_type;
+        let peer_address = self.peer_address;
+        let protocol_name = self.protocol_name.as_ref().unwrap();
         let socket = self.socket.as_ref().unwrap();
 
         if socket.is_udp() {
             log::info!(
                 "[{}] [{}] [{}] sent an udp packet: {} bytes",
-                self.peer_address,
-                self.socket_type,
-                self.protocol_name.as_ref().unwrap(),
+                peer_address,
+                socket_type,
+                protocol_name,
                 buf.len()
             );
         }
@@ -125,7 +132,6 @@ impl Outbound {
         socket.send(&buf).await
     }
 
-    /// close the bound
     pub async fn close(&mut self) -> Result<()> {
         if !self.is_closed {
             if let Some(socket) = self.socket.as_ref() {
@@ -144,23 +150,34 @@ impl Outbound {
         }
     }
 
-    pub fn set_use_proxy(&mut self, use_proxy: bool) {
-        self.use_proxy = use_proxy;
-    }
-
-    fn get_remote_addr(&self, in_proto: &Proto) -> net::Address {
-        let service_type = self.opts.service_type();
-
-        if service_type.is_server() || self.opts.server_bind.is_none() || !self.use_proxy {
-            in_proto.get_proxy_address().unwrap()
-        } else {
-            self.opts.server_bind.as_ref().unwrap().clone()
+    async fn dns_resolve(&self, addr: &Address) -> Result<SocketAddr> {
+        if addr.is_ip() {
+            return Ok(addr.as_socket_addr());
         }
+
+        let socket_type = self.socket_type;
+        let peer_address = self.peer_address;
+
+        let ip_list = timeout(
+            Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
+            addr.dns_resolve(),
+        )
+        .await??;
+
+        log::info!(
+            "[{}] [{}] resolved {} to {:?}",
+            peer_address,
+            socket_type,
+            addr,
+            ip_list
+        );
+
+        Ok(ip_list[0])
     }
 
-    async fn connect(&self, addr: SocketAddr) -> Result<Arc<socket::Socket>> {
+    async fn connect(&self, addr: SocketAddr) -> Result<Arc<Socket>> {
         let socket = match self.socket_type {
-            socket::SocketType::Tcp => {
+            SocketType::Tcp => {
                 #[cfg(target_os = "linux")]
                 use std::os::unix::io::AsRawFd;
 
@@ -175,13 +192,12 @@ impl Outbound {
                 }
 
                 let future = socket.connect(addr);
-                let stream =
-                    time::timeout(time::Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
+                let stream = timeout(Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
 
-                Arc::new(socket::Socket::new_tcp(stream))
+                Arc::new(Socket::new_tcp(stream))
             }
-            socket::SocketType::Udp => {
-                let socket = socket::Socket::bind_udp_random_port(addr).await?;
+            SocketType::Udp => {
+                let socket = Socket::bind_udp_random_port(addr).await?;
                 // TODO: self.mark_socket(socket.as_raw_fd());
 
                 Arc::new(socket)
@@ -189,25 +205,6 @@ impl Outbound {
         };
 
         Ok(socket)
-    }
-
-    async fn handle_incoming_data(&self, mut in_proto: Proto, mut out_proto: Proto, tx: Sender<Event>) {
-        let service_type = self.opts.service_type();
-        let socket = self.socket.clone().unwrap();
-
-        tokio::spawn(async move {
-            loop {
-                let future = match service_type {
-                    net::ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
-                    net::ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
-                };
-
-                if let Err(err) = future.await {
-                    let _ = tx.send(Event::OutboundError(err)).await;
-                    break;
-                }
-            }
-        });
     }
 
     #[cfg(target_os = "linux")]
@@ -235,6 +232,6 @@ impl Outbound {
 
 #[derive(Debug)]
 pub struct OutboundSnapshot {
-    pub remote_addr: Option<net::Address>,
+    pub remote_addr: Option<Address>,
     pub protocol_name: Option<String>,
 }

@@ -7,7 +7,6 @@ use cmd_lib::run_fun;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_socks5() {
-    // cmd_lib::init_builtin_logger();
     let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
 
     let opts = Options {
