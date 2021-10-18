@@ -6,14 +6,8 @@ use trust_dns_resolver::TokioAsyncResolver;
 
 lazy_static! {
   static ref RESOLVER: TokioAsyncResolver = {
-    // let mut opts = ResolverConfig::new();
-    // opts.add_name_server(NameServerConfig {
-        // socket_addr: SocketAddr::new(*ip, port),
-        // protocol,
-        // tls_dns_name: Some(tls_dns_name.clone()),
-        // trust_nx_responses,
-    // });
-    TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).unwrap()
+    // TODO: use --dns-server instead, fallback to Google 8.8.8.8
+    TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default()).unwrap()
   };
 }
 

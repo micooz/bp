@@ -33,7 +33,7 @@ pub struct Options {
     #[clap(long, default_value = "erp")]
     pub protocol: TransportProtocol,
 
-    /// enable udp relay
+    /// enable udp relay, default: false
     #[clap(long)]
     pub enable_udp: bool,
 
@@ -45,9 +45,13 @@ pub struct Options {
     #[clap(long)]
     pub force_dest_addr: Option<Address>,
 
-    /// proxy DNS queries via TCP
+    /// proxy DNS queries via TCP, default: false
     #[clap(long)]
     pub dns_over_tcp: bool,
+
+    /// DNS server address, default: 8.8.8.8:53
+    #[clap(long)]
+    pub dns_server: Option<Address>,
 }
 
 impl Options {

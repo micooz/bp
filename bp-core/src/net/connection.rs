@@ -94,6 +94,7 @@ impl Connection {
                 return Err("cannot handle incoming data".into());
             }
         };
+        self.inbound.set_protocol_name(in_proto.get_name());
         self.inbound.clear_restore().await;
 
         let resolved = in_proto.get_resolved_result().unwrap();

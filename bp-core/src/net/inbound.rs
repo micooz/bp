@@ -1,8 +1,7 @@
-use crate::net::Address;
 use crate::{
     config,
     event::*,
-    net::{socket::Socket, ServiceType},
+    net::{address::Address, socket::Socket, ServiceType},
     protocol::*,
     Options, Result,
 };
@@ -49,13 +48,13 @@ impl Inbound {
     }
 
     pub async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
-        fn create_direct(addr: &Address) -> DynProtocol {
+        fn create_direct(addr: &Address, pending_buf: Option<Bytes>) -> DynProtocol {
             let mut direct = Box::new(Direct::default());
 
             direct.set_resolved_result(ResolvedResult {
                 protocol: direct.get_name(),
                 address: addr.clone(),
-                pending_buf: None,
+                pending_buf,
             });
 
             direct
@@ -70,12 +69,15 @@ impl Inbound {
                 addr,
             );
 
-            return Ok(InboundResolveResult::Direct(create_direct(addr)));
+            return Ok(InboundResolveResult::Direct(create_direct(addr, None)));
         }
 
         // check DNS queries
-        if self.check_dns_query().await? {
-            return Ok(InboundResolveResult::Direct(create_direct(&Address::default())));
+        if let Ok(buf) = self.check_dns_query().await {
+            let dns_server_fallback: Address = "8.8.8.8:53".parse().unwrap();
+            let dns_server = self.opts.dns_server.as_ref().unwrap_or(&dns_server_fallback);
+
+            return Ok(InboundResolveResult::Direct(create_direct(&dns_server, Some(buf))));
         }
 
         // client side resolve
@@ -88,7 +90,6 @@ impl Inbound {
 
             for mut proto in try_list {
                 if self.resolve_dest_addr(&mut proto).await.is_ok() {
-                    self.protocol_name = Some(proto.get_name());
                     return Ok(InboundResolveResult::Proxy(proto));
                 }
             }
@@ -102,7 +103,7 @@ impl Inbound {
                     addr
                 );
 
-                return Ok(InboundResolveResult::Direct(create_direct(addr)));
+                return Ok(InboundResolveResult::Direct(create_direct(addr, None)));
             }
         }
 
@@ -115,6 +116,10 @@ impl Inbound {
         }
 
         Ok(InboundResolveResult::Deny)
+    }
+
+    pub fn set_protocol_name(&mut self, name: String) {
+        self.protocol_name = Some(name);
     }
 
     pub async fn clear_restore(&self) {
@@ -186,21 +191,13 @@ impl Inbound {
         }
     }
 
-    async fn check_dns_query(&self) -> Result<bool> {
+    async fn check_dns_query(&self) -> Result<Bytes> {
         if self.socket.is_udp() && self.opts.dns_over_tcp {
             let buf = self.socket.read_some().await?;
-            self.socket.restore().await;
-
-            let is_dns = Dns::parse(&buf[..]).is_ok();
-
-            if is_dns {
-                self.socket.clear_restore().await;
-            }
-
-            return Ok(is_dns);
+            let _ = Dns::parse(&buf[..])?;
+            return Ok(buf);
         }
-
-        Ok(false)
+        Err("not a dns packet".into())
     }
 
     async fn resolve_dest_addr(&self, proto: &mut DynProtocol) -> Result<()> {
