@@ -33,5 +33,5 @@ sha2 = "0.9.5"
 log = "0.4.0"
 
 ### others
-clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
+clap = { version = "3.0.0-beta.5", default-features = false, features = ["std", "derive", "cargo"] }
 notify = "4.0.0"
