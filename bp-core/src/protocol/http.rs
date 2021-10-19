@@ -1,6 +1,9 @@
 use crate::{
-    event,
-    net::{self, address, socket},
+    event::EventSender,
+    net::{
+        address::{Address, Host},
+        socket::Socket,
+    },
     protocol::{Protocol, ResolvedResult},
     Result,
 };
@@ -28,7 +31,7 @@ impl Protocol for Http {
         self.resolved_result.clone()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
         let mut buf = BytesMut::with_capacity(1024);
 
         loop {
@@ -49,7 +52,7 @@ impl Protocol for Http {
 
             if method.to_uppercase() == "CONNECT" {
                 // for HTTP proxy tunnel requests
-                let addr = net::Address::from_str(path)?;
+                let addr = Address::from_str(path)?;
                 let resp = Bytes::from_static(b"HTTP/1.1 200 Connection Established\r\n\r\n");
 
                 socket.send(&resp).await?;
@@ -88,7 +91,7 @@ impl Protocol for Http {
 
                 self.set_resolved_result(ResolvedResult {
                     protocol: self.get_name(),
-                    address: net::Address::new(address::Host::Name(host), port),
+                    address: Address::new(Host::Name(host), port),
                     pending_buf: Some(buf.freeze()),
                 });
 
@@ -97,19 +100,19 @@ impl Protocol for Http {
         }
     }
 
-    async fn client_encode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_encode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 }

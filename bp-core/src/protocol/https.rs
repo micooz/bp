@@ -1,6 +1,9 @@
 use crate::{
-    event,
-    net::{self, socket},
+    event::EventSender,
+    net::{
+        address::{Address, Host},
+        socket::Socket,
+    },
     protocol::{Protocol, ResolvedResult},
     utils, Result,
 };
@@ -26,7 +29,7 @@ impl Protocol for Https {
         self.resolved_result.clone()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
         let content_type = socket.read_exact(1).await?;
 
         if content_type[0] != 0x16 {
@@ -124,7 +127,7 @@ impl Protocol for Https {
 
                 self.set_resolved_result(ResolvedResult {
                     protocol: self.get_name(),
-                    address: net::Address::new(net::address::Host::Name(server_name), 443),
+                    address: Address::new(Host::Name(server_name), 443),
                     pending_buf: None,
                 });
 
@@ -143,19 +146,19 @@ impl Protocol for Https {
         Err("server_name Extension not found".into())
     }
 
-    async fn client_encode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_encode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _socket: &socket::Socket, _tx: event::EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
         unimplemented!()
     }
 }

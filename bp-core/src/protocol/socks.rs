@@ -1,6 +1,6 @@
 use crate::{
     event::EventSender,
-    net::{socket::Socket, Address},
+    net::{address::Address, socket::Socket},
     protocol::{Protocol, ResolvedResult},
     utils, Result,
 };

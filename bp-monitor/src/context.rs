@@ -1,4 +1,4 @@
-use bp_core::net::socket::Socket;
+use bp_core::Socket;
 use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Debug)]

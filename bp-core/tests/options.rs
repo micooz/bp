@@ -1,4 +1,4 @@
-use bp_core::{check_options, Options};
+use bp_core::*;
 
 #[test]
 fn test_empty() {

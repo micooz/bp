@@ -1,4 +1,9 @@
-use crate::{event, net, net::socket, Options, Result};
+use crate::{
+    event::EventSender,
+    net::{address::Address, socket::Socket},
+    options::Options,
+    Result,
+};
 use async_trait::async_trait;
 use std::str;
 
@@ -22,7 +27,7 @@ pub use socks::Socks;
 pub struct ResolvedResult {
     pub protocol: String,
 
-    pub address: net::Address,
+    pub address: Address,
 
     pub pending_buf: Option<bytes::Bytes>,
 }
@@ -39,15 +44,15 @@ pub trait Protocol: dyn_clone::DynClone {
         unimplemented!();
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()>;
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()>;
 
-    async fn client_encode(&mut self, socket: &socket::Socket, tx: event::EventSender) -> Result<()>;
+    async fn client_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
 
-    async fn server_encode(&mut self, socket: &socket::Socket, tx: event::EventSender) -> Result<()>;
+    async fn server_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
 
-    async fn client_decode(&mut self, socket: &socket::Socket, tx: event::EventSender) -> Result<()>;
+    async fn client_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
 
-    async fn server_decode(&mut self, socket: &socket::Socket, tx: event::EventSender) -> Result<()>;
+    async fn server_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
 }
 
 dyn_clone::clone_trait_object!(Protocol);

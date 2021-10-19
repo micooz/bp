@@ -1,11 +1,4 @@
-use bp_core::{
-    global,
-    net::{
-        service::{start_service, StartupInfo},
-        Connection,
-    },
-    Options,
-};
+use bp_core::{global, start_service, Connection, Options, StartupInfo};
 use tokio::{sync::oneshot, task, time};
 
 #[cfg(feature = "monitor")]
@@ -32,8 +25,6 @@ pub async fn bootstrap(opts: Options, sender_ready: oneshot::Sender<StartupInfo>
         .unwrap();
 
     handle.await.unwrap();
-
-    // start_dns_server().await;
 
     Ok(())
 }

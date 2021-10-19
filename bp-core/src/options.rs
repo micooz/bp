@@ -1,5 +1,4 @@
-use crate::net::{Address, ServiceType};
-use crate::TransportProtocol;
+use crate::{net::address::Address, protocol::TransportProtocol};
 
 /// The default local service host
 const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
@@ -108,4 +107,19 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
     }
 
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+pub enum ServiceType {
+    Client,
+    Server,
+}
+
+impl ServiceType {
+    pub fn is_client(&self) -> bool {
+        matches!(self, ServiceType::Client)
+    }
+    pub fn is_server(&self) -> bool {
+        matches!(self, ServiceType::Server)
+    }
 }

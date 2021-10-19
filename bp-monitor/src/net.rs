@@ -2,12 +2,12 @@ use crate::{
     cmd::{CommandType, MonitorCommand},
     context::Context,
 };
-use bp_core::net::socket;
+use bp_core::Socket;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
-pub fn handle_conn(socket: socket::Socket, tx: Sender<MonitorCommand>) {
+pub fn handle_conn(socket: Socket, tx: Sender<MonitorCommand>) {
     let socket = Arc::new(socket);
 
     tokio::spawn(async move {

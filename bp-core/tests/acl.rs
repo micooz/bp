@@ -1,4 +1,4 @@
-use bp_core::acl::*;
+use bp_core::*;
 use std::{fs::read_to_string, path::PathBuf};
 
 #[test]

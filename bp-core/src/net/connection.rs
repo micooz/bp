@@ -5,11 +5,12 @@ use crate::{
     net::inbound::{Inbound, InboundResolveResult, InboundSnapshot},
     net::outbound::{Outbound, OutboundSnapshot},
     net::{
+        address::Address,
         socket::{Socket, SocketType},
-        Address,
     },
+    options::Options,
     protocol::{init_transport_protocol, Direct, DynProtocol},
-    Options, Result,
+    Result,
 };
 use tokio::sync;
 use tokio::time;

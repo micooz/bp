@@ -1,15 +1,11 @@
-use crate::config;
-use crate::net::socket::Socket;
-use crate::net::Address;
+use crate::{
+    config,
+    net::{address::Address, socket::Socket},
+};
 use bytes::Bytes;
 use std::sync::Arc;
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc;
-
-pub enum Transport {
-    Tcp,
-    Udp,
-}
 
 #[derive(Debug)]
 pub struct StartupInfo {

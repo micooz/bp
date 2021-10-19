@@ -1,4 +1,4 @@
-use bp_core::{net::Address, utils::net::create_udp_client_with_random_port};
+use bp_core::{utils::net::create_udp_client_with_random_port, Address};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,

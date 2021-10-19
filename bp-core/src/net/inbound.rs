@@ -1,9 +1,10 @@
 use crate::{
     config,
     event::*,
-    net::{address::Address, socket::Socket, ServiceType},
+    net::{address::Address, socket::Socket},
+    options::{Options, ServiceType},
     protocol::*,
-    Options, Result,
+    Result,
 };
 use bytes::Bytes;
 use std::net::SocketAddr;
@@ -24,6 +25,7 @@ pub struct Inbound {
 
     peer_address: SocketAddr,
 
+    #[cfg(feature = "monitor")]
     local_addr: SocketAddr,
 
     protocol_name: Option<String>,
@@ -35,13 +37,13 @@ impl Inbound {
     pub fn new(socket: Socket, opts: Options) -> Self {
         let socket = Arc::new(socket);
         let peer_address = socket.peer_addr().unwrap();
-        let local_addr = socket.local_addr().unwrap();
 
         Self {
             opts,
             socket,
             peer_address,
-            local_addr,
+            #[cfg(feature = "monitor")]
+            local_addr: socket.local_addr().unwrap(),
             protocol_name: None,
             is_closed: false,
         }
@@ -77,7 +79,7 @@ impl Inbound {
             let dns_server_fallback: Address = "8.8.8.8:53".parse().unwrap();
             let dns_server = self.opts.dns_server.as_ref().unwrap_or(&dns_server_fallback);
 
-            return Ok(InboundResolveResult::Direct(create_direct(&dns_server, Some(buf))));
+            return Ok(InboundResolveResult::Direct(create_direct(dns_server, Some(buf))));
         }
 
         // client side resolve
@@ -183,6 +185,7 @@ impl Inbound {
         Ok(())
     }
 
+    #[cfg(feature = "monitor")]
     pub fn snapshot(&self) -> InboundSnapshot {
         InboundSnapshot {
             peer_addr: self.peer_address,

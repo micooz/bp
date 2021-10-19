@@ -1,5 +1,5 @@
 use crate::context::Context;
-use bp_core::context;
+use bp_core::SharedData;
 use bytes::Bytes;
 use std::{convert::TryFrom, fmt::Display, net::SocketAddr, sync::Arc};
 
@@ -75,7 +75,7 @@ impl MonitorCommand {
         self.ctx.socket.send(LINE_ENDING.as_bytes()).await.unwrap();
     }
 
-    pub async fn exec(&mut self, shared_data: Arc<context::SharedData>) {
+    pub async fn exec(&mut self, shared_data: Arc<SharedData>) {
         log::info!("[{}] execute command: <{}>", self.peer_addr, self.cmd_type);
 
         match &self.cmd_type {

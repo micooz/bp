@@ -2,11 +2,12 @@ use crate::{
     config,
     event::Event,
     net::{
+        address::Address,
         socket::{Socket, SocketType},
-        Address, ServiceType,
     },
+    options::{Options, ServiceType},
     protocol::DynProtocol,
-    Options, Result,
+    Result,
 };
 use bytes::Bytes;
 use std::{net::SocketAddr, sync::Arc};
@@ -143,6 +144,7 @@ impl Outbound {
         Ok(())
     }
 
+    #[cfg(feature = "monitor")]
     pub fn snapshot(&self) -> OutboundSnapshot {
         OutboundSnapshot {
             remote_addr: self.remote_addr.clone(),
