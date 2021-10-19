@@ -6,7 +6,7 @@ use bp_test::send_recv::udp_oneshot;
 async fn test_dns_relay_without_server() {
     let client_opts = Options {
         client: true,
-        dns_over_tcp: true,
+        enable_udp: true,
         ..Options::default()
     };
 
@@ -19,6 +19,15 @@ async fn test_dns_relay_without_server() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_dns_relay_with_server() {
+    run_test(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_udp_over_tcp() {
+    run_test(true).await;
+}
+
+async fn run_test(udp_over_tcp: bool) {
     let server_opts = Options {
         server: true,
         key: Some("key".to_string()),
@@ -32,7 +41,8 @@ async fn test_dns_relay_with_server() {
         client: true,
         key: Some("key".to_string()),
         server_bind: Some(server.bind_addr.clone()),
-        dns_over_tcp: true,
+        enable_udp: true,
+        udp_over_tcp,
         ..Options::default()
     };
 

@@ -16,7 +16,7 @@ mod plain;
 mod socks;
 
 pub use direct::Direct;
-pub use dns::{check_dns_query, Dns};
+pub use dns::Dns;
 pub use erp::Erp;
 pub use http::Http;
 pub use https::Https;

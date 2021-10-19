@@ -36,8 +36,6 @@ pub struct Connection {
 
     outbound: Outbound,
 
-    socket_type: SocketType,
-
     use_proxy: bool,
 
     peer_addr: Address,
@@ -53,19 +51,15 @@ pub struct Connection {
 impl Connection {
     pub fn new(id: usize, socket: Socket, opts: Options) -> Self {
         let peer_addr = socket.peer_addr().unwrap();
-        let socket_type = socket.socket_type();
-
         // create inbound
         let inbound = Inbound::new(socket, opts.clone());
-
         // create outbound
-        let outbound = Outbound::new(peer_addr, socket_type, opts.clone());
+        let outbound = Outbound::new(peer_addr, opts.clone());
 
         Connection {
             id,
             inbound,
             outbound,
-            socket_type,
             use_proxy: true,
             peer_addr: peer_addr.into(),
             dest_addr: None,
@@ -88,20 +82,31 @@ impl Connection {
         // NOTE: higher buffer size leads to higher memory & cpu usage
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        let in_proto = match self.inbound.try_resolve().await? {
-            InboundResolveResult::Proxy(proto) => proto,
-            InboundResolveResult::Direct(proto) => proto,
-            InboundResolveResult::Deny => {
-                return Err("cannot handle incoming data".into());
-            }
-        };
+        let InboundResolveResult { proto: in_proto } = self.inbound.try_resolve().await?;
+
         self.inbound.set_protocol_name(in_proto.get_name());
         self.inbound.clear_restore().await;
 
         let resolved = in_proto.get_resolved_result().unwrap();
         self.dest_addr = Some(resolved.address.clone());
 
-        // check proxy rules
+        // set outbound socket type
+        let inbound_socket_type = self.inbound.socket_type();
+
+        // default the same as inbound
+        self.outbound.set_socket_type(inbound_socket_type);
+
+        // client side enable --udp-over-tcp, outbound should be TCP
+        if self.opts.udp_over_tcp && matches!(inbound_socket_type, SocketType::Udp) {
+            self.outbound.set_socket_type(SocketType::Tcp);
+        }
+
+        // server side recv dns protocol, outbound should be UDP
+        if self.opts.server && resolved.protocol == "dns" {
+            self.outbound.set_socket_type(SocketType::Udp);
+        }
+
+        // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
             self.create_outbound_protocol().await
         } else {
@@ -118,7 +123,7 @@ impl Connection {
         }
 
         // start receiving data from inbound
-        if let SocketType::Tcp = self.socket_type {
+        if matches!(self.inbound.socket_type(), SocketType::Tcp) {
             self.inbound
                 .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone())
                 .await;
@@ -154,19 +159,18 @@ impl Connection {
     }
 
     fn check_proxy_rules(&self) -> bool {
-        let service_type = self.opts.service_type();
         let dest_addr = self.dest_addr.as_ref().unwrap();
         let dest_addr_host = dest_addr.host.to_string();
 
         // white list
-        if service_type.is_client() && self.opts.proxy_white_list.is_some() {
+        if self.opts.client && self.opts.proxy_white_list.is_some() {
             let acl = global::SHARED_DATA.get_acl();
 
             if !acl.is_host_hit(&dest_addr_host) {
                 log::warn!(
                     "[{}] [{}] [{}] is not matched in white list, will use [direct] protocol for outbound",
                     self.peer_addr,
-                    self.socket_type,
+                    self.inbound.socket_type(),
                     dest_addr_host,
                 );
                 return false;
@@ -175,7 +179,7 @@ impl Connection {
             log::info!(
                 "[{}] [{}] [{}] is matched in white list",
                 self.peer_addr,
-                self.socket_type,
+                self.inbound.socket_type(),
                 dest_addr_host,
             );
         }
@@ -184,7 +188,7 @@ impl Connection {
     }
 
     async fn create_outbound_protocol(&self) -> DynProtocol {
-        if self.opts.service_type().is_client() && self.opts.server_bind.is_some() {
+        if self.opts.client && self.opts.server_bind.is_some() {
             init_transport_protocol(&self.opts)
         } else {
             Box::new(Direct::default())
@@ -192,9 +196,7 @@ impl Connection {
     }
 
     fn get_remote_addr(&self, in_proto: &DynProtocol) -> Address {
-        let service_type = self.opts.service_type();
-
-        if service_type.is_server() || self.opts.server_bind.is_none() || !self.use_proxy {
+        if self.opts.server || self.opts.server_bind.is_none() || !self.use_proxy {
             let resolved = in_proto.get_resolved_result();
             resolved.unwrap().address
         } else {

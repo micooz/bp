@@ -19,7 +19,7 @@ pub struct Options {
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
     pub bind: Address,
 
-    /// bp server bind address, client only. if not set, bp will relay directly
+    /// bp server bind address, client only. If not set, bp will relay directly
     #[clap(long)]
     pub server_bind: Option<Address>,
 
@@ -32,7 +32,7 @@ pub struct Options {
     #[clap(short, long, default_value = "erp")]
     pub protocol: TransportProtocol,
 
-    /// enable udp relay, auto turn on when --dns-over-tcp is set [default: false]
+    /// enable udp relay [default: false]
     #[clap(long)]
     pub enable_udp: bool,
 
@@ -44,9 +44,9 @@ pub struct Options {
     #[clap(long)]
     pub force_dest_addr: Option<Address>,
 
-    /// proxy DNS queries via TCP [default: false]
+    /// proxy UDP via TCP, client only. Requires --server-bind to be set if true [default: false]
     #[clap(long)]
-    pub dns_over_tcp: bool,
+    pub udp_over_tcp: bool,
 
     /// DNS server address [default: 8.8.8.8:53]
     #[clap(long)]
@@ -105,9 +105,14 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
         return Err("--proxy-white-list can only be set on client.");
     }
 
-    // check --dns-over-tcp
-    if opts.server && opts.dns_over_tcp {
-        return Err("--dns-over-tcp can only be set on client.");
+    // check --udp-over-tcp
+    if opts.udp_over_tcp {
+        if opts.server {
+            return Err("--udp-over-tcp can only be set on client.");
+        }
+        if opts.client && opts.server_bind.is_none() {
+            return Err("--udp-over-tcp requires --server-bind to be set.");
+        }
     }
 
     // check --force-dest-addr

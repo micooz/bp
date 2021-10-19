@@ -1,7 +1,10 @@
 use crate::{
     config,
     event::*,
-    net::{address::Address, socket::Socket},
+    net::{
+        address::Address,
+        socket::{Socket, SocketType},
+    },
     options::{Options, ServiceType},
     protocol::*,
     Result,
@@ -12,10 +15,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{timeout, Duration};
 
-pub enum InboundResolveResult {
-    Proxy(DynProtocol),
-    Direct(DynProtocol),
-    Deny,
+pub struct InboundResolveResult {
+    pub proto: DynProtocol,
 }
 
 pub struct Inbound {
@@ -25,7 +26,7 @@ pub struct Inbound {
 
     peer_address: SocketAddr,
 
-    #[cfg(feature = "monitor")]
+    #[allow(dead_code)]
     local_addr: SocketAddr,
 
     protocol_name: Option<String>,
@@ -36,21 +37,25 @@ pub struct Inbound {
 impl Inbound {
     pub fn new(socket: Socket, opts: Options) -> Self {
         let socket = Arc::new(socket);
+        let local_addr = socket.local_addr().unwrap();
         let peer_address = socket.peer_addr().unwrap();
 
         Self {
             opts,
             socket,
             peer_address,
-            #[cfg(feature = "monitor")]
-            local_addr: socket.local_addr().unwrap(),
+            local_addr,
             protocol_name: None,
             is_closed: false,
         }
     }
 
+    pub fn socket_type(&self) -> SocketType {
+        self.socket.socket_type()
+    }
+
     pub async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
-        fn create_direct(addr: &Address, pending_buf: Option<Bytes>) -> DynProtocol {
+        fn direct(addr: &Address, pending_buf: Option<Bytes>) -> DynProtocol {
             let mut direct = Box::new(Direct::default());
 
             direct.set_resolved_result(ResolvedResult {
@@ -71,34 +76,26 @@ impl Inbound {
                 addr,
             );
 
-            return Ok(InboundResolveResult::Direct(create_direct(addr, None)));
-        }
-
-        // check dns packet on client side
-        if self.socket.is_udp() && self.opts.client && self.opts.dns_over_tcp {
-            let buf = self.socket.read_some().await?;
-
-            if check_dns_query(&buf[..]) {
-                return Ok(InboundResolveResult::Direct(create_direct(
-                    // TODO: send dns server addr to bp server is unnecessary
-                    // NOTE: in order to make it work on relay mode(not set --server-bind), we must pass this value (currently).
-                    &self.opts.get_dns_server(),
-                    Some(buf),
-                )));
-            }
+            return Ok(InboundResolveResult {
+                proto: direct(addr, None),
+            });
         }
 
         // client side resolve
         if self.opts.client {
-            let try_list: [DynProtocol; 3] = [
+            let mut try_list: Vec<DynProtocol> = vec![
                 Box::new(Socks::new(Some(self.opts.bind.clone()))),
                 Box::new(Http::default()),
                 Box::new(Https::default()),
             ];
 
+            if self.socket.is_udp() {
+                try_list.push(Box::new(Dns::default()));
+            }
+
             for mut proto in try_list {
                 if self.resolve_dest_addr(&mut proto).await.is_ok() {
-                    return Ok(InboundResolveResult::Proxy(proto));
+                    return Ok(InboundResolveResult { proto });
                 }
             }
 
@@ -111,7 +108,9 @@ impl Inbound {
                     addr
                 );
 
-                return Ok(InboundResolveResult::Direct(create_direct(addr, None)));
+                return Ok(InboundResolveResult {
+                    proto: direct(addr, None),
+                });
             }
         }
 
@@ -124,19 +123,19 @@ impl Inbound {
             let buf = resolved.pending_buf.as_ref();
 
             // check dns packet
-            if self.socket.is_udp() && buf.is_some() && check_dns_query(&buf.unwrap()[..]) {
+            if buf.is_some() && Dns::check_dns_query(&buf.unwrap()[..]) {
                 proto.set_resolved_result(ResolvedResult {
                     // rewrite address to use --dns-server
                     address: self.opts.get_dns_server(),
-                    protocol: resolved.protocol,
+                    protocol: String::from("dns"),
                     pending_buf: resolved.pending_buf,
                 });
             }
 
-            return Ok(InboundResolveResult::Proxy(proto));
+            return Ok(InboundResolveResult { proto });
         }
 
-        Ok(InboundResolveResult::Deny)
+        Err("cannot detect a protocol from incoming data".into())
     }
 
     pub fn set_protocol_name(&mut self, name: String) {

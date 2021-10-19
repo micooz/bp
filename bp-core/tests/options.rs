@@ -73,10 +73,21 @@ fn test_set_server_and_proxy_white_list() {
 }
 
 #[test]
-fn test_set_server_and_dns_over_tcp() {
+fn test_set_client_and_udp_over_tcp() {
+    let opts = Options {
+        client: true,
+        udp_over_tcp: true,
+        ..Options::default()
+    };
+
+    assert!(check_options(&opts).is_err());
+}
+
+#[test]
+fn test_set_server_and_udp_over_tcp() {
     let opts = Options {
         server: true,
-        dns_over_tcp: true,
+        udp_over_tcp: true,
         ..Options::default()
     };
 

@@ -2,45 +2,67 @@
 
 Lightweight and efficient proxy written in pure Rust.
 
+## Features
+
+* Running on all platform and all CPU architecture.
+* Socks5/HTTP/HTTPS proxy all in one port.
+* Multiple transport protocols: TCP, UDP as well as DNS proxy.
+* White list proxy.
+
 ## Usage
 
 Please check -h/--help first.
 
 ```
 $ bp -h
-bp 0.1.0
+bp 1.0.0-alpha.0
 
 Lightweight and efficient proxy written in pure Rust
 
 USAGE:
-    bp [FLAGS] [OPTIONS]
-
-FLAGS:
-    -c, --client        run as client
-        --enable-udp    enable udp relay
-    -h, --help          Print help information
-    -s, --server        run as server
-    -V, --version       Print version information
+    bp [OPTIONS]
 
 OPTIONS:
     -b, --bind <BIND>
             local service bind address [default: 127.0.0.1:1080]
 
+    -c, --client
+            run as client
+
+        --dns-server <DNS_SERVER>
+            DNS server address [default: 8.8.8.8:53]
+
+        --enable-udp
+            enable udp relay [default: false]
+
         --force-dest-addr <FORCE_DEST_ADDR>
-            force all incoming data relay to this destination, usually for testing
+            force all incoming data relay to this destination, usually for testing [default: false]
+
+    -h, --help
+            Print help information
 
     -k, --key <KEY>
             symmetric encryption key
 
-        --protocol <PROTOCOL>
+    -p, --protocol <PROTOCOL>
             protocol used by transport layer between client and server, "plain" or "erp" are
             supported [default: erp]
 
-        --proxy-list-path <PROXY_LIST_PATH>
-            check white list before proxy
+        --proxy-white-list <PROXY_WHITE_LIST>
+            check white list before proxy, pass a file path
+
+    -s, --server
+            run as server
 
         --server-bind <SERVER_BIND>
-            bp server bind address, client only. if not set, bp will relay directly
+            bp server bind address, client only. If not set, bp will relay directly
+
+        --udp-over-tcp
+            proxy UDP via TCP, client only. Requires --server-bind to be set if true [default:
+            false]
+
+    -V, --version
+            Print version information
 ```
 
 ## Examples
@@ -82,6 +104,12 @@ $ bp -c
 $ bp -c --enable-udp
 ```
 
+### DNS Proxy
+
+```
+$ bp -c --sniff 
+```
+
 ### Pin Destination Address
 
 > NOTE: this is usually for testing via **iperf**
@@ -105,7 +133,7 @@ $ bp -s --bind 127.0.0.1:9000 --key test --protocol plain
 ### Proxy White List
 
 ```
-$ bp -c --proxy-list-path /path/to/list.txt
+$ bp -c --proxy-white-list /path/to/list.txt
 ```
 
 Assume that the white list file contains the following rules:

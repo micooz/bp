@@ -23,7 +23,7 @@ pub struct Outbound {
 
     socket: Option<Arc<Socket>>,
 
-    socket_type: SocketType,
+    socket_type: Option<SocketType>,
 
     peer_address: SocketAddr,
 
@@ -35,11 +35,11 @@ pub struct Outbound {
 }
 
 impl Outbound {
-    pub fn new(peer_address: SocketAddr, socket_type: SocketType, opts: Options) -> Self {
+    pub fn new(peer_address: SocketAddr, opts: Options) -> Self {
         Self {
             opts,
             socket: None,
-            socket_type,
+            socket_type: None,
             peer_address,
             remote_addr: None,
             protocol_name: None,
@@ -47,8 +47,12 @@ impl Outbound {
         }
     }
 
+    pub fn set_socket_type(&mut self, socket_type: SocketType) {
+        self.socket_type = Some(socket_type);
+    }
+
     pub async fn start_connect(&mut self, protocol_name: &str, remote_addr: Address) -> Result<()> {
-        let socket_type = self.socket_type;
+        let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
 
         log::info!("[{}] [{}] use [{}] protocol", peer_address, socket_type, protocol_name);
@@ -86,7 +90,7 @@ impl Outbound {
     }
 
     pub async fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
-        let socket_type = self.socket_type;
+        let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
         let protocol_name = out_proto.get_name();
 
@@ -116,8 +120,8 @@ impl Outbound {
     }
 
     pub async fn send(&self, buf: Bytes) -> tokio::io::Result<()> {
-        let socket_type = self.socket_type;
         let peer_address = self.peer_address;
+        let socket_type = self.socket_type.as_ref().unwrap();
         let protocol_name = self.protocol_name.as_ref().unwrap();
         let socket = self.socket.as_ref().unwrap();
 
@@ -158,7 +162,7 @@ impl Outbound {
             return Ok(addr.as_socket_addr());
         }
 
-        let socket_type = self.socket_type;
+        let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
 
         let ip_list = match &addr.host {
@@ -198,7 +202,7 @@ impl Outbound {
     }
 
     async fn connect(&self, addr: SocketAddr) -> Result<Arc<Socket>> {
-        let socket = match self.socket_type {
+        let socket = match self.socket_type.as_ref().unwrap() {
             SocketType::Tcp => {
                 #[cfg(target_os = "linux")]
                 use std::os::unix::io::AsRawFd;
