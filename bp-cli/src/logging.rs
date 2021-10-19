@@ -10,7 +10,10 @@ pub async fn init() {
 
     let encoder = Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} [{M}] {m}{n}"));
     let console = ConsoleAppender::builder().encoder(encoder.clone()).build();
-    let file = FileAppender::builder().encoder(encoder).build(file_path).unwrap();
+    let file = FileAppender::builder()
+        .encoder(encoder)
+        .build(file_path.clone())
+        .unwrap();
 
     let builder = Config::builder()
         .appender(Appender::builder().build("console", Box::new(console)))
@@ -24,6 +27,8 @@ pub async fn init() {
     let config = builder.build(root).unwrap();
 
     log4rs::init_config(config).unwrap();
+
+    log::info!("log files are stored at {}", file_path.to_str().unwrap());
 }
 
 // return ~/.bp/logs/bp.log
