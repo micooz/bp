@@ -7,7 +7,7 @@ use tokio::sync::oneshot;
 #[tokio::main]
 async fn main() {
     #[cfg(feature = "logging")]
-    logging::init().await;
+    logging::init();
 
     let opts: Options = Parser::parse();
 

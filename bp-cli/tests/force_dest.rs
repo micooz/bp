@@ -10,7 +10,7 @@ async fn test_force_dest() {
     let opts = Options {
         client: true,
         force_dest_addr: Some(http_addr.into()),
-        ..Default::default()
+        ..Options::default()
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;

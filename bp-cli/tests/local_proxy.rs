@@ -10,7 +10,7 @@ async fn test_socks5() {
 
     let opts = Options {
         client: true,
-        ..Default::default()
+        ..Options::default()
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;
@@ -28,7 +28,7 @@ async fn test_socks5_udp() {
     let opts = Options {
         enable_udp: true,
         client: true,
-        ..Default::default()
+        ..Options::default()
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;
@@ -45,7 +45,7 @@ async fn test_http() {
 
     let opts = Options {
         client: true,
-        ..Default::default()
+        ..Options::default()
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;

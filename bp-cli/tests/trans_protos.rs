@@ -21,7 +21,7 @@ async fn run_test(protocol: TransportProtocol) {
         server: true,
         key: Some("key".to_string()),
         protocol: protocol.clone(),
-        ..Default::default()
+        ..Options::default()
     };
     let server = run_bp(server_opts).await;
 
@@ -31,7 +31,7 @@ async fn run_test(protocol: TransportProtocol) {
         key: Some("key".to_string()),
         server_bind: Some(server.bind_addr.clone()),
         protocol,
-        ..Default::default()
+        ..Options::default()
     };
     let client = run_bp(client_opts).await;
 

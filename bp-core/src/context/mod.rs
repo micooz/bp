@@ -1,13 +1,17 @@
 use crate::acl::AccessControlList;
 use crate::net::connection::ConnectionSnapshot;
 use std::collections::HashMap;
-use tokio::sync::Mutex;
+use std::sync::Arc;
+use tokio::sync::{Mutex, RwLock};
+use trust_dns_resolver::TokioAsyncResolver;
 
 #[derive(Default)]
 pub struct SharedData {
     connection_snapshots: Mutex<HashMap<usize, ConnectionSnapshot>>,
 
     acl: AccessControlList,
+
+    dns_resolver: Arc<RwLock<Option<TokioAsyncResolver>>>,
 }
 
 impl SharedData {
@@ -17,6 +21,15 @@ impl SharedData {
 
     pub fn get_acl(&self) -> &AccessControlList {
         &self.acl
+    }
+
+    pub async fn set_dns_resolver(&self, resolver: TokioAsyncResolver) {
+        let mut inner = self.dns_resolver.write().await;
+        *inner = Some(resolver);
+    }
+
+    pub fn get_dns_resolver(&self) -> Arc<RwLock<Option<TokioAsyncResolver>>> {
+        self.dns_resolver.clone()
     }
 
     pub async fn remove_connection_snapshot(&self, id: usize) {

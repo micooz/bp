@@ -6,7 +6,7 @@ use bp_test::send_recv::tcp_oneshot;
 async fn test_http_sniff() {
     let opts = Options {
         client: true,
-        ..Default::default()
+        ..Options::default()
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;
@@ -21,7 +21,7 @@ async fn test_http_sniff() {
 async fn test_https_sniff() {
     let opts = Options {
         client: true,
-        ..Default::default()
+        ..Options::default()
     };
 
     let StartupInfo { bind_addr, .. } = run_bp(opts).await;

@@ -74,12 +74,18 @@ impl Inbound {
             return Ok(InboundResolveResult::Direct(create_direct(addr, None)));
         }
 
-        // check DNS queries
-        if let Ok(buf) = self.check_dns_query().await {
-            let dns_server_fallback: Address = "8.8.8.8:53".parse().unwrap();
-            let dns_server = self.opts.dns_server.as_ref().unwrap_or(&dns_server_fallback);
+        // check dns packet on client side
+        if self.socket.is_udp() && self.opts.client && self.opts.dns_over_tcp {
+            let buf = self.socket.read_some().await?;
 
-            return Ok(InboundResolveResult::Direct(create_direct(dns_server, Some(buf))));
+            if check_dns_query(&buf[..]) {
+                return Ok(InboundResolveResult::Direct(create_direct(
+                    // TODO: send dns server addr to bp server is unnecessary
+                    // NOTE: in order to make it work on relay mode(not set --server-bind), we must pass this value (currently).
+                    &self.opts.get_dns_server(),
+                    Some(buf),
+                )));
+            }
         }
 
         // client side resolve
@@ -113,6 +119,19 @@ impl Inbound {
         if self.opts.server {
             let mut proto = init_transport_protocol(&self.opts);
             self.resolve_dest_addr(&mut proto).await?;
+
+            let resolved = proto.get_resolved_result().unwrap();
+            let buf = resolved.pending_buf.as_ref();
+
+            // check dns packet
+            if self.socket.is_udp() && buf.is_some() && check_dns_query(&buf.unwrap()[..]) {
+                proto.set_resolved_result(ResolvedResult {
+                    // rewrite address to use --dns-server
+                    address: self.opts.get_dns_server(),
+                    protocol: resolved.protocol,
+                    pending_buf: resolved.pending_buf,
+                });
+            }
 
             return Ok(InboundResolveResult::Proxy(proto));
         }
@@ -192,15 +211,6 @@ impl Inbound {
             local_addr: self.local_addr,
             protocol_name: self.protocol_name.clone(),
         }
-    }
-
-    async fn check_dns_query(&self) -> Result<Bytes> {
-        if self.socket.is_udp() && self.opts.dns_over_tcp {
-            let buf = self.socket.read_some().await?;
-            let _ = Dns::parse(&buf[..])?;
-            return Ok(buf);
-        }
-        Err("not a dns packet".into())
     }
 
     async fn resolve_dest_addr(&self, proto: &mut DynProtocol) -> Result<()> {

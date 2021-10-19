@@ -5,7 +5,7 @@ use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use std::path::PathBuf;
 
-pub async fn init() {
+pub fn init() {
     let file_path = get_file_path();
 
     let encoder = Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} [{M}] {m}{n}"));

@@ -1,4 +1,4 @@
-use crate::{net::dns::lookup, net::socket, Result};
+use crate::{net::socket, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::{
     convert::TryInto,
@@ -208,25 +208,6 @@ impl Address {
 
     pub fn set_port(&mut self, port: u16) {
         self.port = port;
-    }
-
-    // use trust dns resolve addr
-    pub async fn dns_resolve(&self) -> Result<Vec<SocketAddr>> {
-        match &self.host {
-            Host::Ip(ip) => {
-                let addr = SocketAddr::new(*ip, self.port);
-                Ok([addr].to_vec())
-            }
-            Host::Name(name) => {
-                let response = lookup(name).await?;
-                let response = response
-                    .iter()
-                    .map(|addr| SocketAddr::new(addr, self.port))
-                    .collect::<Vec<SocketAddr>>();
-
-                Ok(response)
-            }
-        }
     }
 }
 

@@ -1,8 +1,9 @@
 use crate::{
     config,
     event::Event,
+    global,
     net::{
-        address::Address,
+        address::{Address, Host},
         socket::{Socket, SocketType},
     },
     options::{Options, ServiceType},
@@ -160,11 +161,30 @@ impl Outbound {
         let socket_type = self.socket_type;
         let peer_address = self.peer_address;
 
-        let ip_list = timeout(
-            Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
-            addr.dns_resolve(),
-        )
-        .await??;
+        let ip_list = match &addr.host {
+            Host::Ip(ip) => {
+                let addr = SocketAddr::new(*ip, addr.port);
+                [addr].to_vec()
+            }
+            Host::Name(name) => {
+                // get pre-init resolver
+                let resolver = global::SHARED_DATA.get_dns_resolver();
+                let resolver = resolver.read().await;
+                let resolver = resolver.as_ref().unwrap();
+
+                // set a timeout
+                let response = timeout(
+                    Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
+                    resolver.lookup_ip(name.as_str()),
+                )
+                .await??;
+
+                response
+                    .iter()
+                    .map(|ip| SocketAddr::new(ip, addr.port))
+                    .collect::<Vec<SocketAddr>>()
+            }
+        };
 
         log::info!(
             "[{}] [{}] resolved {} to {:?}",

@@ -5,6 +5,9 @@ use tokio::{sync::oneshot, task, time};
 use bp_monitor::MonitorCommand;
 
 pub async fn bootstrap(opts: Options, sender_ready: oneshot::Sender<StartupInfo>) -> std::result::Result<(), String> {
+    let dns_resolver = init_dns_resolver(&opts);
+    global::SHARED_DATA.set_dns_resolver(dns_resolver).await;
+
     #[cfg(feature = "monitor")]
     let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
 
@@ -29,11 +32,29 @@ pub async fn bootstrap(opts: Options, sender_ready: oneshot::Sender<StartupInfo>
     Ok(())
 }
 
+fn init_dns_resolver(opts: &Options) -> trust_dns_resolver::TokioAsyncResolver {
+    use trust_dns_resolver::config::Protocol;
+    use trust_dns_resolver::config::{NameServerConfig, ResolverConfig, ResolverOpts};
+    use trust_dns_resolver::TokioAsyncResolver;
+
+    let mut resolver = ResolverConfig::new();
+
+    resolver.add_name_server(NameServerConfig {
+        socket_addr: opts.get_dns_server().as_socket_addr(),
+        protocol: Protocol::Udp,
+        tls_dns_name: None,
+        trust_nx_responses: true,
+    });
+
+    TokioAsyncResolver::tokio(resolver, ResolverOpts::default()).unwrap()
+}
+
 async fn start_main_service(
     opts: Options,
     #[cfg(feature = "monitor")] mut rx: sync::mpsc::Receiver<MonitorCommand>,
 ) -> std::result::Result<task::JoinHandle<()>, String> {
-    let mut receiver = start_service("main", &opts.bind, opts.enable_udp).await?;
+    let enable_udp = opts.enable_udp || opts.dns_over_tcp;
+    let mut receiver = start_service("main", &opts.bind, enable_udp).await?;
 
     #[cfg(feature = "monitor")]
     tokio::spawn(async move {
@@ -46,7 +67,7 @@ async fn start_main_service(
 
     // load acl
     tokio::spawn(async move {
-        if let Some(ref path) = opts_for_acl.proxy_list_path {
+        if let Some(ref path) = opts_for_acl.proxy_white_list {
             let acl = global::SHARED_DATA.get_acl();
 
             if let Err(err) = acl.load_from_file(path.clone()) {

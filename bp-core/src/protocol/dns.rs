@@ -7,3 +7,7 @@ impl Dns {
         Packet::parse(buf)
     }
 }
+
+pub fn check_dns_query(buf: &[u8]) -> bool {
+    Dns::parse(buf).is_ok()
+}

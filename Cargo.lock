@@ -310,6 +310,7 @@ dependencies = [
  "log",
  "log4rs",
  "tokio",
+ "trust-dns-resolver",
 ]
 
 [[package]]

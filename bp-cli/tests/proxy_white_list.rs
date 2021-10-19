@@ -3,7 +3,7 @@ use bp_core::Options;
 use cmd_lib::run_fun;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_proxy_list() {
+async fn test_proxy_white_list() {
     run_test("cn.bing.com").await;
     run_test("www.baidu.com").await;
     run_test("example.com").await;
@@ -14,7 +14,7 @@ async fn run_test(dest_addr: &str) {
     let server_opts = Options {
         server: true,
         key: Some("key".to_string()),
-        ..Default::default()
+        ..Options::default()
     };
     let server = run_bp(server_opts).await;
 
@@ -23,8 +23,8 @@ async fn run_test(dest_addr: &str) {
         client: true,
         key: Some("key".to_string()),
         server_bind: Some(server.bind_addr.clone()),
-        proxy_list_path: Some("tests/fixtures/proxy_list.txt".to_string()),
-        ..Default::default()
+        proxy_white_list: Some("tests/fixtures/proxy_white_list.txt".to_string()),
+        ..Options::default()
     };
     let client = run_bp(client_opts).await;
 

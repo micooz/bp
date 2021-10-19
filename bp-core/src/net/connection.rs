@@ -159,7 +159,7 @@ impl Connection {
         let dest_addr_host = dest_addr.host.to_string();
 
         // white list
-        if service_type.is_client() && self.opts.proxy_list_path.is_some() {
+        if service_type.is_client() && self.opts.proxy_white_list.is_some() {
             let acl = global::SHARED_DATA.get_acl();
 
             if !acl.is_host_hit(&dest_addr_host) {
