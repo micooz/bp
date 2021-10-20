@@ -36,8 +36,6 @@ pub struct Connection {
 
     outbound: Outbound,
 
-    use_proxy: bool,
-
     peer_addr: Address,
 
     dest_addr: Option<Address>,
@@ -60,7 +58,6 @@ impl Connection {
             id,
             inbound,
             outbound,
-            use_proxy: true,
             peer_addr: peer_addr.into(),
             dest_addr: None,
             opts,
@@ -110,7 +107,7 @@ impl Connection {
         let mut out_proto = if self.check_proxy_rules() {
             self.create_outbound_protocol(&resolved).await
         } else {
-            self.use_proxy = false;
+            self.outbound.set_allow_proxy(false);
             Box::new(Direct::default())
         };
 
@@ -118,9 +115,9 @@ impl Connection {
         out_proto.set_resolved_result(resolved.clone());
 
         // handle pending_buf at inbound
-        if let Some(buf) = resolved.pending_buf {
+        if let Some(buf) = resolved.pending_buf.as_ref() {
             self.inbound
-                .handle_pending_data(buf, &mut out_proto, tx.clone())
+                .handle_pending_data(buf.clone(), &mut out_proto, tx.clone())
                 .await?;
         }
 
@@ -134,8 +131,7 @@ impl Connection {
         self.update_snapshot().await;
 
         // connect to remote from outbound
-        let remote_addr = self.get_remote_addr(&in_proto);
-        self.outbound.start_connect(&out_proto.get_name(), remote_addr).await?;
+        self.outbound.start_connect(&out_proto.get_name(), &resolved).await?;
 
         // start receiving data from outbound
         self.outbound.handle_incoming_data(in_proto, out_proto, tx).await;
@@ -201,15 +197,6 @@ impl Connection {
         }
 
         Box::new(Direct::default())
-    }
-
-    fn get_remote_addr(&self, in_proto: &DynProtocol) -> Address {
-        if self.opts.server || self.opts.server_bind.is_none() || !self.use_proxy {
-            let resolved = in_proto.get_resolved_result();
-            resolved.unwrap().address
-        } else {
-            self.opts.server_bind.as_ref().unwrap().clone()
-        }
     }
 
     /// handle events from inbound and outbound
