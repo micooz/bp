@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "bp"
-version = "1.0.0-alpha.0"
+version = "1.0.0-alpha.1"
 dependencies = [
  "bp-cli",
  "bp-core",
@@ -297,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "bp-cli"
-version = "1.0.0-alpha.0"
+version = "1.0.0-alpha.1"
 dependencies = [
  "anyhow",
  "bp-core",
@@ -314,7 +314,7 @@ dependencies = [
 
 [[package]]
 name = "bp-core"
-version = "1.0.0-alpha.0"
+version = "1.0.0-alpha.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "bp-monitor"
-version = "1.0.0-alpha.0"
+version = "1.0.0-alpha.1"
 dependencies = [
  "bp-core",
  "bytes",

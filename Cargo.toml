@@ -1,6 +1,6 @@
 [package]
 name = "bp"
-version = "1.0.0-alpha.0"
+version = "1.0.0-alpha.1"
 authors = ["Micooz Lee <micooz@hotmail.com>"]
 description = "bp is a lightweight and efficient proxy written in pure Rust."
 repository = "https://github.com/micooz/bp"
