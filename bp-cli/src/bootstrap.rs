@@ -1,12 +1,13 @@
-use bp_core::{global, start_service, Connection, Options, StartupInfo};
+use bp_core::{global, init_dns_resolver, start_service, Connection, Options, StartupInfo};
 use tokio::{sync::oneshot, task, time};
 
 #[cfg(feature = "monitor")]
 use bp_monitor::MonitorCommand;
 
 pub async fn bootstrap(opts: Options, sender_ready: oneshot::Sender<StartupInfo>) -> std::result::Result<(), String> {
-    let dns_resolver = init_dns_resolver(&opts);
-    global::SHARED_DATA.set_dns_resolver(dns_resolver).await;
+    init_dns_resolver(opts.get_dns_server().as_socket_addr())
+        .await
+        .map_err(|x| x.to_string())?;
 
     #[cfg(feature = "monitor")]
     let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
@@ -30,23 +31,6 @@ pub async fn bootstrap(opts: Options, sender_ready: oneshot::Sender<StartupInfo>
     handle.await.unwrap();
 
     Ok(())
-}
-
-fn init_dns_resolver(opts: &Options) -> trust_dns_resolver::TokioAsyncResolver {
-    use trust_dns_resolver::config::Protocol;
-    use trust_dns_resolver::config::{NameServerConfig, ResolverConfig, ResolverOpts};
-    use trust_dns_resolver::TokioAsyncResolver;
-
-    let mut resolver = ResolverConfig::new();
-
-    resolver.add_name_server(NameServerConfig {
-        socket_addr: opts.get_dns_server().as_socket_addr(),
-        protocol: Protocol::Udp,
-        tls_dns_name: None,
-        trust_nx_responses: true,
-    });
-
-    TokioAsyncResolver::tokio(resolver, ResolverOpts::default()).unwrap()
 }
 
 async fn start_main_service(
