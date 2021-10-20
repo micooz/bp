@@ -1,7 +1,7 @@
 use crate::{
     event::{Event, EventSender},
     net::{address::Address, socket},
-    protocol::{Protocol, ResolvedResult},
+    protocol::{Protocol, ProtocolType, ResolvedResult},
     Result,
 };
 use async_trait::async_trait;
@@ -37,7 +37,7 @@ impl Protocol for Plain {
         let address = Address::from_socket(socket).await?;
 
         self.set_resolved_result(ResolvedResult {
-            protocol: self.get_name(),
+            protocol: ProtocolType::Plain,
             address,
             pending_buf: None,
         });

@@ -4,7 +4,7 @@ use crate::{
         address::{Address, Host},
         socket::Socket,
     },
-    protocol::{Protocol, ResolvedResult},
+    protocol::{Protocol, ProtocolType, ResolvedResult},
     utils, Result,
 };
 use async_trait::async_trait;
@@ -126,7 +126,7 @@ impl Protocol for Https {
                 let server_name = String::from_utf8(sni.slice(0..server_name_len).to_vec())?;
 
                 self.set_resolved_result(ResolvedResult {
-                    protocol: self.get_name(),
+                    protocol: ProtocolType::Https,
                     address: Address::new(Host::Name(server_name), 443),
                     pending_buf: None,
                 });

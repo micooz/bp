@@ -53,7 +53,7 @@ async fn start_main_service(
     opts: Options,
     #[cfg(feature = "monitor")] mut rx: sync::mpsc::Receiver<MonitorCommand>,
 ) -> std::result::Result<task::JoinHandle<()>, String> {
-    let mut receiver = start_service("main", &opts.bind, opts.enable_udp).await?;
+    let mut receiver = start_service("main", &opts.bind).await?;
 
     #[cfg(feature = "monitor")]
     tokio::spawn(async move {

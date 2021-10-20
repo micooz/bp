@@ -26,7 +26,6 @@ async fn test_socks5() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_socks5_udp() {
     let opts = Options {
-        enable_udp: true,
         client: true,
         ..Options::default()
     };

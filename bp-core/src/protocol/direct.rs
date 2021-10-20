@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, EventSender},
-    net::socket,
+    net::socket::Socket,
     protocol::{Protocol, ResolvedResult},
     Result,
 };
@@ -25,29 +25,29 @@ impl Protocol for Direct {
         self.resolved_result.clone()
     }
 
-    async fn resolve_dest_addr(&mut self, _socket: &socket::Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, _socket: &Socket) -> Result<()> {
         panic!("direct protocol cannot be used on inbound")
     }
 
-    async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
         let buf = socket.read_some().await?;
         tx.send(Event::ClientEncodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
         let buf = socket.read_some().await?;
         tx.send(Event::ServerEncodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn client_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
         let buf = socket.read_some().await?;
         tx.send(Event::ClientDecodeDone(buf)).await?;
         Ok(())
     }
 
-    async fn server_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+    async fn server_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
         let buf = socket.read_some().await?;
         tx.send(Event::ServerDecodeDone(buf)).await?;
         Ok(())

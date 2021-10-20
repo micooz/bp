@@ -2,7 +2,7 @@ use crate::{
     event::{Event, EventSender},
     net::{address::Address, socket::Socket},
     options::ServiceType,
-    protocol::{Protocol, ResolvedResult},
+    protocol::{Protocol, ProtocolType, ResolvedResult},
     utils, Result,
 };
 use async_trait::async_trait;
@@ -248,7 +248,7 @@ impl Protocol for Erp {
         let (address, pending_buf) = Address::from_bytes(chunk)?;
 
         self.set_resolved_result(ResolvedResult {
-            protocol: self.get_name(),
+            protocol: ProtocolType::Erp,
             address,
             pending_buf,
         });

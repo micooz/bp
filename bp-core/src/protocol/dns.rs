@@ -1,18 +1,25 @@
 use crate::{
     event::{Event, EventSender},
     net::socket::Socket,
-    protocol::{Protocol, ResolvedResult},
+    protocol::{Protocol, ProtocolType, ResolvedResult},
     Address, Result,
 };
 use async_trait::async_trait;
 use simple_dns::Packet;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Dns {
+    dns_server: Address,
     resolved_result: Option<ResolvedResult>,
 }
 
 impl Dns {
+    pub fn new(dns_server: Address) -> Self {
+        Self {
+            dns_server,
+            resolved_result: None,
+        }
+    }
     pub fn check_dns_query(buf: &[u8]) -> bool {
         Packet::parse(buf).is_ok()
     }
@@ -36,10 +43,10 @@ impl Protocol for Dns {
         let buf = socket.read_some().await?;
 
         self.set_resolved_result(ResolvedResult {
-            protocol: self.get_name(),
+            protocol: ProtocolType::Dns,
             // TODO: send dns server addr to bp server is unnecessary
             // NOTE: in order to make it work on relay mode(not set --server-bind), we must pass this value (currently).
-            address: Address::default(),
+            address: self.dns_server.clone(),
             pending_buf: Some(buf),
         });
 

@@ -5,9 +5,10 @@ Lightweight and efficient proxy written in pure Rust.
 ## Features
 
 * Running on all platform and all CPU architecture.
-* Socks5/HTTP/HTTPS proxy all in one port.
-* Multiple transport protocols: TCP, UDP as well as DNS proxy.
-* White list proxy.
+* Socks5/HTTP/HTTPS/DNS proxy all in one port.
+* Support UDP over TCP.
+* Work with Linux Firewall(by iptables).
+* White list control.
 
 ## Usage
 
@@ -31,9 +32,6 @@ OPTIONS:
 
         --dns-server <DNS_SERVER>
             DNS server address [default: 8.8.8.8:53]
-
-        --enable-udp
-            enable udp relay [default: false]
 
         --force-dest-addr <FORCE_DEST_ADDR>
             force all incoming data relay to this destination, usually for testing [default: false]
@@ -98,16 +96,10 @@ If not set `--server-bind`, bp will relay directly.
 $ bp -c
 ```
 
-### Enable UDP Relay
+### UDP over TCP
 
 ```
-$ bp -c --enable-udp
-```
-
-### DNS Proxy
-
-```
-$ bp -c --sniff 
+$ bp -c --key key --udp-over-tcp --server-bind <host:port>
 ```
 
 ### Pin Destination Address
@@ -115,7 +107,7 @@ $ bp -c --sniff
 > NOTE: this is usually for testing via **iperf**
 
 ```
-$ bp -c --force-dest-addr <host>:<port>
+$ bp -c --force-dest-addr <host:port>
 ```
 
 ### Change Transport Protocol

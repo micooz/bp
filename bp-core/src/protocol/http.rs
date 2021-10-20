@@ -4,7 +4,7 @@ use crate::{
         address::{Address, Host},
         socket::Socket,
     },
-    protocol::{Protocol, ResolvedResult},
+    protocol::{Protocol, ProtocolType, ResolvedResult},
     Result,
 };
 use async_trait::async_trait;
@@ -58,7 +58,7 @@ impl Protocol for Http {
                 socket.send(&resp).await?;
 
                 self.set_resolved_result(ResolvedResult {
-                    protocol: self.get_name(),
+                    protocol: ProtocolType::Http,
                     address: addr,
                     pending_buf: None,
                 });
@@ -90,7 +90,7 @@ impl Protocol for Http {
                 };
 
                 self.set_resolved_result(ResolvedResult {
-                    protocol: self.get_name(),
+                    protocol: ProtocolType::Http,
                     address: Address::new(Host::Name(host), port),
                     pending_buf: Some(buf.freeze()),
                 });

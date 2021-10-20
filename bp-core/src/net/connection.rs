@@ -9,7 +9,7 @@ use crate::{
         socket::{Socket, SocketType},
     },
     options::Options,
-    protocol::{init_transport_protocol, Direct, DynProtocol},
+    protocol::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
     Result,
 };
 use tokio::sync;
@@ -101,14 +101,14 @@ impl Connection {
             self.outbound.set_socket_type(SocketType::Tcp);
         }
 
-        // server side recv dns protocol, outbound should be UDP
-        if self.opts.server && resolved.protocol == "dns" {
+        // server side resolved DNS protocol, outbound should be UDP
+        if self.opts.server && matches!(resolved.protocol, ProtocolType::Dns) {
             self.outbound.set_socket_type(SocketType::Udp);
         }
 
         // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
-            self.create_outbound_protocol().await
+            self.create_outbound_protocol(&resolved).await
         } else {
             self.use_proxy = false;
             Box::new(Direct::default())
@@ -187,12 +187,18 @@ impl Connection {
         true
     }
 
-    async fn create_outbound_protocol(&self) -> DynProtocol {
+    async fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
+        // bp client should always use bp transport connect to bp server
         if self.opts.client && self.opts.server_bind.is_some() {
-            init_transport_protocol(&self.opts)
-        } else {
-            Box::new(Direct::default())
+            return init_transport_protocol(&self.opts);
         }
+
+        // server dns outbound
+        if self.opts.server && matches!(resolved.protocol, ProtocolType::Dns) {
+            return Box::new(Dns::new(self.opts.get_dns_server()));
+        }
+
+        Box::new(Direct::default())
     }
 
     fn get_remote_addr(&self, in_proto: &DynProtocol) -> Address {

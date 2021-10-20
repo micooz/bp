@@ -25,11 +25,22 @@ pub use socks::Socks;
 
 #[derive(Debug, Clone)]
 pub struct ResolvedResult {
-    pub protocol: String,
+    pub protocol: ProtocolType,
 
     pub address: Address,
 
     pub pending_buf: Option<bytes::Bytes>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ProtocolType {
+    Direct,
+    Dns,
+    Erp,
+    Http,
+    Https,
+    Plain,
+    Socks,
 }
 
 #[async_trait]

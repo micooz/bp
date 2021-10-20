@@ -12,11 +12,7 @@ pub struct StartupInfo {
     pub bind_addr: Address,
 }
 
-pub async fn start_service(
-    name: &'static str,
-    bind_addr: &Address,
-    enable_udp: bool,
-) -> Result<mpsc::Receiver<Socket>, String> {
+pub async fn start_service(name: &'static str, bind_addr: &Address) -> Result<mpsc::Receiver<Socket>, String> {
     let (sender, receiver) = mpsc::channel::<Socket>(config::SERVICE_CONNECTION_THRESHOLD);
 
     let sender_tcp = sender.clone();
@@ -26,14 +22,12 @@ pub async fn start_service(
         .await
         .map_err(|err| format!("[{}] tcp service start failed due to: {}", name, err))?;
 
-    if enable_udp {
-        let sender_udp = sender;
-        let bind_addr_udp = bind_addr.clone();
+    let sender_udp = sender;
+    let bind_addr_udp = bind_addr.clone();
 
-        bind_udp(name, &bind_addr_udp, sender_udp)
-            .await
-            .map_err(|err| format!("[{}] udp service start failed due to: {}", name, err))?;
-    }
+    bind_udp(name, &bind_addr_udp, sender_udp)
+        .await
+        .map_err(|err| format!("[{}] udp service start failed due to: {}", name, err))?;
 
     Ok(receiver)
 }

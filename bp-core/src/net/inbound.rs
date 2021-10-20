@@ -59,7 +59,7 @@ impl Inbound {
             let mut direct = Box::new(Direct::default());
 
             direct.set_resolved_result(ResolvedResult {
-                protocol: direct.get_name(),
+                protocol: ProtocolType::Direct,
                 address: addr.clone(),
                 pending_buf,
             });
@@ -90,7 +90,7 @@ impl Inbound {
             ];
 
             if self.socket.is_udp() {
-                try_list.push(Box::new(Dns::default()));
+                try_list.push(Box::new(Dns::new(self.opts.get_dns_server())));
             }
 
             for mut proto in try_list {
@@ -99,7 +99,7 @@ impl Inbound {
                 }
             }
 
-            // iptable redirect
+            // iptables redirect
             if let Some(addr) = self.get_redirected_dest_addr().as_ref() {
                 log::info!(
                     "[{}] [{}] fallback to use iptables's REDIRECT dest address {}",
@@ -125,9 +125,9 @@ impl Inbound {
             // check dns packet
             if buf.is_some() && Dns::check_dns_query(&buf.unwrap()[..]) {
                 proto.set_resolved_result(ResolvedResult {
-                    // rewrite address to use --dns-server
+                    // rewrite dns server address to --dns-server
                     address: self.opts.get_dns_server(),
-                    protocol: String::from("dns"),
+                    protocol: ProtocolType::Dns,
                     pending_buf: resolved.pending_buf,
                 });
             }
@@ -234,7 +234,7 @@ impl Inbound {
                 let resolved = proto.get_resolved_result();
 
                 log::info!(
-                    "[{}] [{}] [{}] resolved dest address {}",
+                    "[{}] [{}] [{}] successfully resolved dest address {}",
                     peer_address,
                     socket_type,
                     &proto_name,

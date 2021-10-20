@@ -32,10 +32,6 @@ pub struct Options {
     #[clap(short, long, default_value = "erp")]
     pub protocol: TransportProtocol,
 
-    /// enable udp relay [default: false]
-    #[clap(long)]
-    pub enable_udp: bool,
-
     /// check white list before proxy, pass a file path
     #[clap(long)]
     pub proxy_white_list: Option<String>,

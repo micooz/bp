@@ -1,7 +1,7 @@
 use crate::{
     event::EventSender,
     net::{address::Address, socket::Socket},
-    protocol::{Protocol, ResolvedResult},
+    protocol::{Protocol, ProtocolType, ResolvedResult},
     utils, Result,
 };
 use async_trait::async_trait;
@@ -76,7 +76,7 @@ impl Protocol for Socks {
             let (address, pending_buf) = Address::from_bytes(buf)?;
 
             self.set_resolved_result(ResolvedResult {
-                protocol: self.get_name(),
+                protocol: ProtocolType::Socks,
                 address,
                 pending_buf,
             });
@@ -190,7 +190,7 @@ impl Protocol for Socks {
         socket.send(reply_buf.as_slice()).await?;
 
         self.set_resolved_result(ResolvedResult {
-            protocol: self.get_name(),
+            protocol: ProtocolType::Socks,
             address: addr,
             pending_buf: None,
         });
