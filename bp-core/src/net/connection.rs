@@ -119,7 +119,9 @@ impl Connection {
 
         // handle pending_buf at inbound
         if let Some(buf) = resolved.pending_buf {
-            self.inbound.handle_pending_data(buf, &mut out_proto, tx.clone()).await;
+            self.inbound
+                .handle_pending_data(buf, &mut out_proto, tx.clone())
+                .await?;
         }
 
         // start receiving data from inbound

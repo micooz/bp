@@ -1,10 +1,10 @@
 use crate::{
-    event::EventSender,
     net::{address::Address, socket::Socket},
     protocol::{Protocol, ProtocolType, ResolvedResult},
     utils, Result,
 };
 use async_trait::async_trait;
+use bytes::Bytes;
 
 const NOOP: u8 = 0x00;
 // const SOCKS_VERSION_V4: u8 = 0x04;
@@ -198,19 +198,19 @@ impl Protocol for Socks {
         Ok(())
     }
 
-    async fn client_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn server_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 }

@@ -1,11 +1,10 @@
 use crate::{
-    event::{Event, EventSender},
     net::{address::Address, socket},
     protocol::{Protocol, ProtocolType, ResolvedResult},
     Result,
 };
 use async_trait::async_trait;
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 
 /// # Protocol
 /// +------+----------+----------+-------------+
@@ -45,7 +44,7 @@ impl Protocol for Plain {
         Ok(())
     }
 
-    async fn client_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, socket: &socket::Socket) -> Result<Bytes> {
         let mut frame = BytesMut::new();
 
         if !self.header_sent {
@@ -57,26 +56,18 @@ impl Protocol for Plain {
         let buf = socket.read_some().await?;
         frame.put(buf);
 
-        tx.send(Event::ClientEncodeDone(frame.freeze())).await?;
-
-        Ok(())
+        Ok(frame.freeze())
     }
 
-    async fn server_encode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ServerEncodeDone(buf)).await?;
-        Ok(())
+    async fn server_encode(&mut self, socket: &socket::Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 
-    async fn client_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ClientDecodeDone(buf)).await?;
-        Ok(())
+    async fn client_decode(&mut self, socket: &socket::Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 
-    async fn server_decode(&mut self, socket: &socket::Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ServerDecodeDone(buf)).await?;
-        Ok(())
+    async fn server_decode(&mut self, socket: &socket::Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 }

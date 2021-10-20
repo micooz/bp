@@ -44,7 +44,7 @@ pub struct Socket {
 }
 
 impl Socket {
-    pub fn new_tcp(stream: net::TcpStream) -> Self {
+    pub fn from_stream(stream: net::TcpStream) -> Self {
         let peer_addr = stream.peer_addr().unwrap();
         let local_addr = stream.local_addr().unwrap();
         #[cfg(not(target_os = "windows"))]
@@ -63,7 +63,7 @@ impl Socket {
         }
     }
 
-    pub fn new_udp(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
+    pub fn from_udp_socket(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
         let local_addr = socket.local_addr().unwrap();
         let split = io::split_udp(socket, peer_addr);
 
@@ -80,7 +80,7 @@ impl Socket {
 
     pub async fn bind_udp_random_port(peer_addr: SocketAddr) -> Result<Self> {
         let socket = create_udp_client_with_random_port().await?;
-        Ok(Self::new_udp(Arc::new(socket), peer_addr))
+        Ok(Self::from_udp_socket(Arc::new(socket), peer_addr))
     }
 
     #[inline]

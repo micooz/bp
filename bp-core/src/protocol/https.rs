@@ -1,5 +1,4 @@
 use crate::{
-    event::EventSender,
     net::{
         address::{Address, Host},
         socket::Socket,
@@ -8,7 +7,7 @@ use crate::{
     utils, Result,
 };
 use async_trait::async_trait;
-use bytes::Buf;
+use bytes::{Buf, Bytes};
 
 #[derive(Clone, Default)]
 pub struct Https {
@@ -146,19 +145,19 @@ impl Protocol for Https {
         Err("server_name Extension not found".into())
     }
 
-    async fn client_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn server_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 }

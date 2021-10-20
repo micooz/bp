@@ -1,5 +1,4 @@
 use crate::{
-    event::{Event, EventSender},
     net::{address::Address, socket::Socket},
     options::ServiceType,
     protocol::{Protocol, ProtocolType, ResolvedResult},
@@ -256,7 +255,7 @@ impl Protocol for Erp {
         Ok(())
     }
 
-    async fn client_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, socket: &Socket) -> Result<Bytes> {
         let buf = socket.read_some().await?;
         let mut data = BytesMut::with_capacity(buf.len() + 200);
 
@@ -271,8 +270,7 @@ impl Protocol for Erp {
         let data = self.encode(data.freeze())?;
 
         if self.header_sent {
-            tx.send(Event::ClientEncodeDone(data)).await?;
-            Ok(())
+            Ok(data)
         } else {
             let mut buf = BytesMut::with_capacity(SALT_SIZE + data.len());
 
@@ -281,29 +279,20 @@ impl Protocol for Erp {
 
             self.header_sent = true;
 
-            tx.send(Event::ClientEncodeDone(buf.freeze())).await?;
-            Ok(())
+            Ok(buf.freeze())
         }
     }
 
-    async fn server_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, socket: &Socket) -> Result<Bytes> {
         let buf = socket.read_some().await?;
-        let data = self.encode(buf)?;
-        tx.send(Event::ServerEncodeDone(data)).await?;
-        Ok(())
+        self.encode(buf)
     }
 
-    async fn client_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
-        loop {
-            let chunk = self.decode(socket).await?;
-            tx.send(Event::ClientDecodeDone(chunk)).await?;
-        }
+    async fn client_decode(&mut self, socket: &Socket) -> Result<Bytes> {
+        self.decode(socket).await
     }
 
-    async fn server_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
-        loop {
-            let chunk = self.decode(socket).await?;
-            tx.send(Event::ServerDecodeDone(chunk)).await?;
-        }
+    async fn server_decode(&mut self, socket: &Socket) -> Result<Bytes> {
+        self.decode(socket).await
     }
 }

@@ -1,10 +1,10 @@
 use crate::{
-    event::EventSender,
     net::{address::Address, socket::Socket},
     options::Options,
     Result,
 };
 use async_trait::async_trait;
+use bytes::Bytes;
 use std::str;
 
 mod direct;
@@ -57,13 +57,13 @@ pub trait Protocol: dyn_clone::DynClone {
 
     async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()>;
 
-    async fn client_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
+    async fn client_encode(&mut self, socket: &Socket) -> Result<Bytes>;
 
-    async fn server_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
+    async fn server_encode(&mut self, socket: &Socket) -> Result<Bytes>;
 
-    async fn client_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
+    async fn client_decode(&mut self, socket: &Socket) -> Result<Bytes>;
 
-    async fn server_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()>;
+    async fn server_decode(&mut self, socket: &Socket) -> Result<Bytes>;
 }
 
 dyn_clone::clone_trait_object!(Protocol);

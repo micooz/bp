@@ -1,5 +1,4 @@
 use crate::{
-    event::EventSender,
     net::{
         address::{Address, Host},
         socket::Socket,
@@ -100,19 +99,19 @@ impl Protocol for Http {
         }
     }
 
-    async fn client_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn client_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn server_encode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn server_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn client_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn client_decode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 
-    async fn server_decode(&mut self, _socket: &Socket, _tx: EventSender) -> Result<()> {
+    async fn server_decode(&mut self, _socket: &Socket) -> Result<Bytes> {
         unimplemented!()
     }
 }

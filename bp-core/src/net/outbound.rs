@@ -106,15 +106,26 @@ impl Outbound {
 
         tokio::spawn(async move {
             loop {
-                let future = match service_type {
-                    ServiceType::Client => out_proto.client_decode(&socket, tx.clone()),
-                    ServiceType::Server => in_proto.server_encode(&socket, tx.clone()),
+                match service_type {
+                    ServiceType::Client => match out_proto.client_decode(&socket).await {
+                        Ok(buf) => {
+                            let _ = tx.send(Event::ClientDecodeDone(buf)).await;
+                        }
+                        Err(err) => {
+                            let _ = tx.send(Event::OutboundError(err)).await;
+                            break;
+                        }
+                    },
+                    ServiceType::Server => match in_proto.server_encode(&socket).await {
+                        Ok(buf) => {
+                            let _ = tx.send(Event::ServerEncodeDone(buf)).await;
+                        }
+                        Err(err) => {
+                            let _ = tx.send(Event::OutboundError(err)).await;
+                            break;
+                        }
+                    },
                 };
-
-                if let Err(err) = future.await {
-                    let _ = tx.send(Event::OutboundError(err)).await;
-                    break;
-                }
             }
         });
     }
@@ -220,7 +231,7 @@ impl Outbound {
                 let future = socket.connect(addr);
                 let stream = timeout(Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
 
-                Arc::new(Socket::new_tcp(stream))
+                Arc::new(Socket::from_stream(stream))
             }
             SocketType::Udp => {
                 let socket = Socket::bind_udp_random_port(addr).await?;

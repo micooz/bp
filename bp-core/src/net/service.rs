@@ -44,7 +44,7 @@ async fn bind_tcp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socke
     tokio::spawn(async move {
         loop {
             let (stream, _) = listener.accept().await.unwrap();
-            let _res = sender.send(Socket::new_tcp(stream)).await;
+            let _res = sender.send(Socket::from_stream(stream)).await;
         }
     });
 
@@ -68,7 +68,7 @@ async fn bind_udp(name: &'static str, addr: &Address, sender: mpsc::Sender<Socke
             let (len, addr) = socket.recv_from(&mut buf).await.unwrap();
 
             if let Some(buf) = buf.get(0..len) {
-                let socket = Socket::new_udp(socket, addr);
+                let socket = Socket::from_udp_socket(socket, addr);
 
                 socket.cache(Bytes::copy_from_slice(buf)).await;
 

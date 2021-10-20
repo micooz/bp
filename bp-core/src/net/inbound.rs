@@ -146,19 +146,25 @@ impl Inbound {
         self.socket.clear_restore().await;
     }
 
-    pub async fn handle_pending_data(&self, buf: Bytes, out_proto: &mut DynProtocol, tx: Sender<Event>) {
+    pub async fn handle_pending_data(&self, buf: Bytes, out_proto: &mut DynProtocol, tx: Sender<Event>) -> Result<()> {
         match self.opts.service_type() {
             ServiceType::Client => {
                 self.socket.cache(buf).await;
 
-                if let Err(err) = out_proto.client_encode(&self.socket, tx.clone()).await {
-                    let _ = tx.send(Event::InboundError(err)).await;
+                match out_proto.client_encode(&self.socket).await {
+                    Ok(buf) => {
+                        tx.send(Event::ClientEncodeDone(buf)).await?;
+                    }
+                    Err(err) => {
+                        tx.send(Event::InboundError(err)).await?;
+                    }
                 }
             }
             ServiceType::Server => {
-                let _ = tx.send(Event::ServerDecodeDone(buf)).await;
+                tx.send(Event::ServerDecodeDone(buf)).await?;
             }
         }
+        Ok(())
     }
 
     pub async fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
@@ -167,14 +173,25 @@ impl Inbound {
 
         tokio::spawn(async move {
             loop {
-                let res = match service_type {
-                    ServiceType::Client => out_proto.client_encode(&socket, tx.clone()).await,
-                    ServiceType::Server => in_proto.server_decode(&socket, tx.clone()).await,
-                };
-
-                if let Err(err) = res {
-                    let _ = tx.send(Event::InboundError(err)).await;
-                    break;
+                match service_type {
+                    ServiceType::Client => match out_proto.client_encode(&socket).await {
+                        Ok(buf) => {
+                            let _ = tx.send(Event::ClientEncodeDone(buf)).await;
+                        }
+                        Err(err) => {
+                            let _ = tx.send(Event::InboundError(err)).await;
+                            break;
+                        }
+                    },
+                    ServiceType::Server => match in_proto.server_decode(&socket).await {
+                        Ok(buf) => {
+                            let _ = tx.send(Event::ServerDecodeDone(buf)).await;
+                        }
+                        Err(err) => {
+                            let _ = tx.send(Event::InboundError(err)).await;
+                            break;
+                        }
+                    },
                 }
             }
         });

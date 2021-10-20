@@ -1,11 +1,12 @@
 use crate::{
-    event::{Event, EventSender},
     net::socket::Socket,
     protocol::{Protocol, ProtocolType, ResolvedResult},
     Address, Result,
 };
 use async_trait::async_trait;
+use bytes::Bytes;
 use simple_dns::Packet;
+use std::panic;
 
 #[derive(Clone)]
 pub struct Dns {
@@ -20,8 +21,9 @@ impl Dns {
             resolved_result: None,
         }
     }
+
     pub fn check_dns_query(buf: &[u8]) -> bool {
-        Packet::parse(buf).is_ok()
+        panic::catch_unwind(|| Packet::parse(buf).is_ok()).unwrap_or(false)
     }
 }
 
@@ -53,27 +55,19 @@ impl Protocol for Dns {
         Ok(())
     }
 
-    async fn client_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ClientEncodeDone(buf)).await?;
-        Ok(())
+    async fn client_encode(&mut self, socket: &Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 
-    async fn server_encode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ServerEncodeDone(buf)).await?;
-        Ok(())
+    async fn server_encode(&mut self, socket: &Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 
-    async fn client_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ClientDecodeDone(buf)).await?;
-        Ok(())
+    async fn client_decode(&mut self, socket: &Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 
-    async fn server_decode(&mut self, socket: &Socket, tx: EventSender) -> Result<()> {
-        let buf = socket.read_some().await?;
-        tx.send(Event::ServerDecodeDone(buf)).await?;
-        Ok(())
+    async fn server_decode(&mut self, socket: &Socket) -> Result<Bytes> {
+        socket.read_some().await
     }
 }
