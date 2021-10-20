@@ -248,14 +248,6 @@ impl Connection {
                     self.inbound.send(buf).await?;
                 }
                 Event::ClientDecodeDone(buf) => {
-                    // TODO: store last decoded data, for monitoring
-                    // #[cfg(feature = "monitor")]
-                    // {
-                    //     self.monitor_collect_data.last_decoded_data.clear();
-                    //     self.monitor_collect_data
-                    //         .last_decoded_data
-                    //         .put(buf.slice(0..std::cmp::min(buf.len(), MAX_CACHE_SIZE)));
-                    // }
                     self.inbound.send(buf).await?;
                 }
                 Event::ServerDecodeDone(buf) => {

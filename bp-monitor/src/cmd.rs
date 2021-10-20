@@ -1,5 +1,5 @@
 use crate::context::Context;
-use bp_core::SharedData;
+use bp_core::global::SharedData;
 use bytes::Bytes;
 use std::{convert::TryFrom, fmt::Display, net::SocketAddr, sync::Arc};
 

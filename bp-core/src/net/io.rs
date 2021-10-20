@@ -31,7 +31,7 @@ impl SocketReader {
         let cache = Mutex::new(BytesMut::with_capacity(1024));
         let restore_data = Mutex::new(vec![]);
         let restore_data_used = Mutex::new(false);
-        let recv_buf = Mutex::new(BytesMut::with_capacity(config::OUTBOUND_RECV_BUFFER_SIZE));
+        let recv_buf = Mutex::new(BytesMut::with_capacity(config::RECV_BUFFER_SIZE));
 
         Self {
             cache,

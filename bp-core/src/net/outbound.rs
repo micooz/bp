@@ -214,7 +214,7 @@ impl Outbound {
 
                 #[cfg(target_os = "linux")]
                 if let Err(err) = self.mark_socket(socket.as_raw_fd(), 0xff) {
-                    log::warn!("set SO_MARK error due to: {}", err);
+                    log::error!("set SO_MARK error due to: {}", err);
                 }
 
                 let future = socket.connect(addr);

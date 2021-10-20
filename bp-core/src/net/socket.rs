@@ -3,6 +3,7 @@ use crate::utils::net::create_udp_client_with_random_port;
 use crate::Result;
 use bytes::Bytes;
 use std::fmt::Display;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net;
 
@@ -37,9 +38,9 @@ pub struct Socket {
 
     writer: io::SocketWriter,
 
-    peer_addr: std::net::SocketAddr,
+    peer_addr: SocketAddr,
 
-    local_addr: std::net::SocketAddr,
+    local_addr: SocketAddr,
 }
 
 impl Socket {
@@ -62,7 +63,7 @@ impl Socket {
         }
     }
 
-    pub fn new_udp(socket: Arc<net::UdpSocket>, peer_addr: std::net::SocketAddr) -> Self {
+    pub fn new_udp(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
         let local_addr = socket.local_addr().unwrap();
         let split = io::split_udp(socket, peer_addr);
 
@@ -77,33 +78,32 @@ impl Socket {
         }
     }
 
-    pub async fn bind_udp_random_port(peer_addr: std::net::SocketAddr) -> Result<Self> {
+    pub async fn bind_udp_random_port(peer_addr: SocketAddr) -> Result<Self> {
         let socket = create_udp_client_with_random_port().await?;
         Ok(Self::new_udp(Arc::new(socket), peer_addr))
     }
 
-    pub fn peer_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+    #[inline]
+    pub fn peer_addr(&self) -> std::io::Result<SocketAddr> {
         Ok(self.peer_addr)
     }
 
-    pub fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+    #[inline]
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
         Ok(self.local_addr)
     }
 
+    #[inline]
     pub fn is_tcp(&self) -> bool {
-        match self.socket_type {
-            SocketType::Tcp => true,
-            SocketType::Udp => false,
-        }
+        matches!(self.socket_type, SocketType::Tcp)
     }
 
+    #[inline]
     pub fn is_udp(&self) -> bool {
-        match self.socket_type {
-            SocketType::Tcp => false,
-            SocketType::Udp => true,
-        }
+        matches!(self.socket_type, SocketType::Udp)
     }
 
+    #[inline]
     pub fn socket_type(&self) -> SocketType {
         self.socket_type
     }
@@ -114,14 +114,17 @@ impl Socket {
         self.reader.cache(buf).await;
     }
 
+    #[inline]
     pub async fn read_some(&self) -> Result<Bytes> {
         self.reader.read_some().await
     }
 
+    #[inline]
     pub async fn read_exact(&self, len: usize) -> Result<Bytes> {
         self.reader.read_exact(len).await
     }
 
+    #[inline]
     pub async fn read_into(&self, buf: &mut bytes::BytesMut) -> Result<()> {
         self.reader.read_into(buf).await
     }
@@ -134,10 +137,12 @@ impl Socket {
         self.reader.clear_restore().await;
     }
 
+    #[inline]
     pub async fn send(&self, buf: &[u8]) -> tokio::io::Result<()> {
         self.writer.send(buf).await
     }
 
+    #[inline]
     pub async fn close(&self) -> tokio::io::Result<()> {
         self.writer.close().await
     }

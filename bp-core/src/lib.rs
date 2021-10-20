@@ -3,7 +3,6 @@ type Result<T> = std::result::Result<T, Error>;
 
 mod acl;
 mod config;
-mod context;
 mod event;
 mod net;
 mod options;
@@ -13,7 +12,6 @@ pub mod global;
 pub mod utils;
 
 pub use acl::{AccessControlList, DomainItem, DomainRule};
-pub use context::SharedData;
 pub use net::address::Address;
 pub use net::connection::Connection;
 pub use net::dns::init_dns_resolver;
