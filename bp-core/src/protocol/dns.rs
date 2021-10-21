@@ -5,8 +5,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use bytes::Bytes;
-use simple_dns::Packet;
-use std::panic;
+use dns_parser::Packet;
 
 #[derive(Clone)]
 pub struct Dns {
@@ -23,7 +22,7 @@ impl Dns {
     }
 
     pub fn check_dns_query(buf: &[u8]) -> bool {
-        panic::catch_unwind(|| Packet::parse(buf).is_ok()).unwrap_or(false)
+        Packet::parse(buf).is_ok()
     }
 }
 

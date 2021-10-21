@@ -62,7 +62,7 @@ impl Outbound {
         let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
 
-        log::info!("[{}] [{}] use [{}] protocol", peer_address, socket_type, protocol_name);
+        log::info!("[{}] [{}] use [{}] protocol for outbound", peer_address, socket_type, protocol_name);
 
         let remote_addr = self.get_remote_addr(resolved);
 

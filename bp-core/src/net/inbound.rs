@@ -94,7 +94,7 @@ impl Inbound {
             }
 
             for mut proto in try_list {
-                if self.resolve_dest_addr(&mut proto).await.is_ok() {
+                if self.resolve_dest_addr(&mut proto, true).await.is_ok() {
                     return Ok(InboundResolveResult { proto });
                 }
             }
@@ -117,7 +117,7 @@ impl Inbound {
         // server side resolve
         if self.opts.server {
             let mut proto = init_transport_protocol(&self.opts);
-            self.resolve_dest_addr(&mut proto).await?;
+            self.resolve_dest_addr(&mut proto, false).await?;
 
             let resolved = proto.get_resolved_result().unwrap();
             let buf = resolved.pending_buf.as_ref();
@@ -229,18 +229,24 @@ impl Inbound {
         }
     }
 
-    async fn resolve_dest_addr(&self, proto: &mut DynProtocol) -> Result<()> {
+    async fn resolve_dest_addr(&self, proto: &mut DynProtocol, is_try: bool) -> Result<()> {
         let peer_address = self.peer_address;
         let socket = self.socket.as_ref();
         let socket_type = socket.socket_type();
         let proto_name = proto.get_name();
 
-        log::info!(
+        let inner_log = |msg: String| {
+            if is_try {
+                log::trace!("{}", &msg);
+            } else {
+                log::info!("{}", &msg);
+            }
+        };
+
+        inner_log(format!(
             "[{}] [{}] use [{}] to resolve dest address",
-            peer_address,
-            socket_type,
-            &proto_name,
-        );
+            peer_address, socket_type, &proto_name,
+        ));
 
         let future = proto.resolve_dest_addr(socket);
         let result = timeout(Duration::from_secs(config::DEST_ADDR_RESOLVE_TIMEOUT_SECONDS), future);
@@ -261,13 +267,10 @@ impl Inbound {
                 Ok(())
             }
             Err(err) => {
-                log::info!(
+                inner_log(format!(
                     "[{}] [{}] use [{}] to resolve dest address failed due to: {}",
-                    peer_address,
-                    socket_type,
-                    &proto_name,
-                    err,
-                );
+                    peer_address, socket_type, &proto_name, err,
+                ));
                 socket.restore().await;
 
                 Err(err)
