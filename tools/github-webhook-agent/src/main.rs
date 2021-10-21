@@ -30,7 +30,7 @@ impl Options {
 fn main() {
     let (_, secret_token) = std::env::vars()
         .find(|(key, value)| key == SECRET_TOKEN_ENV_NAME && !value.is_empty())
-        .expect(format!("env var {} is not set", SECRET_TOKEN_ENV_NAME).as_str());
+        .unwrap_or_else(|| panic!("env var {} is not set", SECRET_TOKEN_ENV_NAME));
 
     let opts: Options = clap::Parser::parse();
 
@@ -52,12 +52,22 @@ fn handle_request(req: Request) -> Response {
     }
 
     let signature = signature.unwrap().to_string();
-    let signature = signature.trim_start_matches("sha256=").as_bytes();
+    let signature = signature.trim_start_matches("sha256=");
+    let signature = hex::decode(signature);
 
+    if let Err(err) = signature {
+        return Response::from(403).with_body(err.to_string());
+    }
+
+    let signature = signature.unwrap();
     let body = req.body();
 
-    if let Err(err) = signature_check(body.as_bytes(), signature, global_state.secret_token.as_bytes()) {
-        return Response::from(403).with_body(format!("{}", err));
+    if let Err(err) = signature_check(
+        body.as_bytes(),
+        signature.as_slice(),
+        global_state.secret_token.as_bytes(),
+    ) {
+        return Response::from(403).with_body(err);
     }
 
     // TODO: publish a notify with req.body
