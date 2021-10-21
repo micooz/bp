@@ -28,10 +28,6 @@ members = [
     "bp-monitor",
     "bp-test",
 ]
-exclude = [
-    "bp-macros",
-    "dns-pollution-detector",
-]
 
 [dependencies]
 bp-cli = { path = "./bp-cli" }

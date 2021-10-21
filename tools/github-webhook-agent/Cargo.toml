@@ -1,0 +1,11 @@
+[package]
+name = "github-webhook-agent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
+vial = "0.1.9"
+sha2 = "0.9.5"
+hmac = "0.11.0"
+hex = "0.4.3"

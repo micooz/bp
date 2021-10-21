@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "dns-pollution-detector",
+    "github-webhook-agent",
+]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+incremental = false
+panic = "abort"
