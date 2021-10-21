@@ -83,6 +83,9 @@ impl Inbound {
 
         // client side resolve
         if self.opts.client {
+            // obtain iptables redirect dest address first
+            let redirect_dest_addr = self.get_redirected_dest_addr();
+
             let mut try_list: Vec<DynProtocol> = vec![
                 Box::new(Socks::new(Some(self.opts.bind.clone()))),
                 Box::new(Http::default()),
@@ -93,14 +96,22 @@ impl Inbound {
                 try_list.push(Box::new(Dns::new(self.opts.get_dns_server())));
             }
 
+            // check one by one
             for mut proto in try_list {
                 if self.resolve_dest_addr(&mut proto, true).await.is_ok() {
+                    // overwrite port if redirect dest addr exist
+                    // because http/https sniffer return an inaccurate port number(80 or 443)
+                    if let Some(addr) = redirect_dest_addr {
+                        let mut resolved = proto.get_resolved_result().unwrap();
+                        resolved.address.set_port(addr.port);
+                        proto.set_resolved_result(resolved);
+                    }
                     return Ok(InboundResolveResult { proto });
                 }
             }
 
-            // iptables redirect
-            if let Some(addr) = self.get_redirected_dest_addr().as_ref() {
+            // fallback to iptables redirect dest address
+            if let Some(addr) = redirect_dest_addr.as_ref() {
                 log::info!(
                     "[{}] [{}] fallback to use iptables's REDIRECT dest address {}",
                     self.peer_address,

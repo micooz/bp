@@ -65,23 +65,27 @@ impl Protocol for Http {
                 return Ok(());
             } else {
                 // for direct HTTP requests
-                let (host, port) = match Url::parse(path) {
+                let addr = match Url::parse(path) {
                     Ok(v) => {
                         let host = v.host().unwrap().to_string();
                         let port = v.port().unwrap_or(80);
 
-                        (host, port)
+                        Address::new(Host::Name(host), port)
                     }
                     Err(err) => {
                         // fallback to read Host header
-                        let host_header = headers.iter().find(|&item| item.name.to_lowercase() == "host");
+                        let host_header = headers.iter().find(|&item| item.name.to_uppercase() == "HOST");
 
                         match host_header {
                             Some(v) => {
                                 let host = String::from_utf8(v.value.to_vec()).unwrap();
-                                let port = 80u16;
 
-                                (host, port)
+                                // Host header maybe <host:port>
+                                if host.contains(":") {
+                                    Address::from_str(&host)?
+                                } else {
+                                    Address::new(Host::Name(host), 80)
+                                }
                             }
                             None => return Err(Box::new(err)),
                         }
@@ -90,7 +94,7 @@ impl Protocol for Http {
 
                 self.set_resolved_result(ResolvedResult {
                     protocol: ProtocolType::Http,
-                    address: Address::new(Host::Name(host), port),
+                    address: addr,
                     pending_buf: Some(buf.freeze()),
                 });
 
