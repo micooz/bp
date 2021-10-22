@@ -1,31 +1,12 @@
-use clap::Parser;
+mod options;
+
 use hmac::{Hmac, Mac, NewMac};
+use options::Options;
 use sha2::Sha256;
-use std::net::SocketAddr;
 use vial::prelude::*;
 
 const SECRET_TOKEN_ENV_NAME: &str = "SECRET_TOKEN";
 const SIGNATURE_HEADER_NAME: &str = "X-Hub-Signature-256";
-
-struct GlobalState {
-    secret_token: String,
-}
-
-#[derive(Parser, Debug)]
-#[clap(name = "bp", version = clap::crate_version!())]
-struct Options {
-    #[clap(short, long)]
-    host: String,
-
-    #[clap(short, long)]
-    port: u16,
-}
-
-impl Options {
-    pub fn addr(&self) -> SocketAddr {
-        format!("{}:{}", self.host, self.port).parse().unwrap()
-    }
-}
 
 fn main() {
     let (_, secret_token) = std::env::vars()
@@ -35,7 +16,11 @@ fn main() {
     let opts: Options = clap::Parser::parse();
 
     vial::use_state!(GlobalState { secret_token });
-    vial::run!(opts.addr()).unwrap();
+    vial::run!(opts.bind).unwrap();
+}
+
+struct GlobalState {
+    secret_token: String,
 }
 
 routes! {

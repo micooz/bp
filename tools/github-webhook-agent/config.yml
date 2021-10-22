@@ -1,0 +1,6 @@
+workflow_run:
+  match:
+    - action: complete
+    - workflow_run:
+      head_branch: main
+      conclusion: cancelled
