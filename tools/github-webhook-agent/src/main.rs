@@ -7,17 +7,31 @@ use config::Config;
 use context::Context;
 use hmac::{Hmac, Mac, NewMac};
 use options::Options;
+use serde_json::{Map, Value};
 use sha2::Sha256;
 use vial::prelude::*;
 
-const SECRET_TOKEN_ENV_NAME: &str = "SECRET_TOKEN";
+const GITHUB_SECRET_TOKEN_ENV_NAME: &str = "GITHUB_SECRET_TOKEN";
+const WEBHOOK_SECRET_TOKEN_ENV_NAME: &str = "WEBHOOK_SECRET_TOKEN";
 const SIGNATURE_HEADER_NAME: &str = "X-Hub-Signature-256";
+
+struct GlobalState {
+    env: Map<String, Value>,
+    config: Config,
+}
 
 fn main() {
     // check env var
-    let (_, secret_token) = std::env::vars()
-        .find(|(key, value)| key == SECRET_TOKEN_ENV_NAME && !value.is_empty())
-        .unwrap_or_else(|| panic!("env var {} is not set", SECRET_TOKEN_ENV_NAME));
+    let vars = vec![WEBHOOK_SECRET_TOKEN_ENV_NAME, GITHUB_SECRET_TOKEN_ENV_NAME];
+    let mut env = Map::with_capacity(2);
+
+    for name in vars {
+        let (_, value) = std::env::vars()
+            .find(|(key, value)| key == name && !value.is_empty())
+            .unwrap_or_else(|| panic!("env var {} is not set", name));
+
+        env.insert(name.to_string(), Value::String(value));
+    }
 
     // parse options
     let opts: Options = clap::Parser::parse();
@@ -25,13 +39,8 @@ fn main() {
     // load yaml config
     let config = Config::from_file(&opts.config).expect("fail to load config file");
 
-    vial::use_state!(GlobalState { secret_token, config });
+    vial::use_state!(GlobalState { env, config });
     vial::run!(opts.bind).unwrap();
-}
-
-struct GlobalState {
-    secret_token: String,
-    config: Config,
 }
 
 routes! {
@@ -40,6 +49,7 @@ routes! {
 
 fn handle_request(req: Request) -> Response {
     let global_state = req.state::<GlobalState>();
+    let env = &global_state.env;
 
     let signature = req.header(SIGNATURE_HEADER_NAME);
 
@@ -61,7 +71,7 @@ fn handle_request(req: Request) -> Response {
     if let Err(err) = signature_check(
         body.as_bytes(),
         signature.as_slice(),
-        global_state.secret_token.as_bytes(),
+        env[WEBHOOK_SECRET_TOKEN_ENV_NAME].as_str().unwrap().as_bytes(),
     ) {
         return Response::from(403).with_body(err);
     }
@@ -77,9 +87,10 @@ fn handle_request(req: Request) -> Response {
     // execute rule
     match global_state.config.try_match(payload.unwrap()) {
         Some(rule) => {
+            let env = serde_json::Value::Object(env.clone());
             let ctx = Context {
                 data: Some(payload.unwrap()),
-                secrets: None,
+                secrets: Some(&env),
             };
 
             rule.run(ctx).unwrap();
