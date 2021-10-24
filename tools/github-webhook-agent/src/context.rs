@@ -1,8 +1,7 @@
+use crate::constants::SECRETS_PREFIX;
 use crate::utils::template::Getter;
 use json_dotpath::DotPaths;
 use serde_json::Value;
-
-const SECRETS_PREFIX: &str = "secrets.";
 
 pub struct Context<'a> {
     pub data: Option<&'a Value>,

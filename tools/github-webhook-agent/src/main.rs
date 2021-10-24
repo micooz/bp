@@ -1,19 +1,19 @@
 mod config;
+mod constants;
 mod context;
 mod options;
 mod utils;
 
+use crate::constants::{GITHUB_SECRET_TOKEN_ENV_NAME, SIGNATURE_HEADER_NAME, WEBHOOK_SECRET_TOKEN_ENV_NAME};
 use config::Config;
+use constants::TMP_DATA_FILE;
 use context::Context;
 use hmac::{Hmac, Mac, NewMac};
 use options::Options;
 use serde_json::{Map, Value};
 use sha2::Sha256;
+use std::io::Write;
 use vial::prelude::*;
-
-const GITHUB_SECRET_TOKEN_ENV_NAME: &str = "GITHUB_SECRET_TOKEN";
-const WEBHOOK_SECRET_TOKEN_ENV_NAME: &str = "WEBHOOK_SECRET_TOKEN";
-const SIGNATURE_HEADER_NAME: &str = "X-Hub-Signature-256";
 
 struct GlobalState {
     env: Map<String, Value>,
@@ -84,12 +84,27 @@ fn handle_request(req: Request) -> Response {
         return Response::from(500).with_body(err.to_string());
     }
 
+    let payload: &Value = payload.unwrap();
+
+    // store payload as json file
+    let json = serde_json::to_string(payload).unwrap();
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(TMP_DATA_FILE)
+        .unwrap();
+
+    file.write_all(json.as_bytes()).unwrap();
+    file.flush().unwrap();
+
     // execute rule
-    match global_state.config.try_match(payload.unwrap()) {
+    match global_state.config.try_match(payload) {
         Some(rule) => {
             let env = serde_json::Value::Object(env.clone());
             let ctx = Context {
-                data: Some(payload.unwrap()),
+                data: Some(payload),
                 secrets: Some(&env),
             };
 

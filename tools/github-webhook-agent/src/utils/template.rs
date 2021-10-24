@@ -1,3 +1,4 @@
+use crate::constants::{TMP_DATA_FILE, TMP_DATA_FILE_PLACEHOLDER};
 use regex::{Captures, Regex};
 
 pub struct Options {
@@ -38,6 +39,11 @@ impl Template {
         let cooked = self.regex.replace_all(tpl, |caps: &Captures| {
             if caps.len() == 2 {
                 let path = caps.get(1).unwrap().as_str().trim();
+
+                if path == TMP_DATA_FILE_PLACEHOLDER {
+                    return TMP_DATA_FILE.to_string();
+                }
+
                 ctx.get_by_path(path).unwrap_or_else(|| "".to_string())
             } else {
                 "".to_string()
@@ -77,5 +83,10 @@ fn test_template() {
     assert_eq!(
         template.render("foo {{ bar }} baz {{ foo.0.qux }}", &ctx),
         "foo bar baz foo.0_qux"
+    );
+
+    assert_eq!(
+        template.render("{{ __TMP_DATA_FILE__ }}", &ctx),
+        "/tmp/github-webhook-agent/data.json"
     );
 }

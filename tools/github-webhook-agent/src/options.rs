@@ -1,7 +1,7 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[clap(name = "bp", version = clap::crate_version!())]
+#[clap(name = clap::crate_name!(), version = clap::crate_version!())]
 pub struct Options {
     /// Listen address
     #[clap(short, long)]
