@@ -105,7 +105,7 @@ impl Rule {
 
         run_cmd!(chmod +x $TEMP_SCRIPT_PATH)?;
 
-        let stdout = run_fun!($TEMP_SCRIPT_PATH)?;
+        let stdout = run_fun!(sh $TEMP_SCRIPT_PATH)?;
 
         Ok(stdout)
     }

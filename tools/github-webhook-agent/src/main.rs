@@ -93,7 +93,8 @@ fn handle_request(req: Request) -> Response {
                 secrets: Some(&env),
             };
 
-            rule.run(ctx).unwrap();
+            let stdout = rule.run(ctx).unwrap();
+            println!("{}", stdout);
 
             Response::from(200)
         }
