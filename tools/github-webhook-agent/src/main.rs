@@ -1,5 +1,10 @@
+mod config;
+mod context;
 mod options;
+mod utils;
 
+use config::Config;
+use context::Context;
 use hmac::{Hmac, Mac, NewMac};
 use options::Options;
 use sha2::Sha256;
@@ -9,18 +14,24 @@ const SECRET_TOKEN_ENV_NAME: &str = "SECRET_TOKEN";
 const SIGNATURE_HEADER_NAME: &str = "X-Hub-Signature-256";
 
 fn main() {
+    // check env var
     let (_, secret_token) = std::env::vars()
         .find(|(key, value)| key == SECRET_TOKEN_ENV_NAME && !value.is_empty())
         .unwrap_or_else(|| panic!("env var {} is not set", SECRET_TOKEN_ENV_NAME));
 
+    // parse options
     let opts: Options = clap::Parser::parse();
 
-    vial::use_state!(GlobalState { secret_token });
+    // load yaml config
+    let config = Config::from_file(&opts.config).expect("fail to load config file");
+
+    vial::use_state!(GlobalState { secret_token, config });
     vial::run!(opts.bind).unwrap();
 }
 
 struct GlobalState {
     secret_token: String,
+    config: Config,
 }
 
 routes! {
@@ -55,9 +66,28 @@ fn handle_request(req: Request) -> Response {
         return Response::from(403).with_body(err);
     }
 
-    // TODO: publish a notify with req.body
+    // parse json
+    let payload = serde_json::from_str(req.body());
+    let payload = payload.as_ref();
 
-    Response::from(200)
+    if let Err(err) = payload {
+        return Response::from(500).with_body(err.to_string());
+    }
+
+    // execute rule
+    match global_state.config.try_match(payload.unwrap()) {
+        Some(rule) => {
+            let ctx = Context {
+                data: Some(payload.unwrap()),
+                secrets: None,
+            };
+
+            rule.run(ctx).unwrap();
+
+            Response::from(200)
+        }
+        None => Response::from(500),
+    }
 }
 
 fn signature_check(content: &[u8], input_signature: &[u8], key: &[u8]) -> Result<(), String> {
