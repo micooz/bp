@@ -76,7 +76,7 @@ fn test_template() {
     let data = Value::from_str(data).unwrap();
 
     let ctx = Context {
-        data: Some(&data),
+        body: Some(&data),
         secrets: None,
     };
 

@@ -68,26 +68,28 @@ fn handle_request(req: Request) -> Response {
     let signature = signature.unwrap();
     let body = req.body();
 
-    if let Err(err) = signature_check(
+    let checked = signature_check(
         body.as_bytes(),
         signature.as_slice(),
         env[WEBHOOK_SECRET_TOKEN_ENV_NAME].as_str().unwrap().as_bytes(),
-    ) {
+    );
+
+    if let Err(err) = checked {
         return Response::from(403).with_body(err);
     }
 
     // parse json
-    let payload = serde_json::from_str(req.body());
-    let payload = payload.as_ref();
+    let body = serde_json::from_str(req.body());
+    let body = body.as_ref();
 
-    if let Err(err) = payload {
+    if let Err(err) = body {
         return Response::from(500).with_body(err.to_string());
     }
 
-    let payload: &Value = payload.unwrap();
+    let body: &Value = body.unwrap();
 
-    // store payload as json file
-    let json = serde_json::to_string(payload).unwrap();
+    // store body as json file
+    let json = serde_json::to_string(body).unwrap();
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -99,22 +101,25 @@ fn handle_request(req: Request) -> Response {
     file.write_all(json.as_bytes()).unwrap();
     file.flush().unwrap();
 
-    // execute rule
-    match global_state.config.try_match(payload) {
-        Some(rule) => {
-            let env = serde_json::Value::Object(env.clone());
-            let ctx = Context {
-                data: Some(payload),
-                secrets: Some(&env),
-            };
+    // find & execute rule
+    let rule = global_state.config.try_match(&req, body);
 
-            let stdout = rule.run(ctx).unwrap();
-            println!("{}", stdout);
-
-            Response::from(200)
-        }
-        None => Response::from(500),
+    if rule.is_none() {
+        return Response::from(404).with_body("No rule matched");
     }
+
+    let rule = rule.unwrap();
+    let env = serde_json::Value::Object(env.clone());
+
+    let ctx = Context {
+        body: Some(body),
+        secrets: Some(&env),
+    };
+
+    let stdout = rule.run(ctx).unwrap();
+    println!("{}", stdout);
+
+    Response::from(200)
 }
 
 fn signature_check(content: &[u8], input_signature: &[u8], key: &[u8]) -> Result<(), String> {

@@ -4,7 +4,7 @@ use json_dotpath::DotPaths;
 use serde_json::Value;
 
 pub struct Context<'a> {
-    pub data: Option<&'a Value>,
+    pub body: Option<&'a Value>,
     pub secrets: Option<&'a Value>,
 }
 
@@ -19,8 +19,8 @@ impl<'a> Getter for Context<'a> {
             return self.secrets.unwrap().dot_get(dot_path).ok().unwrap();
         }
 
-        if self.data.is_some() {
-            return self.data.unwrap().dot_get(path).ok().unwrap();
+        if self.body.is_some() {
+            return self.body.unwrap().dot_get(path).ok().unwrap();
         }
 
         None

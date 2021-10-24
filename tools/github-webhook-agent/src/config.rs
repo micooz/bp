@@ -4,11 +4,12 @@ use crate::utils::template::Template;
 use crate::utils::yaml_checker::YamlChecker;
 use anyhow::{Error, Result};
 use cmd_lib::{run_cmd, run_fun};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::fs;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
+use vial::Request;
 use yaml_rust::Yaml;
 use yaml_rust::YamlLoader;
 
@@ -39,9 +40,9 @@ impl Config {
         Ok(Self { rules })
     }
 
-    pub fn try_match(&self, payload: &Value) -> Option<&Rule> {
+    pub fn try_match(&self, req: &Request, body: &Value) -> Option<&Rule> {
         for rule in &self.rules {
-            if rule.try_match(payload).is_ok() {
+            if rule.try_match(req, body).is_ok() {
                 return Some(rule);
             }
         }
@@ -50,35 +51,79 @@ impl Config {
 }
 
 pub struct Rule {
-    match_pattern: Yaml,
-    run_cmd: String,
+    matcher: Option<Matcher>,
+    run: Option<String>,
 }
 
 impl Rule {
     pub fn from_yaml_doc(doc: Yaml) -> Result<Self, ()> {
         let root = doc.as_hash().ok_or(())?;
 
+        let key_match = Yaml::String("match".to_string());
+        let key_header = Yaml::String("header".to_string());
+        let key_body = Yaml::String("body".to_string());
+        let key_run = Yaml::String("run".to_string());
+
         // get "match: xxx"
-        let match_pattern = root.get(&Yaml::String("match".to_string())).ok_or(())?;
+        let matcher = root.get(&key_match).map(|v| v.as_hash().unwrap());
+
+        let mut matcher_optional = None;
+
+        if let Some(matcher) = matcher {
+            let matcher_header = matcher.get(&key_header);
+            let matcher_body = matcher.get(&key_body);
+
+            matcher_optional = Some(Matcher {
+                header: matcher_header.cloned(),
+                body: matcher_body.cloned(),
+            });
+        }
 
         // get "run: xxx"
-        let run_cmd = root.get(&Yaml::String("run".to_string())).ok_or(())?;
-        let run_cmd = run_cmd.as_str().ok_or(())?;
+        let run = root.get(&key_run).map(|v| v.as_str().unwrap().to_string());
 
         Ok(Rule {
-            match_pattern: match_pattern.clone(),
-            run_cmd: run_cmd.to_string(),
+            matcher: matcher_optional,
+            run,
         })
     }
 
-    pub fn try_match(&self, json: &Value) -> Result<(), ()> {
+    pub fn try_match(&self, req: &Request, body: &Value) -> Result<(), ()> {
         let checker = YamlChecker::new();
 
-        if checker.check_json(&self.match_pattern, json) {
-            Ok(())
-        } else {
-            Err(())
+        if self.matcher.is_none() {
+            return Ok(());
         }
+
+        let matcher = self.matcher.as_ref().unwrap();
+
+        // match header
+        if let Some(header_yaml) = &matcher.header {
+            let header_map = header_yaml.as_hash().unwrap();
+            let mut header = Map::new();
+
+            for (key, _) in header_map {
+                let key = key.as_str().ok_or(())?;
+                let val = req.header(key).ok_or(())?;
+
+                header.insert(key.to_string(), Value::String(val.to_string()));
+            }
+
+            let header_json = Value::Object(header);
+
+            if !checker.check_json(header_yaml, &header_json) {
+                return Err(());
+            }
+        }
+
+        // match body
+        if let Some(body_yaml) = &matcher.body {
+            if !checker.check_json(body_yaml, body) {
+                return Err(());
+            }
+        }
+
+        Ok(())
     }
 
     pub fn run(&self, ctx: Context) -> Result<String> {
@@ -112,8 +157,17 @@ impl Rule {
     fn compile_run_str(&self, ctx: Context) -> Result<Vec<String>> {
         let mut result = vec![];
 
-        for line in self.run_cmd.lines() {
-            if line.is_empty() || line.starts_with('#') {
+        if self.run.is_none() {
+            return Ok(result);
+        }
+
+        for line in self.run.as_ref().unwrap().lines() {
+            if line.is_empty() {
+                continue;
+            }
+
+            if line.starts_with('#') {
+                result.push(line.to_string());
                 continue;
             }
 
@@ -127,17 +181,23 @@ impl Rule {
     }
 }
 
+pub struct Matcher {
+    pub header: Option<Yaml>,
+    pub body: Option<Yaml>,
+}
+
 #[test]
 fn test_config() {
     let config = Config::from_file("test/fixtures/config.yml").unwrap();
-    let json: Value = serde_json::from_str(include_str!("../test/fixtures/payload.json")).unwrap();
+    let req = Request::default();
+    let body: Value = serde_json::from_str(include_str!("../test/fixtures/body.json")).unwrap();
     let secrets: Value = serde_json::from_str(r#"{ "SOME_TOKEN": "token" }"#).unwrap();
 
-    let rule = config.try_match(&json);
+    let rule = config.try_match(&req, &body);
     assert!(rule.is_some());
 
     let ctx = Context {
-        data: Some(&json),
+        body: Some(&body),
         secrets: Some(&secrets),
     };
 
