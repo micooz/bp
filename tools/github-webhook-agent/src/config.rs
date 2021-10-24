@@ -29,7 +29,7 @@ impl Config {
         yaml_file.read_to_string(&mut yaml_content)?;
 
         let doc = &YamlLoader::load_from_str(yaml_content.as_str()).unwrap()[0];
-        let doc = doc.as_hash().ok_or(Error::msg("invalid yaml format"))?;
+        let doc = doc.as_hash().ok_or_else(|| Error::msg("invalid yaml format"))?;
 
         let mut rules = vec![];
 
@@ -43,7 +43,7 @@ impl Config {
 
     pub fn try_match(&self, payload: &Value) -> Option<&Rule> {
         for rule in &self.rules {
-            if rule.try_match(&payload).is_ok() {
+            if rule.try_match(payload).is_ok() {
                 return Some(rule);
             }
         }
@@ -114,7 +114,7 @@ impl Rule {
         let mut result = vec![];
 
         for line in self.run_cmd.lines() {
-            if line.is_empty() || line.starts_with("#") {
+            if line.is_empty() || line.starts_with('#') {
                 continue;
             }
 

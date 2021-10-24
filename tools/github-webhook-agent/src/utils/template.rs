@@ -38,7 +38,7 @@ impl Template {
         let cooked = self.regex.replace_all(tpl, |caps: &Captures| {
             if caps.len() == 2 {
                 let path = caps.get(1).unwrap().as_str().trim();
-                ctx.get_by_path(path).unwrap_or("".to_string())
+                ctx.get_by_path(path).unwrap_or_else(|| "".to_string())
             } else {
                 "".to_string()
             }
