@@ -63,6 +63,7 @@ jobs:
           host: ${{ env.HOST }}
           username: ${{ env.USERNAME }}
           password: ${{ env.PASSWORD }}
+          script_stop: true
           script: |
             TAR_FILE=${{ env.DEPLOY_PATH }}/${{ env.ASSET_FILE }}
             BIN_FILE=${{ env.DEPLOY_PATH }}/bp
@@ -75,7 +76,7 @@ jobs:
             killall bp
 
             echo "Copy bp to /usr/bin/bp"
-            mv $BIN_FILE /usr/bin/bp
+            cp $BIN_FILE /usr/bin/bp
 
             echo "Start bp service"
             screen -q
