@@ -1,0 +1,28 @@
+use crate::constants::SECRETS_PREFIX;
+use crate::utils::template::Getter;
+use json_dotpath::DotPaths;
+use serde_json::Value;
+
+pub struct Context<'a> {
+    pub body: Option<&'a Value>,
+    pub secrets: Option<&'a Value>,
+}
+
+impl<'a> Getter for Context<'a> {
+    fn get_by_path(&self, path: &str) -> Option<String> {
+        if path.is_empty() {
+            return None;
+        }
+
+        if self.secrets.is_some() && path.starts_with(SECRETS_PREFIX) {
+            let dot_path = path.strip_prefix(SECRETS_PREFIX).unwrap();
+            return self.secrets.unwrap().dot_get(dot_path).ok().unwrap();
+        }
+
+        if self.body.is_some() {
+            return self.body.unwrap().dot_get(path).ok().unwrap();
+        }
+
+        None
+    }
+}

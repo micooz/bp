@@ -1,0 +1,11 @@
+on_release:
+  match:
+    #header:
+    #  foo: bar
+    body:
+      action: released
+      release:
+        prerelease: false
+  run: |
+    echo "release name: {{ release.name }}"
+    echo "some secret token: {{ secrets.SOME_TOKEN }}"
