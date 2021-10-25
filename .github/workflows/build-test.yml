@@ -36,7 +36,7 @@ jobs:
           profile: minimal
           components: clippy
       - name: Increase ulimit
-          run: ulimit -n 4096
+        run: ulimit -n 4096
       - name: Build & Test (Default)
         run: cargo test --workspace --verbose --no-fail-fast
       - name: Clippy Check
