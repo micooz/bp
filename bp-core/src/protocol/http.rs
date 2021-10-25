@@ -81,7 +81,7 @@ impl Protocol for Http {
                                 let host = String::from_utf8(v.value.to_vec()).unwrap();
 
                                 // Host header maybe <host:port>
-                                if host.contains(":") {
+                                if host.contains(':') {
                                     Address::from_str(&host)?
                                 } else {
                                     Address::new(Host::Name(host), 80)
