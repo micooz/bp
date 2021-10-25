@@ -19,7 +19,7 @@ Please check -h/--help first.
 
 ```
 $ bp -h
-bp 1.0.0-alpha.0
+bp 1.0.0-alpha.1
 
 Lightweight and efficient proxy written in pure Rust
 
@@ -32,6 +32,9 @@ OPTIONS:
 
     -c, --client
             run as client
+
+        --config <CONFIG>
+            Configuration file in YAML format
 
         --dns-server <DNS_SERVER>
             DNS server address [default: 8.8.8.8:53]

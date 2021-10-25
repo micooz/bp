@@ -9,7 +9,15 @@ async fn main() {
     #[cfg(feature = "logging")]
     let log_path = logging::init();
 
-    let opts: Options = Parser::parse();
+    let mut opts: Options = Parser::parse();
+
+    // load YAML config if set
+    if let Some(config) = opts.config {
+        opts = Options::from_yaml_file(&config).unwrap_or_else(|err| {
+            log::error!("Invalid YAML format: {}", err);
+            exit(ExitError::ArgumentsError.into());
+        });
+    }
 
     match check_options(&opts) {
         Ok(_) => {

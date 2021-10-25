@@ -1,18 +1,27 @@
-use crate::{net::address::Address, protocol::TransportProtocol};
-
-/// The default local service host
-const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
+use crate::{
+    config::{DEFAULT_DNS_SERVER_ADDRESS, DEFAULT_SERVICE_ADDRESS},
+    net::address::Address,
+    protocol::TransportProtocol,
+};
+use std::{fs, io::Read};
 
 /// Lightweight and efficient proxy written in pure Rust
-#[derive(clap::Parser, Default, Debug, Clone)]
+#[derive(clap::Parser, serde::Deserialize, Default, Debug, Clone)]
 #[clap(name = "bp", version = clap::crate_version!())]
 pub struct Options {
+    /// Configuration file in YAML format
+    #[clap(long)]
+    #[serde(skip)]
+    pub config: Option<String>,
+
     /// run as server
     #[clap(short, long)]
+    #[serde(default)]
     pub server: bool,
 
     /// run as client
     #[clap(short, long)]
+    #[serde(default)]
     pub client: bool,
 
     /// local service bind address
@@ -50,6 +59,15 @@ pub struct Options {
 }
 
 impl Options {
+    pub fn from_yaml_file(file: &str) -> anyhow::Result<Self> {
+        let mut raw_str = String::new();
+        let mut fd = fs::OpenOptions::new().read(true).open(file)?;
+        fd.read_to_string(&mut raw_str)?;
+
+        serde_yaml::from_str(&raw_str)
+            .map_err(|err| anyhow::Error::msg(format!("Fail to load YAML config: {}", err.to_string())))
+    }
+
     /// Return local service type
     pub fn service_type(&self) -> ServiceType {
         if !self.server && self.client {
@@ -61,8 +79,11 @@ impl Options {
         panic!("cannot determine service type");
     }
 
+    /// Return DNS server address, default to
     pub fn get_dns_server(&self) -> Address {
-        self.dns_server.clone().unwrap_or_else(|| "8.8.8.8:53".parse().unwrap())
+        self.dns_server
+            .clone()
+            .unwrap_or_else(|| DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap())
     }
 
     #[cfg(feature = "monitor")]

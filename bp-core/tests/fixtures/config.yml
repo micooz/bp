@@ -1,0 +1,10 @@
+client: true
+# server: false
+bind: 127.0.0.1:1080
+#server_bind: 127.0.0.1:1081
+key: key
+protocol:
+proxy_white_list:
+force_dest_addr:
+udp_over_tcp: false
+dns_server:

@@ -1,6 +1,33 @@
 use bp_core::*;
 
 #[test]
+fn test_from_yaml_file() {
+    let opts = Options::from_yaml_file("tests/fixtures/config.yml").unwrap();
+    dbg!(&opts);
+
+    assert_eq!(opts.server, false);
+    assert_eq!(opts.bind, "127.0.0.1:1080".parse().unwrap());
+    assert_eq!(opts.protocol, TransportProtocol::EncryptRandomPadding);
+}
+
+#[test]
+fn test_service_type() {
+    let opts = Options {
+        client: true,
+        ..Options::default()
+    };
+
+    assert!(matches!(opts.service_type(), ServiceType::Client));
+}
+
+#[test]
+fn test_get_dns_server() {
+    let opts = Options::default();
+
+    assert_eq!(opts.get_dns_server(), "8.8.8.8:53".parse().unwrap());
+}
+
+#[test]
 fn test_empty() {
     let opts = Options::default();
 

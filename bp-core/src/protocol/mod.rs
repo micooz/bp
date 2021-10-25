@@ -1,11 +1,11 @@
 use crate::{
     net::{address::Address, socket::Socket},
     options::Options,
-    Result,
 };
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::str;
+use serde::{de::Visitor, Deserialize, Deserializer};
+use std::str::{self, FromStr};
 
 mod direct;
 mod dns;
@@ -55,22 +55,22 @@ pub trait Protocol: dyn_clone::DynClone {
         unimplemented!();
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()>;
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> crate::Result<()>;
 
-    async fn client_encode(&mut self, socket: &Socket) -> Result<Bytes>;
+    async fn client_encode(&mut self, socket: &Socket) -> crate::Result<Bytes>;
 
-    async fn server_encode(&mut self, socket: &Socket) -> Result<Bytes>;
+    async fn server_encode(&mut self, socket: &Socket) -> crate::Result<Bytes>;
 
-    async fn client_decode(&mut self, socket: &Socket) -> Result<Bytes>;
+    async fn client_decode(&mut self, socket: &Socket) -> crate::Result<Bytes>;
 
-    async fn server_decode(&mut self, socket: &Socket) -> Result<Bytes>;
+    async fn server_decode(&mut self, socket: &Socket) -> crate::Result<Bytes>;
 }
 
 dyn_clone::clone_trait_object!(Protocol);
 
 pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TransportProtocol {
     Plain,
     EncryptRandomPadding,
@@ -82,7 +82,7 @@ impl str::FromStr for TransportProtocol {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "plain" => Ok(Self::Plain),
-            "erp" => Ok(Self::EncryptRandomPadding),
+            "~" | "" | "erp" => Ok(Self::EncryptRandomPadding),
             _ => Err(format!("{} is not supported, available protocols are: plain, erp", s)),
         }
     }
@@ -91,6 +91,32 @@ impl str::FromStr for TransportProtocol {
 impl Default for TransportProtocol {
     fn default() -> Self {
         Self::EncryptRandomPadding
+    }
+}
+
+struct TransportProtocolVisitor;
+
+impl<'de> Visitor<'de> for TransportProtocolVisitor {
+    type Value = TransportProtocol;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("plain/erp")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        TransportProtocol::from_str(v).map_err(|msg| serde::de::Error::custom(msg))
+    }
+}
+
+impl<'de> Deserialize<'de> for TransportProtocol {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_string(TransportProtocolVisitor)
     }
 }
 

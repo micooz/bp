@@ -1,3 +1,9 @@
+/// The default local service address
+pub const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
+
+/// The default dns server address
+pub const DEFAULT_DNS_SERVER_ADDRESS: &str = "8.8.8.8:53";
+
 pub const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
 /// The timeout for resolving destination address

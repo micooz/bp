@@ -1,5 +1,6 @@
-use crate::{net::socket, Result};
+use crate::net::socket;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use serde::{de::Visitor, Deserialize, Deserializer};
 use std::{
     convert::TryInto,
     fmt::Display,
@@ -37,7 +38,7 @@ impl TryInto<AddressType> for u8 {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Host {
     Ip(IpAddr),
     Name(String),
@@ -57,7 +58,7 @@ impl ToString for Host {
 // +------+----------+----------+
 // |  1   | Variable |    2     |
 // +------+----------+----------+
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Address {
     pub host: Host,
     pub port: u16,
@@ -108,7 +109,7 @@ impl Address {
         self.as_string().parse().unwrap()
     }
 
-    pub async fn from_socket(socket: &socket::Socket) -> Result<Self> {
+    pub async fn from_socket(socket: &socket::Socket) -> crate::Result<Self> {
         let buf = socket.read_exact(1).await?;
 
         let atyp: AddressType = buf[0].try_into().map_err(|_| {
@@ -156,7 +157,7 @@ impl Address {
         }
     }
 
-    pub fn from_bytes(mut buf: Bytes) -> Result<(Self, Option<Bytes>)> {
+    pub fn from_bytes(mut buf: Bytes) -> crate::Result<(Self, Option<Bytes>)> {
         let atyp: AddressType = buf[0].try_into().map_err(|_| {
             format!(
                 "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
@@ -258,5 +259,31 @@ impl Default for Address {
             host: Host::Ip(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             port: Default::default(),
         }
+    }
+}
+
+struct AddressVisitor;
+
+impl<'de> Visitor<'de> for AddressVisitor {
+    type Value = Address;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("<host>:<port>")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Address::from_str(v).map_err(|msg| serde::de::Error::custom(msg))
+    }
+}
+
+impl<'de> Deserialize<'de> for Address {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_string(AddressVisitor)
     }
 }
