@@ -73,7 +73,7 @@ jobs:
             tar -xf $TAR_FILE -C ${{ env.DEPLOY_PATH }}
 
             echo "Stop bp process"
-            pm2 delete bp
+            pm2 delete bp || true
 
             echo "Start bp service"
             pm2 start --name bp $BIN_FILE -- --config $CONFIG_FILE
