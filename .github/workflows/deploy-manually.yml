@@ -46,7 +46,7 @@ jobs:
 
       - name: Write Config YAML File
         run: |
-          echo "${{ github.event.inputs.config }}" > ${{ env.CONFIG_FILE }}
+          echo -e "${{ github.event.inputs.config }}" > ${{ env.CONFIG_FILE }}
 
       - name: Send Asset to Remote Host
         uses: appleboy/scp-action@master
