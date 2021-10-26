@@ -79,6 +79,6 @@ jobs:
             cp $BIN_FILE /usr/bin/bp
 
             echo "Start bp service"
-            bp --config $CONFIG_FILE &
+            nohup bp --config $CONFIG_FILE &
 
             echo "> All Done."
