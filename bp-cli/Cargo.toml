@@ -1,7 +1,7 @@
 [package]
 name = "bp-cli"
 version = "1.0.0-alpha.1"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bp-core = { path = "../bp-core" }

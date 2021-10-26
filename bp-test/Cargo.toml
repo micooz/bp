@@ -7,7 +7,7 @@ repository = "https://github.com/micooz/bp"
 readme = "README.md"
 keywords = ["bp", "proxy", "socks", "socks5", "firewall"]
 license = "MIT"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bp-core = { path = "../bp-core" }
