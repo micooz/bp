@@ -108,7 +108,7 @@ impl<'de> Visitor<'de> for TransportProtocolVisitor {
     where
         E: serde::de::Error,
     {
-        TransportProtocol::from_str(v).map_err(|msg| serde::de::Error::custom(msg))
+        TransportProtocol::from_str(v).map_err(serde::de::Error::custom)
     }
 }
 
