@@ -39,6 +39,7 @@ pub struct Options {
     /// protocol used by transport layer between client and server,
     /// "plain" or "erp" are supported
     #[clap(short, long, default_value = "erp")]
+    #[serde(default)]
     pub protocol: TransportProtocol,
 
     /// check white list before proxy, pass a file path
@@ -51,6 +52,7 @@ pub struct Options {
 
     /// proxy UDP via TCP, client only. Requires --server-bind to be set if true [default: false]
     #[clap(long)]
+    #[serde(default)]
     pub udp_over_tcp: bool,
 
     /// DNS server address [default: 8.8.8.8:53]
@@ -64,7 +66,11 @@ impl Options {
         let mut fd = fs::OpenOptions::new().read(true).open(file)?;
         fd.read_to_string(&mut raw_str)?;
 
-        serde_yaml::from_str(&raw_str)
+        Self::from_yaml_str(&raw_str)
+    }
+
+    pub fn from_yaml_str(s: &str) -> anyhow::Result<Self> {
+        serde_yaml::from_str(s)
             .map_err(|err| anyhow::Error::msg(format!("Fail to load YAML config: {}", err.to_string())))
     }
 
