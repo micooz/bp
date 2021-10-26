@@ -282,7 +282,7 @@ impl Outbound {
 
         if ret != 0 {
             let err = std::io::Error::last_os_error();
-            return Err(Box::new(err));
+            return Err(Error::msg(err.to_string()));
         }
 
         Ok(())
