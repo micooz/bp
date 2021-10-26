@@ -79,7 +79,6 @@ jobs:
             cp $BIN_FILE /usr/bin/bp
 
             echo "Start bp service"
-            screen -q
-            bp --config $CONFIG_FILE
+            bp --config $CONFIG_FILE &
 
             echo "> All Done."
