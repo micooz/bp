@@ -73,12 +73,9 @@ jobs:
             tar -xf $TAR_FILE -C ${{ env.DEPLOY_PATH }}
 
             echo "Stop bp process"
-            killall bp || true
-
-            echo "Copy bp to /usr/bin/bp"
-            cp $BIN_FILE /usr/bin/bp
+            pm2 delete bp
 
             echo "Start bp service"
-            nohup bp --config $CONFIG_FILE &
+            pm2 start --name bp $BIN_FILE -- --config $CONFIG_FILE
 
             echo "> All Done."
