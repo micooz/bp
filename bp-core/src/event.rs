@@ -1,4 +1,4 @@
-use crate::Error;
+use anyhow::Error;
 use bytes::Bytes;
 
 #[derive(Debug)]

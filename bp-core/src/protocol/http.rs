@@ -4,8 +4,8 @@ use crate::{
         socket::Socket,
     },
     protocol::{Protocol, ProtocolType, ResolvedResult},
-    Result,
 };
+use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
 use std::str::FromStr;
@@ -51,7 +51,7 @@ impl Protocol for Http {
 
             if method.to_uppercase() == "CONNECT" {
                 // for HTTP proxy tunnel requests
-                let addr = Address::from_str(path)?;
+                let addr = Address::from_str(path).map_err(|err| Error::msg(err.to_string()))?;
                 let resp = Bytes::from_static(b"HTTP/1.1 200 Connection Established\r\n\r\n");
 
                 socket.send(&resp).await?;
@@ -82,12 +82,12 @@ impl Protocol for Http {
 
                                 // Host header maybe <host:port>
                                 if host.contains(':') {
-                                    Address::from_str(&host)?
+                                    Address::from_str(&host).map_err(|err| Error::msg(err.to_string()))?
                                 } else {
                                     Address::new(Host::Name(host), 80)
                                 }
                             }
-                            None => return Err(Box::new(err)),
+                            None => return Err(err.into()),
                         }
                     }
                 };

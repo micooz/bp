@@ -1,4 +1,5 @@
-use crate::{global, Result};
+use crate::global;
+use anyhow::Result;
 use std::net::SocketAddr;
 use trust_dns_resolver::config::Protocol;
 use trust_dns_resolver::config::{NameServerConfig, ResolverConfig, ResolverOpts};

@@ -7,8 +7,8 @@ use crate::{
     },
     options::{Options, ServiceType},
     protocol::*,
-    Result,
 };
+use anyhow::{Error, Result};
 use bytes::Bytes;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -146,7 +146,7 @@ impl Inbound {
             return Ok(InboundResolveResult { proto });
         }
 
-        Err("cannot detect a protocol from incoming data".into())
+        Err(Error::msg("cannot detect a protocol from incoming data"))
     }
 
     pub fn set_protocol_name(&mut self, name: String) {

@@ -1,8 +1,8 @@
 use crate::{
     net::{address::Address, socket},
     protocol::{Protocol, ProtocolType, ResolvedResult},
-    Result,
 };
+use anyhow::Result;
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
 

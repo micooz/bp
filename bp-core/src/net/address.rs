@@ -1,4 +1,5 @@
 use crate::net::socket;
+use anyhow::{Error, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use serde::{de::Visitor, Deserialize, Deserializer};
 use std::{
@@ -109,17 +110,17 @@ impl Address {
         self.as_string().parse().unwrap()
     }
 
-    pub async fn from_socket(socket: &socket::Socket) -> crate::Result<Self> {
+    pub async fn from_socket(socket: &socket::Socket) -> Result<Self> {
         let buf = socket.read_exact(1).await?;
 
         let atyp: AddressType = buf[0].try_into().map_err(|_| {
-            format!(
+            Error::msg(format!(
                 "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
                 u8::from(AddressType::V4),
                 u8::from(AddressType::HostName),
                 u8::from(AddressType::V6),
                 buf[0]
-            )
+            ))
         })?;
 
         match atyp {
@@ -157,15 +158,15 @@ impl Address {
         }
     }
 
-    pub fn from_bytes(mut buf: Bytes) -> crate::Result<(Self, Option<Bytes>)> {
+    pub fn from_bytes(mut buf: Bytes) -> Result<(Self, Option<Bytes>)> {
         let atyp: AddressType = buf[0].try_into().map_err(|_| {
-            format!(
+            Error::msg(format!(
                 "ATYP must be {:#04x} or {:#04x} or {:#04x} but got {:#04x}",
                 u8::from(AddressType::V4),
                 u8::from(AddressType::HostName),
                 u8::from(AddressType::V6),
                 buf[0]
-            )
+            ))
         })?;
 
         buf.advance(1);

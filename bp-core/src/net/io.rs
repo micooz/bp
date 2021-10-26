@@ -1,5 +1,5 @@
 use crate::config;
-use crate::Result;
+use anyhow::{Error, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -73,7 +73,7 @@ impl SocketReader {
             let n = reader.read_buf(buf).await?;
 
             if n == 0 {
-                return Err("read_buf return 0".into());
+                return Err(Error::msg("read_buf return 0"));
             }
 
             if !self.is_restore_data_used().await {
@@ -126,12 +126,12 @@ impl SocketReader {
                 let new_buf = self.udp_recv().await?;
 
                 if new_buf.len() < req_buf_len {
-                    return Err(format!(
+                    let msg = format!(
                         "read_exact error due to: new udp packet size = {} is less than required len = {}",
                         req_buf_len,
                         new_buf.len()
-                    )
-                    .into());
+                    );
+                    return Err(Error::msg(msg));
                 }
 
                 let req_buf = new_buf.slice(0..req_buf_len);
@@ -208,7 +208,7 @@ impl SocketReader {
         if let Some(packet) = buf.get(0..len) {
             Ok(Bytes::copy_from_slice(packet))
         } else {
-            Err("error recv from remote".into())
+            Err(Error::msg("error recv from remote"))
         }
     }
 

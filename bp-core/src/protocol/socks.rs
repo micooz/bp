@@ -1,8 +1,9 @@
 use crate::{
     net::{address::Address, socket::Socket},
     protocol::{Protocol, ProtocolType, ResolvedResult},
-    utils, Result,
+    utils,
 };
+use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
 
@@ -98,11 +99,10 @@ impl Protocol for Socks {
         let n_methods = buf[1] as usize;
 
         if buf[0] != SOCKS_VERSION_V5 || n_methods < 1 {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "message is invalid when parsing socks5 identifier message: {}",
                 utils::fmt::ToHex(buf.to_vec())
-            )
-            .into());
+            )));
         }
 
         // select one method
@@ -121,11 +121,10 @@ impl Protocol for Socks {
         }
 
         if method.is_none() {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "METHOD only support {:#04x} but it's not found in socks5 identifier message",
                 METHOD_NO_AUTH
-            )
-            .into());
+            )));
         }
 
         // 2. Reply Socks5 Select Message
@@ -151,16 +150,22 @@ impl Protocol for Socks {
         let buf = socket.read_exact(3).await?;
 
         if buf[0] != SOCKS_VERSION_V5 {
-            return Err(format!("VER should be {:#04x} but got {:#04x}", SOCKS_VERSION_V5, buf[0]).into());
+            return Err(Error::msg(format!(
+                "VER should be {:#04x} but got {:#04x}",
+                SOCKS_VERSION_V5, buf[0]
+            )));
         }
 
         // TODO: add support for REQUEST_COMMAND_BIND
         if buf[1] == REQUEST_COMMAND_BIND {
-            return Err(format!("CMD does not support {:#04x}", REQUEST_COMMAND_BIND).into());
+            return Err(Error::msg(format!(
+                "CMD does not support {:#04x}",
+                REQUEST_COMMAND_BIND
+            )));
         }
 
         if buf[2] != NOOP {
-            return Err(format!("RSV must be 0x00 but got {:#04x}", buf[2]).into());
+            return Err(Error::msg(format!("RSV must be 0x00 but got {:#04x}", buf[2])));
         }
 
         let addr = Address::from_socket(socket).await?;

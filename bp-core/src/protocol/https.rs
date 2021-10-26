@@ -4,8 +4,9 @@ use crate::{
         socket::Socket,
     },
     protocol::{Protocol, ProtocolType, ResolvedResult},
-    utils, Result,
+    utils,
 };
+use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 
@@ -32,21 +33,19 @@ impl Protocol for Https {
         let content_type = socket.read_exact(1).await?;
 
         if content_type[0] != 0x16 {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "Content Type must be Handshake (0x16), but got {:#04x}",
                 content_type[0]
-            )
-            .into());
+            )));
         }
 
         let version = socket.read_exact(2).await?;
 
         if version[0] != 0x03 && version[1] != 0x01 {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "Version must be TLS 1.0 (0x0301), but got {}",
                 utils::fmt::ToHex(version.to_vec())
-            )
-            .into());
+            )));
         }
 
         let mut len_buf = socket.read_exact(2).await?;
@@ -57,11 +56,10 @@ impl Protocol for Https {
         let handshake_type = handshake_buf.get_u8();
 
         if handshake_type != 0x01 {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "Handshake Type must be Client Hello (0x01), but got {:#04x}",
                 handshake_type
-            )
-            .into());
+            )));
         }
 
         // skip Length(3 bytes)
@@ -70,11 +68,10 @@ impl Protocol for Https {
         let version = handshake_buf.slice(0..2);
 
         if version[0] != 0x03 && version[1] != 0x03 {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "Version must be TLS 1.2 (0x0303), but got {}",
                 utils::fmt::ToHex(version.to_vec())
-            )
-            .into());
+            )));
         }
 
         // skip Version(2 bytes) and Random(32 bytes)
@@ -99,12 +96,11 @@ impl Protocol for Https {
         let ext_buf = handshake_buf;
 
         if extensions_len != ext_buf.len() {
-            return Err(format!(
+            return Err(Error::msg(format!(
                 "Extension Length({}) mismatch the remaining buffer size({})",
                 extensions_len,
                 ext_buf.len()
-            )
-            .into());
+            )));
         }
 
         // find Extension: server_name
@@ -142,7 +138,7 @@ impl Protocol for Https {
             }
         }
 
-        Err("server_name Extension not found".into())
+        Err(Error::msg("server_name Extension not found"))
     }
 
     async fn client_encode(&mut self, _socket: &Socket) -> Result<Bytes> {

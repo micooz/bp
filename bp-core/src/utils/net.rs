@@ -1,8 +1,8 @@
+use anyhow::{Error, Result};
 use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
-use std::result::Result;
 use tokio::net::UdpSocket;
 
-pub async fn create_udp_client_with_random_port() -> Result<UdpSocket, &'static str> {
+pub async fn create_udp_client_with_random_port() -> Result<UdpSocket> {
     let mut max_retry_times = 10u8;
     let mut rng = StdRng::from_rng(thread_rng()).unwrap();
 
@@ -19,7 +19,7 @@ pub async fn create_udp_client_with_random_port() -> Result<UdpSocket, &'static 
                 max_retry_times -= 1;
 
                 if max_retry_times == 0 {
-                    return Err("udp socket random bind error, max retry times exceed");
+                    return Err(Error::msg("udp socket random bind error, max retry times exceed"));
                 }
             }
         }

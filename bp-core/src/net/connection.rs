@@ -10,8 +10,8 @@ use crate::{
     },
     options::Options,
     protocol::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
-    Result,
 };
+use anyhow::Result;
 use tokio::sync;
 use tokio::time;
 

@@ -2,8 +2,9 @@ use crate::{
     net::{address::Address, socket::Socket},
     options::ServiceType,
     protocol::{Protocol, ProtocolType, ResolvedResult},
-    utils, Result,
+    utils,
 };
+use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
 use chacha20poly1305::{
@@ -126,7 +127,7 @@ impl Erp {
 
             Ok(cipher_text.into())
         } else {
-            Err("encrypt failed".into())
+            Err(Error::msg("encrypt failed"))
         }
     }
 
@@ -151,7 +152,7 @@ impl Erp {
 
             Ok(plain_text.into())
         } else {
-            Err("decrypt failed".into())
+            Err(Error::msg("decrypt failed"))
         }
     }
 
