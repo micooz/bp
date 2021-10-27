@@ -3,13 +3,14 @@ use crate::{
     net::address::Address,
     protocol::TransportProtocol,
 };
+use anyhow::{Error, Result};
 use std::{fs, io::Read};
 
 /// Lightweight and efficient proxy written in pure Rust
 #[derive(clap::Parser, serde::Deserialize, Default, Debug, Clone)]
 #[clap(name = "bp", version = clap::crate_version!())]
 pub struct Options {
-    /// Configuration file in YAML format
+    /// Configuration file in YAML/JSON format
     #[clap(long)]
     #[serde(skip)]
     pub config: Option<String>,
@@ -61,17 +62,28 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn from_yaml_file(file: &str) -> anyhow::Result<Self> {
+    pub fn from_file(file: &str) -> Result<Self> {
         let mut raw_str = String::new();
         let mut fd = fs::OpenOptions::new().read(true).open(file)?;
         fd.read_to_string(&mut raw_str)?;
 
-        Self::from_yaml_str(&raw_str)
+        if let Ok(v) = Self::from_yaml_str(&raw_str) {
+            return Ok(v);
+        }
+
+        if let Ok(v) = Self::from_json_str(&raw_str) {
+            return Ok(v);
+        }
+
+        Err(Error::msg("file is invalid YAML or JSON"))
     }
 
-    pub fn from_yaml_str(s: &str) -> anyhow::Result<Self> {
-        serde_yaml::from_str(s)
-            .map_err(|err| anyhow::Error::msg(format!("Fail to load YAML config: {}", err.to_string())))
+    fn from_yaml_str(s: &str) -> Result<Self> {
+        serde_yaml::from_str(s).map_err(|err| Error::msg(format!("Fail to load YAML config: {}", err.to_string())))
+    }
+
+    fn from_json_str(s: &str) -> Result<Self> {
+        serde_json::from_str(s).map_err(|err| Error::msg(format!("Fail to load JSON config: {}", err.to_string())))
     }
 
     /// Return local service type

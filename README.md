@@ -34,7 +34,7 @@ OPTIONS:
             run as client
 
         --config <CONFIG>
-            Configuration file in YAML format
+            Configuration file in YAML/JSON format
 
         --dns-server <DNS_SERVER>
             DNS server address [default: 8.8.8.8:53]

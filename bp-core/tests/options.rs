@@ -1,23 +1,13 @@
 use bp_core::*;
 
 #[test]
-fn test_from_yaml_file() {
-    let opts = Options::from_yaml_file("tests/fixtures/config.yml").unwrap();
-
+fn test_from_file() {
+    let opts = Options::from_file("tests/fixtures/config.yml").unwrap();
     assert_eq!(opts.client, true);
     assert_eq!(opts.bind, "127.0.0.1:1080".parse().unwrap());
     assert_eq!(opts.protocol, TransportProtocol::EncryptRandomPadding);
-}
 
-#[test]
-fn test_from_yaml_str() {
-    let yaml_str = r#"
-        server: true
-        bind: 127.0.0.1:1080
-        key: key
-    "#;
-    let opts = Options::from_yaml_str(yaml_str).unwrap();
-
+    let opts = Options::from_file("tests/fixtures/config.json").unwrap();
     assert_eq!(opts.server, true);
     assert_eq!(opts.bind, "127.0.0.1:1080".parse().unwrap());
     assert_eq!(opts.key, Some("key".to_string()));

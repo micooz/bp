@@ -11,10 +11,10 @@ async fn main() {
 
     let mut opts: Options = Parser::parse();
 
-    // load YAML config if set
+    // load config from file
     if let Some(config) = opts.config {
-        opts = Options::from_yaml_file(&config).unwrap_or_else(|err| {
-            log::error!("Invalid YAML format: {}", err);
+        opts = Options::from_file(&config).unwrap_or_else(|err| {
+            log::error!("Unrecognized format of {}: {}", &config, err);
             exit(ExitError::ArgumentsError.into());
         });
     }
