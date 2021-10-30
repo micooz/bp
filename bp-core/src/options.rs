@@ -25,7 +25,7 @@ pub struct Options {
     #[serde(default)]
     pub client: bool,
 
-    /// run as daemon process, Linux only
+    /// run as daemon process, unix only
     #[clap(short, long)]
     #[serde(default)]
     pub daemonize: bool,
@@ -133,6 +133,12 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
     // check --server-bind
     if opts.client && opts.server_bind.is_none() {
         log::warn!("--server-host or --server-port not set, bp will relay directly.");
+    }
+
+    // check --daemonize
+    #[cfg(not(target_family = "unix"))]
+    if opts.daemonize {
+        log::warn!("--daemonize only works on unix.");
     }
 
     // check --key

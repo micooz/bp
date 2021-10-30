@@ -4,16 +4,13 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use std::path::PathBuf;
 
-pub fn init() -> PathBuf {
-    let file_path = Dirs::log_file();
-
+pub fn init() {
     let encoder = Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} [{M}] {m}{n}"));
     let console = ConsoleAppender::builder().encoder(encoder.clone()).build();
     let file = FileAppender::builder()
         .encoder(encoder)
-        .build(file_path.clone())
+        .build(Dirs::log_file())
         .unwrap();
 
     let builder = Config::builder()
@@ -28,6 +25,4 @@ pub fn init() -> PathBuf {
     let config = builder.build(root).unwrap();
 
     log4rs::init_config(config).unwrap();
-
-    file_path
 }

@@ -7,7 +7,7 @@ use tokio::sync::oneshot;
 #[tokio::main]
 async fn main() {
     #[cfg(feature = "logging")]
-    let log_path = logging::init();
+    logging::init();
 
     let mut opts: Options = Parser::parse();
 
@@ -21,8 +21,6 @@ async fn main() {
 
     match check_options(&opts) {
         Ok(_) => {
-            log::info!("log files are stored at {}", log_path.to_str().unwrap());
-
             let (tx, _rx) = oneshot::channel::<StartupInfo>();
 
             if let Err(err) = bootstrap(opts, tx).await {

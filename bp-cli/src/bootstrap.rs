@@ -1,5 +1,5 @@
 use crate::dirs::Dirs;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use bp_core::{global, init_dns_resolver, start_service, Connection, Options, StartupInfo};
 use tokio::{sync::oneshot::Sender, task::JoinHandle, time};
 
@@ -7,14 +7,19 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
     // dirs init
     Dirs::init()?;
 
+    log::info!("log files are stored at {}", Dirs::log_file().to_str().unwrap());
+
     // dns server
     init_dns_resolver(opts.get_dns_server().as_socket_addr()).await?;
-    // .map_err(|x| x.to_string())?;
 
     // daemonize
-    #[cfg(target_os = "linux")]
+    #[cfg(target_family = "unix")]
     if opts.daemonize {
-        daemonize()?;
+        log::info!(
+            "start daemonize, stdout/stderr will be redirected to {}",
+            Dirs::run().to_str().unwrap()
+        );
+        daemonize().map_err(|err| Error::msg(format!("fail to daemonize due to: {}", err)))?;
     }
 
     // monitor service
@@ -110,9 +115,8 @@ async fn start_main_service(opts: Options) -> Result<JoinHandle<()>> {
     Ok(handle)
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(target_family = "unix")]
 fn daemonize() -> Result<()> {
-    use anyhow::Error;
     use daemonize::Daemonize;
     use std::fs::File;
 
