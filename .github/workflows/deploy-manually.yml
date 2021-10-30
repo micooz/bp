@@ -76,6 +76,6 @@ jobs:
             killall bp || true
 
             echo "Start bp service"
-            bp --config $CONFIG_FILE
+            $BIN_FILE --config $CONFIG_FILE
 
             echo "> All Done."
