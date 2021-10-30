@@ -15,58 +15,10 @@ Lightweight and efficient proxy written in pure Rust.
 
 ## Usage
 
-Please check -h/--help first.
+Please check -h/--help for more information, or check out [USAGE](USAGE.txt).
 
 ```
 $ bp -h
-bp 1.0.0-alpha.1
-
-Lightweight and efficient proxy written in pure Rust
-
-USAGE:
-    bp [OPTIONS]
-
-OPTIONS:
-    -b, --bind <BIND>
-            local service bind address [default: 127.0.0.1:1080]
-
-    -c, --client
-            run as client
-
-        --config <CONFIG>
-            Configuration file in YAML/JSON format
-
-        --dns-server <DNS_SERVER>
-            DNS server address [default: 8.8.8.8:53]
-
-        --force-dest-addr <FORCE_DEST_ADDR>
-            force all incoming data relay to this destination, usually for testing [default: false]
-
-    -h, --help
-            Print help information
-
-    -k, --key <KEY>
-            symmetric encryption key
-
-    -p, --protocol <PROTOCOL>
-            protocol used by transport layer between client and server, "plain" or "erp" are
-            supported [default: erp]
-
-        --proxy-white-list <PROXY_WHITE_LIST>
-            check white list before proxy, pass a file path
-
-    -s, --server
-            run as server
-
-        --server-bind <SERVER_BIND>
-            bp server bind address, client only. If not set, bp will relay directly
-
-        --udp-over-tcp
-            proxy UDP via TCP, client only. Requires --server-bind to be set if true [default:
-            false]
-
-    -V, --version
-            Print version information
 ```
 
 ## Examples

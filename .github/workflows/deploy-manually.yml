@@ -14,14 +14,14 @@ on:
         required: true
       version:
         description: 'Asset version to deploy'
-        default: 'v1.0.0-alpha.1'
+        default: 'v1.0.0-alpha.2'
         required: true
       arch:
         description: 'Asset binary architecture (Rust format)'
         default: 'x86_64-unknown-linux-gnu'
         required: true
       config:
-        description: 'YAML configuration string used by bp'
+        description: 'Config string used by bp --config'
         required: true
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
       PASSWORD: ${{ github.event.inputs.password }}
       VERSION: ${{ github.event.inputs.version }}
       ASSET_FILE: bp-${{ github.event.inputs.version }}.${{ github.event.inputs.arch }}.tar.xz
-      CONFIG_FILE: config.yml
+      CONFIG_FILE: config
       DEPLOY_PATH: /root/.bp/deploy/${{ github.event.inputs.version }}
     steps:
       - name: Download Asset
@@ -44,7 +44,7 @@ jobs:
           file: "${{ env.ASSET_FILE }}"
           target: "${{ env.ASSET_FILE }}"
 
-      - name: Write Config YAML File
+      - name: Write Config File
         run: |
           echo -e "${{ github.event.inputs.config }}" > ${{ env.CONFIG_FILE }}
 
@@ -67,7 +67,7 @@ jobs:
           script: |
             TAR_FILE=${{ env.DEPLOY_PATH }}/${{ env.ASSET_FILE }}
             BIN_FILE=${{ env.DEPLOY_PATH }}/bp
-            CONFIG_FILE=${{ env.DEPLOY_PATH }}/config.yml
+            CONFIG_FILE=${{ env.DEPLOY_PATH }}/${{ env.CONFIG_FILE }}
 
             echo "> Extract $TAR_FILE"
             tar -xf $TAR_FILE -C ${{ env.DEPLOY_PATH }}

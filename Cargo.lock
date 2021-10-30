@@ -292,7 +292,7 @@ checksum = "5988cb1d626264ac94100be357308f29ff7cbdd3b36bda27f450a4ee3f713426"
 
 [[package]]
 name = "bp"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 dependencies = [
  "bp-cli",
  "bp-core",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "bp-cli"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 dependencies = [
  "anyhow",
  "bp-core",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "bp-core"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "bp-monitor"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 dependencies = [
  "bp-core",
  "bytes",
@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "bp-test"
-version = "1.0.0-alpha.0"
+version = "1.0.0-alpha.2"
 dependencies = [
  "bp-core",
  "bytes",
