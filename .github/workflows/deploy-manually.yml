@@ -6,7 +6,7 @@ on:
       host:
         description: 'Remote Host to deploy'
         required: true
-      host:
+      port:
         description: 'SSH Port'
         default: '22'
         required: true
