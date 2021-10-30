@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use tokio::sync::oneshot;
 
 lazy_static::lazy_static! {
-    static ref INCREMENTAL_PORT_NUM:Mutex<u16> = Mutex::new(1080);
+    static ref INCREMENTAL_PORT_NUM :Mutex<u16> = Mutex::new(1080);
 }
 
 pub async fn run_bp(mut opts: Options) -> StartupInfo {

@@ -25,6 +25,11 @@ pub struct Options {
     #[serde(default)]
     pub client: bool,
 
+    /// run as daemon process, Linux only
+    #[clap(short, long)]
+    #[serde(default)]
+    pub daemonize: bool,
+
     /// local service bind address
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
     pub bind: Address,

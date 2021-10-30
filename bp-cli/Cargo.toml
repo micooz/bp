@@ -6,10 +6,11 @@ edition = "2021"
 [dependencies]
 bp-core = { path = "../bp-core" }
 bp-monitor = { path = "../bp-monitor" }
+anyhow = "1.0.44"
+daemonize = "0.4.1"
 dirs = "4.0.0"
 lazy_static = "1.4.0"
 log4rs = "1.0.0"
-anyhow = "1.0.44"
 log = "0.4.0"
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
 

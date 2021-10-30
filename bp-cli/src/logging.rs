@@ -1,3 +1,4 @@
+use crate::dirs::Dirs;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -6,7 +7,7 @@ use log4rs::encode::pattern::PatternEncoder;
 use std::path::PathBuf;
 
 pub fn init() -> PathBuf {
-    let file_path = get_file_path();
+    let file_path = Dirs::log_file();
 
     let encoder = Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} [{M}] {m}{n}"));
     let console = ConsoleAppender::builder().encoder(encoder.clone()).build();
@@ -29,13 +30,4 @@ pub fn init() -> PathBuf {
     log4rs::init_config(config).unwrap();
 
     file_path
-}
-
-// return ~/.bp/logs/bp.log
-fn get_file_path() -> PathBuf {
-    let mut dir = dirs::home_dir().unwrap();
-    dir.push(".bp");
-    dir.push("logs");
-    dir.push("bp.log");
-    dir
 }
