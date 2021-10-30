@@ -6,6 +6,10 @@ on:
       host:
         description: 'Remote Host to deploy'
         required: true
+      host:
+        description: 'SSH Port'
+        default: '22'
+        required: true
       username:
         description: 'SSH username'
         required: true
@@ -29,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HOST: ${{ github.event.inputs.host }}
+      PORT: ${{ github.event.inputs.port }}
       USERNAME: ${{ github.event.inputs.username }}
       PASSWORD: ${{ github.event.inputs.password }}
       VERSION: ${{ github.event.inputs.version }}
@@ -52,6 +57,7 @@ jobs:
         uses: appleboy/scp-action@master
         with:
           host: ${{ env.HOST }}
+          port: ${{ env.PORT }}
           username: ${{ env.USERNAME }}
           password: ${{ env.PASSWORD }}
           source: "${{ env.ASSET_FILE }},${{ env.CONFIG_FILE }}"
@@ -61,6 +67,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.HOST }}
+          port: ${{ env.PORT }}
           username: ${{ env.USERNAME }}
           password: ${{ env.PASSWORD }}
           script_stop: true
