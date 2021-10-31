@@ -33,6 +33,12 @@ pub struct ResolvedResult {
     pub pending_buf: Option<bytes::Bytes>,
 }
 
+impl ResolvedResult {
+    pub fn set_port(&mut self, port: u16) {
+        self.address.set_port(port);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ProtocolType {
     Direct,

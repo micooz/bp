@@ -99,12 +99,14 @@ impl Inbound {
             // check one by one
             for mut proto in try_list {
                 if self.resolve_dest_addr(&mut proto, true).await.is_ok() {
-                    // overwrite port if redirect dest addr exist
+                    // overwrite port if redirect_dest_addr exist and it's port is not bp itself.
                     // because http/https sniffer return an inaccurate port number(80 or 443)
                     if let Some(addr) = redirect_dest_addr {
-                        let mut resolved = proto.get_resolved_result().unwrap();
-                        resolved.address.set_port(addr.port);
-                        proto.set_resolved_result(resolved);
+                        if addr.port != self.opts.bind.port {
+                            let mut resolved = proto.get_resolved_result().unwrap();
+                            resolved.set_port(addr.port);
+                            proto.set_resolved_result(resolved);
+                        }
                     }
                     return Ok(InboundResolveResult { proto });
                 }
