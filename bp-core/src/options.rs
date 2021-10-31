@@ -150,6 +150,9 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
     if opts.server && opts.proxy_white_list.is_some() {
         return Err("--proxy-white-list can only be set on client.");
     }
+    if opts.proxy_white_list.is_some() && opts.proxy_white_list.as_ref().unwrap().is_empty() {
+        return Err("--proxy-white-list is set but empty.");
+    }
 
     // check --udp-over-tcp
     if opts.udp_over_tcp {

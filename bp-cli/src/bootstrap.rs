@@ -1,7 +1,11 @@
 use crate::dirs::Dirs;
 use anyhow::{Error, Result};
 use bp_core::{global, init_dns_resolver, start_service, Connection, Options, StartupInfo};
+use std::env;
+use std::process::Command;
 use tokio::{sync::oneshot::Sender, task::JoinHandle, time};
+
+const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 
 pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<()> {
     // dirs init
@@ -9,18 +13,40 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
 
     log::info!("log files are stored at {}", Dirs::log_file().to_str().unwrap());
 
-    // dns server
-    init_dns_resolver(opts.get_dns_server().as_socket_addr()).await?;
-
     // daemonize
     #[cfg(target_family = "unix")]
-    if opts.daemonize {
+    if opts.daemonize && !env::vars().any(|(k, _)| k == ENV_DISABLE_DAEMONIZE) {
         log::info!(
             "start daemonize, stdout/stderr will be redirected to {}",
             Dirs::run().to_str().unwrap()
         );
+
+        // NOTE: must read before daemonize() call
+        let bin_path = env::current_exe().unwrap();
+        let work_dir = env::current_dir().unwrap();
+
         daemonize().map_err(|err| Error::msg(format!("fail to daemonize due to: {}", err)))?;
+
+        log::info!("spawning a new child process before exit");
+
+        let mut command = Command::new(bin_path);
+        command.current_dir(work_dir);
+        command.env(ENV_DISABLE_DAEMONIZE, "1");
+
+        for (index, arg) in env::args().enumerate() {
+            if index == 0 {
+                continue;
+            }
+            command.arg(arg);
+        }
+
+        command.spawn()?;
+
+        return Ok(());
     }
+
+    // dns server
+    init_dns_resolver(opts.get_dns_server().as_socket_addr()).await?;
 
     // monitor service
     #[cfg(feature = "monitor")]
@@ -125,11 +151,11 @@ fn daemonize() -> Result<()> {
 
     let daemonize = Daemonize::new()
         .pid_file(Dirs::run_pid()) // Every method except `new` and `start`
-        .chown_pid_file(true) // is optional, see `Daemonize` documentation
-        .working_directory("/tmp") // for default behaviour.
-        .user("nobody")
-        .group("daemon") // Group name
-        .group(2) // or group id.
+        // .chown_pid_file(true) // is optional, see `Daemonize` documentation
+        // .working_directory("/tmp") // for default behaviour.
+        // .user("root")
+        // .group("root") // Group name
+        // .group(2) // or group id.
         // .umask(0o777) // Set umask, `0o027` by default.
         .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
         .stderr(stderr); // Redirect stderr to `/tmp/daemon.err`.

@@ -1,3 +1,4 @@
+use anyhow::{Error, Result};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::fmt::Display;
 use std::fs;
@@ -14,7 +15,11 @@ pub struct AccessControlList {
 }
 
 impl AccessControlList {
-    pub fn load_from_file(&self, path: String) -> std::io::Result<()> {
+    pub fn load_from_file(&self, path: String) -> Result<()> {
+        if path.is_empty() {
+            return Err(Error::msg("empty string specified"));
+        }
+
         log::info!("loading white list from {}", path);
 
         let mut file = fs::OpenOptions::new()
@@ -35,7 +40,7 @@ impl AccessControlList {
         Ok(())
     }
 
-    pub fn save_to_file(&self, path: PathBuf) -> std::io::Result<()> {
+    pub fn save_to_file(&self, path: PathBuf) -> Result<()> {
         let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
 
         let buf = self.stringify();
@@ -100,7 +105,9 @@ impl AccessControlList {
         // for example to handle I/O.
         loop {
             if let Ok(notify::DebouncedEvent::Write(_)) = rx.recv() {
-                self.load_from_file(path.clone())?;
+                if let Err(res) = self.load_from_file(path.clone()) {
+                    log::warn!("reload failed due to: {}", res.to_string())
+                }
             }
         }
     }

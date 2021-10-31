@@ -104,6 +104,17 @@ fn test_set_server_and_proxy_white_list() {
 }
 
 #[test]
+fn test_proxy_white_list_is_set_empty() {
+    let opts = Options {
+        client: true,
+        proxy_white_list: Some("".to_string()),
+        ..Options::default()
+    };
+
+    assert!(check_options(&opts).is_err());
+}
+
+#[test]
 fn test_set_client_and_udp_over_tcp() {
     let opts = Options {
         client: true,
