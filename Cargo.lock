@@ -292,7 +292,7 @@ checksum = "5988cb1d626264ac94100be357308f29ff7cbdd3b36bda27f450a4ee3f713426"
 
 [[package]]
 name = "bp"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 dependencies = [
  "bp-cli",
  "bp-core",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "bp-cli"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 dependencies = [
  "anyhow",
  "bp-core",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "bp-core"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "bp-monitor"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 dependencies = [
  "bp-core",
  "bytes",
@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "bp-test"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 dependencies = [
  "bp-core",
  "bytes",
@@ -1294,9 +1294,9 @@ checksum = "db13adb97ab515a3691f56e4dbab09283d0b86cb45abd991d8634a9d6f501760"
 
 [[package]]
 name = "libc"
-version = "0.2.105"
+version = "0.2.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "869d572136620d55835903746bcb5cdc54cb2851fd0aeec53220b4bb65ef3013"
+checksum = "a60553f9a9e039a333b4e9b20573b9e9b9c0bb3a11e201ccc48ef4283456d673"
 
 [[package]]
 name = "libnghttp2-sys"
