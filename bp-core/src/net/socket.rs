@@ -110,6 +110,7 @@ impl Socket {
 }
 
 impl Socket {
+    #[inline]
     pub async fn cache(&self, buf: bytes::Bytes) {
         self.reader.cache(buf).await;
     }
@@ -129,10 +130,12 @@ impl Socket {
         self.reader.read_into(buf).await
     }
 
+    #[inline]
     pub async fn restore(&self) {
         self.reader.restore().await;
     }
 
+    #[inline]
     pub async fn clear_restore(&self) {
         self.reader.clear_restore().await;
     }
