@@ -74,8 +74,6 @@ impl Outbound {
         self.protocol_name = Some(protocol_name.to_string());
         self.remote_addr = Some(remote_addr.clone());
 
-        log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr);
-
         // resolve dest ip address
         let remote_ip_addr = self.dns_resolve(&remote_addr).await.map_err(|err| {
             let msg = format!(
@@ -85,6 +83,14 @@ impl Outbound {
             log::error!("{}", msg);
             Error::msg(msg)
         })?;
+
+        log::info!(
+            "[{}] [{}] connecting to {} resolved to {}...",
+            peer_address,
+            socket_type,
+            remote_addr,
+            remote_ip_addr
+        );
 
         // make connection
         let socket = self.connect(remote_ip_addr).await.map_err(|err| {
@@ -198,11 +204,9 @@ impl Outbound {
         let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
 
+        log::trace!("[{}] [{}] resolving {}...", peer_address, socket_type, addr);
+
         let ip_list = match &addr.host {
-            Host::Ip(ip) => {
-                let addr = SocketAddr::new(*ip, addr.port);
-                [addr].to_vec()
-            }
             Host::Name(name) => {
                 // get pre-init resolver
                 let resolver = global::SHARED_DATA.get_dns_resolver();
@@ -221,9 +225,10 @@ impl Outbound {
                     .map(|ip| SocketAddr::new(ip, addr.port))
                     .collect::<Vec<SocketAddr>>()
             }
+            _ => vec![],
         };
 
-        log::info!(
+        log::trace!(
             "[{}] [{}] resolved {} to {:?}",
             peer_address,
             socket_type,

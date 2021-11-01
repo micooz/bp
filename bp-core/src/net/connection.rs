@@ -85,6 +85,20 @@ impl Connection {
         self.inbound.clear_restore().await;
 
         let resolved = in_proto.get_resolved_result().unwrap();
+
+        // we must drop connection to bp itself, because:
+        // connect to bp itself will cause listener.accept() run into infinite loop and
+        // produce "No file descriptors available" errors.
+        // TODO: how about comparing between localhost and 127.0.0.1?
+        if resolved.address == self.opts.bind {
+            log::error!(
+                "[{}] [{}] detected dest address is bp itself, dropped",
+                self.peer_addr,
+                self.inbound.socket_type()
+            );
+            return Ok(());
+        }
+
         self.dest_addr = Some(resolved.address.clone());
 
         // set outbound socket type
@@ -202,6 +216,7 @@ impl Connection {
     /// handle events from inbound and outbound
     async fn handle_events(&mut self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
         let peer_addr = self.peer_addr.clone();
+        let socket_type = self.inbound.socket_type();
 
         loop {
             let future = rx.recv();
@@ -211,8 +226,9 @@ impl Connection {
 
             if timeout.is_err() {
                 log::warn!(
-                    "[{}] no data read/write for {} seconds",
+                    "[{}] [{}] no data read/write for {} seconds",
                     peer_addr,
+                    socket_type,
                     config::READ_WRITE_TIMEOUT_SECONDS
                 );
                 self.close().await?;

@@ -109,8 +109,13 @@ async fn start_main_service(opts: Options) -> Result<JoinHandle<()>> {
         let mut id = 0usize;
 
         while let Some(socket) = receiver.recv().await {
+            if socket.is_none() {
+                break;
+            }
+
             id += 1;
 
+            let socket = socket.unwrap();
             let opts = opts.clone();
 
             // put socket to new task to create a Connection

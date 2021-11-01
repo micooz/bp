@@ -13,8 +13,8 @@ pub struct StartupInfo {
     pub bind_addr: Address,
 }
 
-pub async fn start_service(name: &'static str, bind_addr: &Address) -> Result<Receiver<Socket>> {
-    let (sender, receiver) = channel::<Socket>(config::SERVICE_CONNECTION_THRESHOLD);
+pub async fn start_service(name: &'static str, bind_addr: &Address) -> Result<Receiver<Option<Socket>>> {
+    let (sender, receiver) = channel::<Option<Socket>>(config::SERVICE_CONNECTION_THRESHOLD);
 
     let sender_tcp = sender.clone();
     let bind_addr_tcp = bind_addr.clone();
@@ -33,7 +33,7 @@ pub async fn start_service(name: &'static str, bind_addr: &Address) -> Result<Re
     Ok(receiver)
 }
 
-async fn bind_tcp(name: &'static str, addr: &Address, sender: Sender<Socket>) -> Result<()> {
+async fn bind_tcp(name: &'static str, addr: &Address, sender: Sender<Option<Socket>>) -> Result<()> {
     let listener = TcpListener::bind(addr.to_string()).await?;
 
     log::info!(
@@ -44,15 +44,23 @@ async fn bind_tcp(name: &'static str, addr: &Address, sender: Sender<Socket>) ->
 
     tokio::spawn(async move {
         loop {
-            let (stream, _) = listener.accept().await.unwrap();
-            let _res = sender.send(Socket::from_stream(stream)).await;
+            match listener.accept().await {
+                Ok((stream, _)) => {
+                    let _res = sender.send(Some(Socket::from_stream(stream))).await;
+                }
+                Err(err) => {
+                    log::error!("[{}] encountered an error: {}", name, err);
+                    let _ = sender.send(None).await;
+                    break;
+                }
+            }
         }
     });
 
     Ok(())
 }
 
-async fn bind_udp(name: &'static str, addr: &Address, sender: Sender<Socket>) -> Result<()> {
+async fn bind_udp(name: &'static str, addr: &Address, sender: Sender<Option<Socket>>) -> Result<()> {
     let socket = Arc::new(UdpSocket::bind(addr.to_string()).await?);
 
     log::info!(
@@ -66,14 +74,22 @@ async fn bind_udp(name: &'static str, addr: &Address, sender: Sender<Socket>) ->
             let socket = socket.clone();
 
             let mut buf = vec![0; config::UDP_MTU];
-            let (len, addr) = socket.recv_from(&mut buf).await.unwrap();
 
-            if let Some(buf) = buf.get(0..len) {
-                let socket = Socket::from_udp_socket(socket, addr);
+            match socket.recv_from(&mut buf).await {
+                Ok((len, addr)) => {
+                    if let Some(buf) = buf.get(0..len) {
+                        let socket = Socket::from_udp_socket(socket, addr);
 
-                socket.cache(Bytes::copy_from_slice(buf)).await;
+                        socket.cache(Bytes::copy_from_slice(buf)).await;
 
-                let _res = sender.send(socket).await;
+                        let _res = sender.send(Some(socket)).await;
+                    }
+                }
+                Err(err) => {
+                    log::error!("[{}] encountered an error: {}", name, err);
+                    let _ = sender.send(None).await;
+                    break;
+                }
             }
         }
     });
