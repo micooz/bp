@@ -107,7 +107,7 @@ impl Address {
     }
 
     pub fn as_socket_addr(&self) -> std::net::SocketAddr {
-        self.as_string().parse().unwrap()
+        self.as_string().parse().expect("cannot convert to <ip>:<port>")
     }
 
     pub async fn from_socket(socket: &socket::Socket) -> Result<Self> {

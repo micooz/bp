@@ -34,7 +34,7 @@ pub async fn start_service(name: &'static str, bind_addr: &Address) -> Result<Re
 }
 
 async fn bind_tcp(name: &'static str, addr: &Address, sender: Sender<Socket>) -> Result<()> {
-    let listener = TcpListener::bind(addr.as_socket_addr()).await?;
+    let listener = TcpListener::bind(addr.to_string()).await?;
 
     log::info!(
         "[{}] service running at tcp://{}, waiting for connection...",
@@ -53,7 +53,7 @@ async fn bind_tcp(name: &'static str, addr: &Address, sender: Sender<Socket>) ->
 }
 
 async fn bind_udp(name: &'static str, addr: &Address, sender: Sender<Socket>) -> Result<()> {
-    let socket = Arc::new(UdpSocket::bind(addr.as_socket_addr()).await?);
+    let socket = Arc::new(UdpSocket::bind(addr.to_string()).await?);
 
     log::info!(
         "[{}] service running at udp://{}, waiting for data packets...",
