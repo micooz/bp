@@ -84,11 +84,11 @@ impl Options {
     }
 
     fn from_yaml_str(s: &str) -> Result<Self> {
-        serde_yaml::from_str(s).map_err(|err| Error::msg(format!("Fail to load YAML config: {}", err.to_string())))
+        serde_yaml::from_str(s).map_err(|err| Error::msg(format!("Fail to load YAML config: {}", err)))
     }
 
     fn from_json_str(s: &str) -> Result<Self> {
-        serde_json::from_str(s).map_err(|err| Error::msg(format!("Fail to load JSON config: {}", err.to_string())))
+        serde_json::from_str(s).map_err(|err| Error::msg(format!("Fail to load JSON config: {}", err)))
     }
 
     /// Return local service type
