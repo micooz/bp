@@ -26,8 +26,8 @@ impl Protocol for Https {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<ResolvedResult> {
-        self.resolved_result.clone()
+    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
+        self.resolved_result.as_ref()
     }
 
     async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
@@ -51,8 +51,6 @@ impl Protocol for Https {
 
         let mut len_buf = socket.read_exact(2).await?;
         let mut handshake_buf = socket.read_exact(len_buf.get_u16() as usize).await?;
-
-        socket.restore().await;
 
         let handshake_type = handshake_buf.get_u8();
 

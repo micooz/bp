@@ -38,8 +38,8 @@ impl Protocol for Dns {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<ResolvedResult> {
-        self.resolved_result.clone()
+    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
+        self.resolved_result.as_ref()
     }
 
     async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {

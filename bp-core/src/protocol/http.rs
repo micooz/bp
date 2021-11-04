@@ -28,8 +28,8 @@ impl Protocol for Http {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<ResolvedResult> {
-        self.resolved_result.clone()
+    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
+        self.resolved_result.as_ref()
     }
 
     async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
@@ -59,7 +59,7 @@ impl Protocol for Http {
                 socket.send(&resp).await?;
 
                 self.set_resolved_result(ResolvedResult {
-                    protocol: ProtocolType::Http,
+                    protocol: ProtocolType::HttpProxy,
                     address: addr,
                     pending_buf: None,
                 });

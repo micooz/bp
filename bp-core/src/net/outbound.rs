@@ -86,13 +86,17 @@ impl Outbound {
             Error::msg(msg)
         })?;
 
-        log::info!(
-            "[{}] [{}] connecting to {} resolved to {}...",
-            peer_address,
-            socket_type,
-            remote_addr,
-            remote_ip_addr
-        );
+        if remote_addr.is_hostname() {
+            log::info!(
+                "[{}] [{}] connecting to {} resolved to {}...",
+                peer_address,
+                socket_type,
+                remote_addr,
+                remote_ip_addr
+            );
+        } else {
+            log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr,);
+        }
 
         // make connection
         let socket = self.connect(remote_ip_addr).await.map_err(|err| {

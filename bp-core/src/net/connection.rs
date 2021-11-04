@@ -179,7 +179,7 @@ impl Connection {
 
             if !acl.is_host_hit(&dest_addr_host) {
                 log::warn!(
-                    "[{}] [{}] [{}] is not matched in white list, will use [direct] protocol for outbound",
+                    "[{}] [{}] [{}] is not matched in white list",
                     self.peer_addr,
                     self.inbound.socket_type(),
                     dest_addr_host,

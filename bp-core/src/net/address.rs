@@ -79,6 +79,10 @@ impl Address {
         }
     }
 
+    pub fn is_hostname(&self) -> bool {
+        !self.is_ip()
+    }
+
     pub fn as_string(&self) -> String {
         format!("{}:{}", self.host.to_string(), self.port)
     }

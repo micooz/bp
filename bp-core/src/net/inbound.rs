@@ -106,7 +106,7 @@ impl Inbound {
                     // because http/https sniffer return an inaccurate port number(80 or 443)
                     if let Some(addr) = redirect_dest_addr {
                         if addr.port != self.opts.bind.port {
-                            let mut resolved = proto.get_resolved_result().unwrap();
+                            let mut resolved = proto.get_resolved_result().unwrap().clone();
                             resolved.set_port(addr.port);
                             proto.set_resolved_result(resolved);
                         }
@@ -135,7 +135,7 @@ impl Inbound {
             let mut proto = init_transport_protocol(&self.opts);
             self.resolve_dest_addr(&mut proto, false).await?;
 
-            let resolved = proto.get_resolved_result().unwrap();
+            let resolved = proto.get_resolved_result().unwrap().clone();
             let buf = resolved.pending_buf.as_ref();
 
             // check dns packet
@@ -270,15 +270,20 @@ impl Inbound {
 
         match result {
             Ok(_) => {
-                let resolved = proto.get_resolved_result();
+                let resolved = proto.get_resolved_result().unwrap();
 
                 log::info!(
                     "[{}] [{}] [{}] successfully resolved dest address {}",
                     peer_address,
                     socket_type,
                     &proto_name,
-                    resolved.unwrap().address,
+                    resolved.address,
                 );
+
+                // https & http request should restore buffer
+                if matches!(resolved.protocol, ProtocolType::Http | ProtocolType::Https) {
+                    socket.restore().await;
+                }
 
                 Ok(())
             }

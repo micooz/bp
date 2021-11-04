@@ -47,6 +47,7 @@ pub enum ProtocolType {
     Dns,
     Erp,
     Http,
+    HttpProxy,
     Https,
     Plain,
     Socks,
@@ -60,7 +61,7 @@ pub trait Protocol: dyn_clone::DynClone {
         unimplemented!();
     }
 
-    fn get_resolved_result(&self) -> Option<ResolvedResult> {
+    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
         unimplemented!();
     }
 
