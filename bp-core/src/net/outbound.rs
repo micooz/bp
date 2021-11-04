@@ -1,3 +1,13 @@
+use std::{net::SocketAddr, sync::Arc};
+
+use anyhow::{Error, Result};
+use bytes::Bytes;
+use tokio::{
+    net::TcpSocket,
+    sync::mpsc::Sender,
+    time::{timeout, Duration},
+};
+
 use crate::{
     config,
     event::Event,
@@ -8,14 +18,6 @@ use crate::{
     },
     options::{Options, ServiceType},
     protocol::{DynProtocol, ResolvedResult},
-};
-use anyhow::{Error, Result};
-use bytes::Bytes;
-use std::{net::SocketAddr, sync::Arc};
-use tokio::{
-    net::TcpSocket,
-    sync::mpsc::Sender,
-    time::{timeout, Duration},
 };
 
 pub struct Outbound {

@@ -1,10 +1,10 @@
-use crate::acl::AccessControlList;
-use crate::net::connection::ConnectionSnapshot;
+use std::{collections::HashMap, sync::Arc};
+
 use lazy_static::lazy_static;
-use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use trust_dns_resolver::TokioAsyncResolver;
+
+use crate::{acl::AccessControlList, net::connection::ConnectionSnapshot};
 
 lazy_static! {
     pub static ref SHARED_DATA: Arc<SharedData> = Arc::new(SharedData::default());

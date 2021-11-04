@@ -1,6 +1,6 @@
+use std::{fs::create_dir_all, path::PathBuf};
+
 use dirs::home_dir;
-use std::fs::create_dir_all;
-use std::path::PathBuf;
 
 pub struct Dirs;
 

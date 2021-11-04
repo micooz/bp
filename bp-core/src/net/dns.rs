@@ -1,9 +1,12 @@
-use crate::global;
-use anyhow::Result;
 use std::net::SocketAddr;
-use trust_dns_resolver::config::Protocol;
-use trust_dns_resolver::config::{NameServerConfig, ResolverConfig, ResolverOpts};
-use trust_dns_resolver::TokioAsyncResolver;
+
+use anyhow::Result;
+use trust_dns_resolver::{
+    config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts},
+    TokioAsyncResolver,
+};
+
+use crate::global;
 
 pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
     let mut resolver = ResolverConfig::new();

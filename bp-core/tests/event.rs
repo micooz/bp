@@ -1,5 +1,6 @@
-use bp_core::utils::event::*;
 use std::collections::HashMap;
+
+use bp_core::utils::event::*;
 
 #[test]
 fn test_event_emitter() {

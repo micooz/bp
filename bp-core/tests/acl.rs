@@ -1,5 +1,6 @@
-use bp_core::*;
 use std::{fs::read_to_string, path::PathBuf};
+
+use bp_core::*;
 
 #[test]
 fn test_load_from_file() {

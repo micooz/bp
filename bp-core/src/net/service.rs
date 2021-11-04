@@ -1,12 +1,16 @@
+use std::sync::Arc;
+
+use anyhow::{Error, Result};
+use bytes::Bytes;
+use tokio::{
+    net::{TcpListener, UdpSocket},
+    sync::mpsc::{channel, Receiver, Sender},
+};
+
 use crate::{
     config,
     net::{address::Address, socket::Socket},
 };
-use anyhow::{Error, Result};
-use bytes::Bytes;
-use std::sync::Arc;
-use tokio::net::{TcpListener, UdpSocket};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 #[derive(Debug)]
 pub struct StartupInfo {

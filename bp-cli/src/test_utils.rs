@@ -1,8 +1,9 @@
-use crate::bootstrap::bootstrap;
+use std::{str::FromStr, sync::Mutex};
+
 use bp_core::{check_options, Address, Options, StartupInfo};
-use std::str::FromStr;
-use std::sync::Mutex;
 use tokio::sync::oneshot;
+
+use crate::bootstrap::bootstrap;
 
 lazy_static::lazy_static! {
     static ref INCREMENTAL_PORT_NUM :Mutex<u16> = Mutex::new(1080);

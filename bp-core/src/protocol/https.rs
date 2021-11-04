@@ -1,3 +1,7 @@
+use anyhow::{Error, Result};
+use async_trait::async_trait;
+use bytes::{Buf, Bytes};
+
 use crate::{
     net::{
         address::{Address, Host},
@@ -6,9 +10,6 @@ use crate::{
     protocol::{Protocol, ProtocolType, ResolvedResult},
     utils,
 };
-use anyhow::{Error, Result};
-use async_trait::async_trait;
-use bytes::{Buf, Bytes};
 
 #[derive(Clone, Default)]
 pub struct Https {

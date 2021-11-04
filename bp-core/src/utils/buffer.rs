@@ -1,5 +1,6 @@
-use bytes::{BufMut, Bytes, BytesMut};
 use std::cmp::min;
+
+use bytes::{BufMut, Bytes, BytesMut};
 
 pub fn get_chunks(arr: Bytes, len: usize) -> Vec<Bytes> {
     let mut chunks = vec![];

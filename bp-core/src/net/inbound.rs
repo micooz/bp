@@ -1,3 +1,12 @@
+use std::{net::SocketAddr, sync::Arc};
+
+use anyhow::{Error, Result};
+use bytes::Bytes;
+use tokio::{
+    sync::mpsc::Sender,
+    time::{timeout, Duration},
+};
+
 use crate::{
     config,
     event::*,
@@ -8,12 +17,6 @@ use crate::{
     options::{Options, ServiceType},
     protocol::*,
 };
-use anyhow::{Error, Result};
-use bytes::Bytes;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::sync::mpsc::Sender;
-use tokio::time::{timeout, Duration};
 
 pub struct InboundResolveResult {
     pub proto: DynProtocol,
@@ -295,8 +298,9 @@ impl Inbound {
         #[cfg(target_os = "linux")]
         {
             // TODO: get_original_destination_addr always return a value on linux
-            use crate::net::linux::get_original_destination_addr;
             use std::os::unix::io::AsRawFd;
+
+            use crate::net::linux::get_original_destination_addr;
 
             if self.socket.is_udp() {
                 return None;

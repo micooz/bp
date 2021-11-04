@@ -1,7 +1,9 @@
 use bp_cli::test_utils::run_bp;
 use bp_core::{Options, StartupInfo};
-use bp_test::http_server::{run_http_mock_server, HttpServerContext};
-use bp_test::send_recv::tcp_oneshot;
+use bp_test::{
+    http_server::{run_http_mock_server, HttpServerContext},
+    send_recv::tcp_oneshot,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_force_dest() {

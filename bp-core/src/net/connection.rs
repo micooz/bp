@@ -1,22 +1,21 @@
+use anyhow::Result;
+#[cfg(feature = "monitor")]
+use bytes::BytesMut;
+use tokio::{sync, time};
+
 use crate::{
     config,
     event::Event,
     global,
-    net::inbound::{Inbound, InboundResolveResult, InboundSnapshot},
-    net::outbound::{Outbound, OutboundSnapshot},
     net::{
         address::Address,
+        inbound::{Inbound, InboundResolveResult, InboundSnapshot},
+        outbound::{Outbound, OutboundSnapshot},
         socket::{Socket, SocketType},
     },
     options::Options,
     protocol::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
 };
-use anyhow::Result;
-use tokio::sync;
-use tokio::time;
-
-#[cfg(feature = "monitor")]
-use bytes::BytesMut;
 
 #[cfg(feature = "monitor")]
 const MAX_CACHE_SIZE: usize = 1024;

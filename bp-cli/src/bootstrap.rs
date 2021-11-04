@@ -1,9 +1,10 @@
-use crate::dirs::Dirs;
+use std::{env, process::Command};
+
 use anyhow::{Error, Result};
 use bp_core::{global, init_dns_resolver, start_service, Connection, Options, StartupInfo};
-use std::env;
-use std::process::Command;
 use tokio::{sync::oneshot::Sender, task::JoinHandle, time};
+
+use crate::dirs::Dirs;
 
 const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 
@@ -148,8 +149,9 @@ async fn start_main_service(opts: Options) -> Result<JoinHandle<()>> {
 
 #[cfg(target_family = "unix")]
 fn daemonize() -> Result<()> {
-    use daemonize::Daemonize;
     use std::fs::File;
+
+    use daemonize::Daemonize;
 
     let stdout = File::create(Dirs::run_daemon_out()).unwrap();
     let stderr = File::create(Dirs::run_daemon_err()).unwrap();

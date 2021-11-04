@@ -1,11 +1,12 @@
+use anyhow::{Error, Result};
+use async_trait::async_trait;
+use bytes::Bytes;
+
 use crate::{
     net::{address::Address, socket::Socket},
     protocol::{Protocol, ProtocolType, ResolvedResult},
     utils,
 };
-use anyhow::{Error, Result};
-use async_trait::async_trait;
-use bytes::Bytes;
 
 const NOOP: u8 = 0x00;
 // const SOCKS_VERSION_V4: u8 = 0x04;

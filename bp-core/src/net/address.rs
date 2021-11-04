@@ -1,13 +1,15 @@
-use crate::net::socket;
-use anyhow::{Error, Result};
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-use serde::{de::Visitor, Deserialize, Deserializer};
 use std::{
     convert::TryInto,
     fmt::Display,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     str::FromStr,
 };
+
+use anyhow::{Error, Result};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use serde::{de::Visitor, Deserialize, Deserializer};
+
+use crate::net::socket;
 
 // The same as ATYP in Socks5 Protocol
 pub enum AddressType {

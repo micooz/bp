@@ -1,7 +1,6 @@
+use std::{io, net::SocketAddr, os::unix::io::RawFd};
+
 use socket2::SockAddr;
-use std::io;
-use std::net::SocketAddr;
-use std::os::unix::io::RawFd;
 
 pub fn get_original_destination_addr(local_addr: SocketAddr, fd: RawFd) -> io::Result<SocketAddr> {
     unsafe {

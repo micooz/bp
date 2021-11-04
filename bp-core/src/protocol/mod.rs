@@ -1,12 +1,14 @@
-use crate::{
-    net::{address::Address, socket::Socket},
-    options::Options,
-};
+use std::str::{self, FromStr};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
 use serde::{de::Visitor, Deserialize, Deserializer};
-use std::str::{self, FromStr};
+
+use crate::{
+    net::{address::Address, socket::Socket},
+    options::Options,
+};
 
 mod direct;
 mod dns;

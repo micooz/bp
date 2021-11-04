@@ -1,15 +1,16 @@
-use crate::{
-    net::{address::Address, socket::Socket},
-    options::ServiceType,
-    protocol::{Protocol, ProtocolType, ResolvedResult},
-    utils,
-};
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
 use chacha20poly1305::{
     aead::{Aead, NewAead, Payload},
     ChaCha20Poly1305, Key, Nonce,
+};
+
+use crate::{
+    net::{address::Address, socket::Socket},
+    options::ServiceType,
+    protocol::{Protocol, ProtocolType, ResolvedResult},
+    utils,
 };
 
 const MAX_CHUNK_SIZE: usize = 0x3FFF;

@@ -1,3 +1,10 @@
+use std::str::FromStr;
+
+use anyhow::{Error, Result};
+use async_trait::async_trait;
+use bytes::{Bytes, BytesMut};
+use url::Url;
+
 use crate::{
     net::{
         address::{Address, Host},
@@ -5,11 +12,6 @@ use crate::{
     },
     protocol::{Protocol, ProtocolType, ResolvedResult},
 };
-use anyhow::{Error, Result};
-use async_trait::async_trait;
-use bytes::{Bytes, BytesMut};
-use std::str::FromStr;
-use url::Url;
 
 #[derive(Clone, Default)]
 pub struct Http {

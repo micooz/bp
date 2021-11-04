@@ -1,11 +1,13 @@
+use std::{
+    fmt::Display,
+    fs,
+    io::{Read, Write},
+    path::PathBuf,
+    sync, time,
+};
+
 use anyhow::{Error, Result};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use std::fmt::Display;
-use std::fs;
-use std::io::{Read, Write};
-use std::path::PathBuf;
-use std::sync;
-use std::time;
 
 // AccessControlList
 

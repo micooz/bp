@@ -1,10 +1,11 @@
+use anyhow::Result;
+use async_trait::async_trait;
+use bytes::Bytes;
+
 use crate::{
     net::socket::Socket,
     protocol::{Protocol, ResolvedResult},
 };
-use anyhow::Result;
-use async_trait::async_trait;
-use bytes::Bytes;
 
 #[derive(Default, Clone)]
 pub struct Direct {

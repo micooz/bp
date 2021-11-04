@@ -1,10 +1,12 @@
+use std::{fs, io::Read};
+
+use anyhow::{Error, Result};
+
 use crate::{
     config::{DEFAULT_DNS_SERVER_ADDRESS, DEFAULT_SERVICE_ADDRESS},
     net::address::Address,
     protocol::TransportProtocol,
 };
-use anyhow::{Error, Result};
-use std::{fs, io::Read};
 
 /// Lightweight and efficient proxy written in pure Rust
 #[derive(clap::Parser, serde::Deserialize, Default, Debug, Clone)]

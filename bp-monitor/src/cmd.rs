@@ -1,7 +1,9 @@
-use crate::context::Context;
+use std::{convert::TryFrom, fmt::Display, net::SocketAddr, sync::Arc};
+
 use bp_core::global::SharedData;
 use bytes::Bytes;
-use std::{convert::TryFrom, fmt::Display, net::SocketAddr, sync::Arc};
+
+use crate::context::Context;
 
 #[cfg(windows)]
 const LINE_ENDING: &str = "\r\n";

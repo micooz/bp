@@ -1,7 +1,8 @@
+use std::process::exit;
+
 use bp_cli::{bootstrap::bootstrap, logging};
 use bp_core::{check_options, Options, StartupInfo};
 use clap::Parser;
-use std::process::exit;
 use tokio::sync::oneshot;
 
 #[tokio::main]

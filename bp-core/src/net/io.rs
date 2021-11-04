@@ -1,13 +1,20 @@
-use crate::config;
+use std::{
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
+
 use anyhow::{Error, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::{TcpStream, UdpSocket},
     sync::Mutex,
 };
+
+use crate::config;
 
 /// SocketReader
 #[derive(Debug)]
@@ -17,7 +24,7 @@ pub struct SocketReader {
 
     restore_data: Mutex<Vec<Bytes>>,
 
-    restore_data_used: Mutex<bool>,
+    restore_data_used: AtomicBool,
 
     recv_buf: Mutex<BytesMut>,
 
@@ -30,7 +37,7 @@ impl SocketReader {
     pub fn new(tcp_reader: Option<Mutex<ReadHalf<TcpStream>>>, udp_socket: Option<Arc<UdpSocket>>) -> Self {
         let cache = Mutex::new(BytesMut::with_capacity(1024));
         let restore_data = Mutex::new(vec![]);
-        let restore_data_used = Mutex::new(false);
+        let restore_data_used = AtomicBool::new(false);
         let recv_buf = Mutex::new(BytesMut::with_capacity(config::RECV_BUFFER_SIZE));
 
         Self {
@@ -76,7 +83,7 @@ impl SocketReader {
                 return Err(Error::msg("read_buf return 0"));
             }
 
-            if !self.is_restore_data_used().await {
+            if !self.is_restore_data_used() {
                 Some(buf.clone().freeze().slice(prev_len..prev_len + n))
             } else {
                 None
@@ -84,7 +91,7 @@ impl SocketReader {
         } else {
             let new_buf = self.udp_recv().await?;
 
-            if self.is_restore_data_used().await {
+            if self.is_restore_data_used() {
                 buf.put(new_buf);
                 None
             } else {
@@ -156,7 +163,7 @@ impl SocketReader {
 
         let buf: Bytes = final_buf.into();
 
-        if !self.is_restore_data_used().await {
+        if !self.is_restore_data_used() {
             self.store(buf.clone()).await;
         }
 
@@ -164,7 +171,7 @@ impl SocketReader {
     }
 
     async fn store(&self, buf: Bytes) {
-        if self.is_restore_data_used().await {
+        if self.is_restore_data_used() {
             return;
         }
         let mut restore_data = self.restore_data.lock().await;
@@ -183,7 +190,7 @@ impl SocketReader {
 
     pub async fn clear_restore(&self) {
         self.restore_data.lock().await.clear();
-        *self.restore_data_used.lock().await = true;
+        self.restore_data_used.store(true, Ordering::Relaxed);
     }
 
     pub async fn cache(&self, buf: Bytes) {
@@ -212,8 +219,8 @@ impl SocketReader {
         }
     }
 
-    async fn is_restore_data_used(&self) -> bool {
-        *self.restore_data_used.lock().await
+    fn is_restore_data_used(&self) -> bool {
+        self.restore_data_used.load(Ordering::Relaxed)
     }
 
     fn is_tcp(&self) -> bool {

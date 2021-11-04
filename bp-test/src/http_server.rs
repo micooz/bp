@@ -1,5 +1,6 @@
-use httpmock::prelude::*;
 use std::net::SocketAddr;
+
+use httpmock::prelude::*;
 
 const HTTP_SERVER_RESPONSE: &str = "some response text";
 

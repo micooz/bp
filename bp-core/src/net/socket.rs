@@ -1,14 +1,12 @@
-use crate::net::io;
-use crate::utils::net::create_udp_client_with_random_port;
-use anyhow::Result;
-use bytes::Bytes;
-use std::fmt::Display;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::net;
-
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::{fmt::Display, net::SocketAddr, sync::Arc};
+
+use anyhow::Result;
+use bytes::Bytes;
+use tokio::net;
+
+use crate::{net::io, utils::net::create_udp_client_with_random_port};
 
 #[derive(Debug, Clone, Copy)]
 pub enum SocketType {

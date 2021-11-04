@@ -1,4 +1,3 @@
-use crate::dirs::Dirs;
 use log::LevelFilter;
 use log4rs::{
     append::{
@@ -11,6 +10,8 @@ use log4rs::{
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
+
+use crate::dirs::Dirs;
 
 pub fn init() {
     let encoder = Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} [{M}] {m}{n}"));
