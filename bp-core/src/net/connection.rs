@@ -117,7 +117,7 @@ impl Connection {
 
         // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
-            self.create_outbound_protocol(&resolved).await
+            self.create_outbound_protocol(resolved).await
         } else {
             self.outbound.set_allow_proxy(false);
             Box::new(Direct::default())
@@ -143,7 +143,7 @@ impl Connection {
         self.update_snapshot().await;
 
         // connect to remote from outbound
-        self.outbound.start_connect(&out_proto.get_name(), &resolved).await?;
+        self.outbound.start_connect(&out_proto.get_name(), resolved).await?;
 
         // start receiving data from outbound
         self.outbound.handle_incoming_data(in_proto, out_proto, tx).await;
