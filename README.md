@@ -1,5 +1,5 @@
 [![Build & Release](https://github.com/micooz/bp/actions/workflows/build-release.yml/badge.svg)](https://github.com/micooz/bp/actions/workflows/build-release.yml)
-[![Build & Test](https://github.com/micooz/bp/actions/workflows/build-test.yml/badge.svg)](https://github.com/micooz/bp/actions/workflows/build-test.yml)
+[![Build & Test (Self Hosted)](https://github.com/micooz/bp/actions/workflows/build-test-self-hosted.yml/badge.svg)](https://github.com/micooz/bp/actions/workflows/build-test-self-hosted.yml)
 
 # bp
 
