@@ -3,18 +3,21 @@ use std::collections::LinkedList;
 use bytes::Bytes;
 
 #[derive(Default, Debug)]
-pub struct Cache {
+pub struct Store {
     inner: LinkedList<Bytes>,
-    restore: LinkedList<Bytes>,
 }
 
-impl Cache {
+impl Store {
     pub fn push_front(&mut self, data: Bytes) {
         self.inner.push_front(data);
     }
 
     pub fn push_back(&mut self, data: Bytes) {
         self.inner.push_back(data);
+    }
+
+    pub fn pop_back(&mut self) -> Option<Bytes> {
+        self.inner.pop_back()
     }
 
     pub fn pull(&mut self, n: usize) -> Bytes {
@@ -41,10 +44,7 @@ impl Cache {
 
         self.inner = self.inner.split_off(consumed_item_count);
 
-        let buf = Bytes::from_iter(arr.concat().into_iter());
-        self.restore.push_back(buf.clone());
-
-        buf
+        Bytes::from_iter(arr.concat().into_iter())
     }
 
     pub fn pull_all(&mut self) -> Bytes {
@@ -52,15 +52,7 @@ impl Cache {
         while let Some(item) = self.inner.pop_front() {
             arr.push(item);
         }
-        let buf = Bytes::from_iter(arr.concat().into_iter());
-        self.restore.push_back(buf.clone());
-        buf
-    }
-
-    pub fn restore(&mut self) {
-        while let Some(item) = self.restore.pop_back() {
-            self.inner.push_front(item);
-        }
+        Bytes::from_iter(arr.concat().into_iter())
     }
 
     pub fn len(&self) -> usize {
@@ -72,7 +64,6 @@ impl Cache {
     }
 
     pub fn clear(&mut self) {
-        // self.inner.clear();
-        self.restore.clear();
+        self.inner.clear();
     }
 }

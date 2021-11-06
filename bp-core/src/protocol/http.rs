@@ -97,7 +97,7 @@ impl Protocol for Http {
                 self.set_resolved_result(ResolvedResult {
                     protocol: ProtocolType::Http,
                     address: addr,
-                    pending_buf: Some(buf.freeze()),
+                    pending_buf: None,
                 });
 
                 return Ok(());

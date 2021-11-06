@@ -1,5 +1,5 @@
 pub mod buffer;
-pub mod cache;
+pub mod store;
 pub mod crypto;
 pub mod event;
 pub mod fmt;

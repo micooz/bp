@@ -4,7 +4,6 @@ use bp_test::send_recv::tcp_oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_http_sniff() {
-    bp_cli::logging::init();
     let opts = Options {
         client: true,
         ..Options::default()
@@ -20,7 +19,6 @@ async fn test_http_sniff() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_https_sniff() {
-    bp_cli::logging::init();
     let opts = Options {
         client: true,
         ..Options::default()

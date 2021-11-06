@@ -119,8 +119,8 @@ impl Socket {
     }
 
     #[inline]
-    pub async fn clear_restore(&self) {
-        self.reader.clear_restore().await;
+    pub async fn disable_restore(&self) {
+        self.reader.disable_restore().await;
     }
 
     #[inline]

@@ -14,14 +14,16 @@ use tokio::{
     sync::Mutex,
 };
 
-use crate::{config, utils::cache::Cache};
+use crate::{config, utils::store::Store};
 
 /// SocketReader
 #[derive(Debug)]
 pub struct SocketReader {
-    cache: Mutex<Cache>,
+    cache: Mutex<Store>,
 
-    cache_disabled: AtomicBool,
+    restore: Mutex<Store>,
+
+    restore_disabled: AtomicBool,
 
     recv_buf: Mutex<BytesMut>,
 
@@ -32,13 +34,15 @@ pub struct SocketReader {
 
 impl SocketReader {
     pub fn new(tcp_reader: Option<Mutex<ReadHalf<TcpStream>>>, udp_socket: Option<Arc<UdpSocket>>) -> Self {
-        let cache = Mutex::new(Cache::default());
-        let cache_disabled = AtomicBool::new(false);
+        let cache = Mutex::new(Store::default());
+        let restore = Mutex::new(Store::default());
+        let restore_disabled = AtomicBool::new(false);
         let recv_buf = Mutex::new(BytesMut::with_capacity(config::RECV_BUFFER_SIZE));
 
         Self {
             cache,
-            cache_disabled,
+            restore,
+            restore_disabled,
             recv_buf,
             tcp_reader,
             udp_reader: udp_socket,
@@ -62,6 +66,8 @@ impl SocketReader {
             let data = cache.pull_all();
             let data_len = data.len();
 
+            self.store(|| data.clone()).await;
+
             out_buf.put(data);
 
             return Ok(data_len);
@@ -77,18 +83,18 @@ impl SocketReader {
                 return Err(Error::msg("read_buf return 0"));
             }
 
-            if !self.is_cache_disabled() {
-                let buf = out_buf.clone().freeze().slice(prev_len..prev_len + n);
-                cache.push_back(buf);
-            }
+            self.store(|| {
+                let buf = out_buf.clone().freeze();
+                let buf = buf.slice(prev_len..prev_len + n);
+                buf
+            })
+            .await;
 
             Ok(n)
         } else {
             let (buf, n) = self.udp_recv().await?;
 
-            if !self.is_cache_disabled() {
-                cache.push_back(buf.clone());
-            }
+            self.store(|| buf.clone()).await;
 
             out_buf.put(buf);
 
@@ -125,17 +131,25 @@ impl SocketReader {
             }
         }
 
-        Ok(cache.pull(len))
+        let buf = cache.pull(len);
+
+        self.store(|| buf.clone()).await;
+
+        Ok(buf)
     }
 
     pub async fn restore(&self) {
         let mut cache = self.cache.lock().await;
-        cache.restore();
+        let mut restore = self.restore.lock().await;
+
+        while let Some(item) = restore.pop_back() {
+            cache.push_front(item);
+        }
     }
 
-    pub async fn clear_restore(&self) {
-        self.cache.lock().await.clear();
-        self.cache_disabled.store(true, Ordering::Relaxed);
+    pub async fn disable_restore(&self) {
+        self.restore.lock().await.clear();
+        self.restore_disabled.store(true, Ordering::Relaxed);
     }
 
     pub async fn cache(&self, buf: Bytes) {
@@ -159,10 +173,20 @@ impl SocketReader {
         }
     }
 
-    fn is_cache_disabled(&self) -> bool {
-        self.cache_disabled.load(Ordering::Relaxed)
+    #[inline]
+    async fn store<F: Fn() -> Bytes>(&self, closure: F) {
+        if !self.is_restore_disabled() {
+            let mut restore = self.restore.lock().await;
+            restore.push_back(closure());
+        }
     }
 
+    #[inline]
+    fn is_restore_disabled(&self) -> bool {
+        self.restore_disabled.load(Ordering::Relaxed)
+    }
+
+    #[inline]
     fn is_tcp(&self) -> bool {
         self.tcp_reader.is_some()
     }

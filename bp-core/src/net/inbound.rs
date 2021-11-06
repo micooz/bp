@@ -57,7 +57,13 @@ impl Inbound {
         self.socket.socket_type()
     }
 
-    pub async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
+    pub async fn resolve(&mut self) -> Result<InboundResolveResult> {
+        let res = self.try_resolve().await?;
+        self.socket.disable_restore().await;
+        Ok(res)
+    }
+
+    async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
         fn direct(addr: &Address) -> DynProtocol {
             let mut direct = Box::new(Direct::default());
 
@@ -153,10 +159,6 @@ impl Inbound {
 
     pub fn set_protocol_name(&mut self, name: String) {
         self.protocol_name = Some(name);
-    }
-
-    pub async fn clear_restore(&self) {
-        self.socket.clear_restore().await;
     }
 
     pub async fn handle_pending_data(&self, buf: Bytes, out_proto: &mut DynProtocol, tx: Sender<Event>) -> Result<()> {
@@ -277,8 +279,8 @@ impl Inbound {
                     resolved.address,
                 );
 
-                // https request should restore buffer
-                if matches!(resolved.protocol, ProtocolType::Https) {
+                // http & https request should restore buffer
+                if matches!(resolved.protocol, ProtocolType::Http | ProtocolType::Https) {
                     socket.restore().await;
                 }
 

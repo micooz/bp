@@ -78,10 +78,9 @@ impl Connection {
         // NOTE: higher buffer size leads to higher memory & cpu usage
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        let InboundResolveResult { proto: in_proto } = self.inbound.try_resolve().await?;
+        let InboundResolveResult { proto: in_proto } = self.inbound.resolve().await?;
 
         self.inbound.set_protocol_name(in_proto.get_name());
-        self.inbound.clear_restore().await;
 
         let resolved = in_proto.get_resolved_result().unwrap();
 
@@ -246,7 +245,6 @@ impl Connection {
             // event handle
             match event {
                 Event::ClientEncodeDone(buf) => {
-                    dbg!(&buf);
                     self.outbound.send(buf).await?;
                 }
                 Event::ServerEncodeDone(buf) => {
