@@ -14,17 +14,16 @@ use tokio::{
     sync::Mutex,
 };
 
-use crate::config;
+use crate::{config, utils::store::Store};
 
 /// SocketReader
 #[derive(Debug)]
 pub struct SocketReader {
-    // TODO: refactor cache/restore design
-    cache: Mutex<BytesMut>,
+    cache: Mutex<Store>,
 
-    restore_data: Mutex<Vec<Bytes>>,
+    restore: Mutex<Store>,
 
-    restore_data_used: AtomicBool,
+    restore_disabled: AtomicBool,
 
     recv_buf: Mutex<BytesMut>,
 
@@ -35,15 +34,15 @@ pub struct SocketReader {
 
 impl SocketReader {
     pub fn new(tcp_reader: Option<Mutex<ReadHalf<TcpStream>>>, udp_socket: Option<Arc<UdpSocket>>) -> Self {
-        let cache = Mutex::new(BytesMut::with_capacity(1024));
-        let restore_data = Mutex::new(vec![]);
-        let restore_data_used = AtomicBool::new(false);
+        let cache = Mutex::new(Store::default());
+        let restore = Mutex::new(Store::default());
+        let restore_disabled = AtomicBool::new(false);
         let recv_buf = Mutex::new(BytesMut::with_capacity(config::RECV_BUFFER_SIZE));
 
         Self {
             cache,
-            restore_data,
-            restore_data_used,
+            restore,
+            restore_disabled,
             recv_buf,
             tcp_reader,
             udp_reader: udp_socket,
@@ -52,177 +51,142 @@ impl SocketReader {
 
     pub async fn read_some(&self) -> Result<Bytes> {
         let mut recv_buf = self.recv_buf.lock().await;
-        self.read_into(&mut recv_buf).await?;
+        let n = self.read_into(&mut recv_buf).await?;
 
-        // TODO: reduce clone to improve performance
-        let buf = recv_buf.clone().freeze();
+        let buf = recv_buf.copy_to_bytes(n);
         recv_buf.clear();
 
         Ok(buf)
     }
 
-    pub async fn read_into(&self, buf: &mut BytesMut) -> Result<()> {
+    pub async fn read_into(&self, out_buf: &mut BytesMut) -> Result<usize> {
         let mut cache = self.cache.lock().await;
 
         if !cache.is_empty() {
-            let data = cache.clone().freeze();
-            buf.put(data.clone());
-            cache.clear();
+            let data = cache.pull_all();
+            let data_len = data.len();
 
-            self.store(data).await;
-            return Ok(());
+            self.store(|| data.clone()).await;
+
+            out_buf.put(data);
+
+            return Ok(data_len);
         }
 
-        let data = if self.is_tcp() {
+        if self.is_tcp() {
             let mut reader = self.tcp_reader.as_ref().unwrap().lock().await;
 
-            let prev_len = buf.len();
-            let n = reader.read_buf(buf).await?;
+            let prev_len = out_buf.len();
+            let n = reader.read_buf(out_buf).await?;
 
             if n == 0 {
                 return Err(Error::msg("read_buf return 0"));
             }
 
-            if !self.is_restore_data_used() {
-                Some(buf.clone().freeze().slice(prev_len..prev_len + n))
-            } else {
-                None
-            }
+            self.store(|| {
+                let buf = out_buf.clone().freeze();
+                let buf = buf.slice(prev_len..prev_len + n);
+                buf
+            })
+            .await;
+
+            Ok(n)
         } else {
-            let new_buf = self.udp_recv().await?;
+            let (buf, n) = self.udp_recv().await?;
 
-            if self.is_restore_data_used() {
-                buf.put(new_buf);
-                None
-            } else {
-                buf.put(new_buf.clone());
-                Some(new_buf)
-            }
-        };
+            self.store(|| buf.clone()).await;
 
-        if let Some(buf) = data {
-            self.store(buf).await;
+            out_buf.put(buf);
+
+            Ok(n)
         }
-
-        Ok(())
     }
 
     pub async fn read_exact(&self, len: usize) -> Result<Bytes> {
         let mut cache = self.cache.lock().await;
         let cache_len = cache.len();
 
-        let final_buf = if len > cache_len {
-            // cached buffer is not enough
+        // cached data is not enough
+        if len > cache_len {
             if self.is_tcp() {
-                let mut req_buf = vec![0u8; len - cache_len];
                 let mut reader = self.tcp_reader.as_ref().unwrap().lock().await;
+                let mut req_buf = vec![0u8; len - cache_len];
 
                 reader.read_exact(&mut req_buf).await?;
 
-                let mut ret_buf = req_buf;
-
-                // with cache
-                if cache_len > 0 {
-                    ret_buf = [&cache[..], ret_buf.as_slice()].concat();
-                    cache.clear();
-                }
-
-                ret_buf
+                cache.push_back(req_buf.into());
             } else {
                 let req_buf_len = len - cache_len;
-                let new_buf = self.udp_recv().await?;
+                let (packet, size) = self.udp_recv().await?;
 
-                if new_buf.len() < req_buf_len {
+                if size < req_buf_len {
                     let msg = format!(
                         "read_exact error due to: new udp packet size = {} is less than required len = {}",
-                        req_buf_len,
-                        new_buf.len()
+                        size, req_buf_len,
                     );
                     return Err(Error::msg(msg));
                 }
 
-                let req_buf = new_buf.slice(0..req_buf_len);
-
-                // cache rest buffer
-                let rest_buf = new_buf.slice(req_buf_len..);
-
-                let ret = [&cache[..], &req_buf[..]].concat();
-
-                cache.clear();
-                cache.put(rest_buf);
-
-                ret
+                cache.push_back(packet);
             }
-        } else {
-            let (left, _) = cache.split_at(len);
-            let buf = left.to_vec();
-            cache.advance(len);
-
-            buf
-        };
-
-        let buf: Bytes = final_buf.into();
-
-        if !self.is_restore_data_used() {
-            self.store(buf.clone()).await;
         }
+
+        let buf = cache.pull(len);
+
+        self.store(|| buf.clone()).await;
 
         Ok(buf)
     }
 
-    async fn store(&self, buf: Bytes) {
-        if self.is_restore_data_used() {
-            return;
-        }
-        let mut restore_data = self.restore_data.lock().await;
-        restore_data.push(buf);
-    }
-
     pub async fn restore(&self) {
-        let mut restore_data = self.restore_data.lock().await;
+        let mut cache = self.cache.lock().await;
+        let mut restore = self.restore.lock().await;
 
-        for item in restore_data.iter() {
-            self.cache(item.clone()).await;
+        while let Some(item) = restore.pop_back() {
+            cache.push_front(item);
         }
-
-        restore_data.clear();
     }
 
-    pub async fn clear_restore(&self) {
-        self.restore_data.lock().await.clear();
-        self.restore_data_used.store(true, Ordering::Relaxed);
+    pub async fn disable_restore(&self) {
+        self.restore.lock().await.clear();
+        self.restore_disabled.store(true, Ordering::Relaxed);
     }
 
     pub async fn cache(&self, buf: Bytes) {
         if buf.is_empty() {
             return;
         }
-
         let mut cache = self.cache.lock().await;
-        let prev = cache.clone().freeze();
-
-        cache.clear();
-        cache.put(buf);
-        cache.put(prev);
+        cache.push_back(buf);
     }
 
-    async fn udp_recv(&self) -> Result<Bytes> {
+    async fn udp_recv(&self) -> Result<(Bytes, usize)> {
         let socket = self.udp_reader.as_ref().unwrap();
 
         let mut buf = vec![0u8; config::UDP_MTU];
         let (len, _addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(packet) = buf.get(0..len) {
-            Ok(Bytes::copy_from_slice(packet))
+            Ok((Bytes::copy_from_slice(packet), packet.len()))
         } else {
             Err(Error::msg("error recv from remote"))
         }
     }
 
-    fn is_restore_data_used(&self) -> bool {
-        self.restore_data_used.load(Ordering::Relaxed)
+    #[inline]
+    async fn store<F: Fn() -> Bytes>(&self, closure: F) {
+        if !self.is_restore_disabled() {
+            let mut restore = self.restore.lock().await;
+            restore.push_back(closure());
+        }
     }
 
+    #[inline]
+    fn is_restore_disabled(&self) -> bool {
+        self.restore_disabled.load(Ordering::Relaxed)
+    }
+
+    #[inline]
     fn is_tcp(&self) -> bool {
         self.tcp_reader.is_some()
     }
@@ -231,7 +195,7 @@ impl SocketReader {
 /// TcpStreamWriter
 #[derive(Debug)]
 pub struct SocketWriter {
-    peer_addr: SocketAddr,
+    peer_addr: Option<SocketAddr>,
 
     tcp_writer: Option<Mutex<WriteHalf<TcpStream>>>,
 
@@ -242,7 +206,7 @@ impl SocketWriter {
     pub fn new(
         tcp_write_half: Option<Mutex<WriteHalf<TcpStream>>>,
         udp_socket: Option<Arc<UdpSocket>>,
-        peer_addr: SocketAddr,
+        peer_addr: Option<SocketAddr>,
     ) -> Self {
         Self {
             peer_addr,
@@ -258,7 +222,7 @@ impl SocketWriter {
             writer.flush().await?;
         } else {
             let writer = self.udp_writer.as_ref().unwrap();
-            writer.send_to(buf, self.peer_addr).await?;
+            writer.send_to(buf, self.peer_addr.as_ref().unwrap()).await?;
         }
         Ok(())
     }
@@ -276,18 +240,18 @@ impl SocketWriter {
     }
 }
 
-pub fn split_tcp(stream: TcpStream, peer_addr: SocketAddr) -> (SocketReader, SocketWriter) {
+pub fn split_tcp(stream: TcpStream) -> (SocketReader, SocketWriter) {
     let (read_half, write_half) = tokio::io::split(stream);
 
     let reader = SocketReader::new(Some(Mutex::new(read_half)), None);
-    let writer = SocketWriter::new(Some(Mutex::new(write_half)), None, peer_addr);
+    let writer = SocketWriter::new(Some(Mutex::new(write_half)), None, None);
 
     (reader, writer)
 }
 
 pub fn split_udp(socket: Arc<UdpSocket>, peer_addr: SocketAddr) -> (SocketReader, SocketWriter) {
     let reader = SocketReader::new(None, Some(socket.clone()));
-    let writer = SocketWriter::new(None, Some(socket), peer_addr);
+    let writer = SocketWriter::new(None, Some(socket), Some(peer_addr));
 
     (reader, writer)
 }

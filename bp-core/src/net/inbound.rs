@@ -57,14 +57,20 @@ impl Inbound {
         self.socket.socket_type()
     }
 
-    pub async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
-        fn direct(addr: &Address, pending_buf: Option<Bytes>) -> DynProtocol {
+    pub async fn resolve(&mut self) -> Result<InboundResolveResult> {
+        let res = self.try_resolve().await?;
+        self.socket.disable_restore().await;
+        Ok(res)
+    }
+
+    async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
+        fn direct(addr: &Address) -> DynProtocol {
             let mut direct = Box::new(Direct::default());
 
             direct.set_resolved_result(ResolvedResult {
                 protocol: ProtocolType::Direct,
                 address: addr.clone(),
-                pending_buf,
+                pending_buf: None,
             });
 
             direct
@@ -79,9 +85,7 @@ impl Inbound {
                 addr,
             );
 
-            return Ok(InboundResolveResult {
-                proto: direct(addr, None),
-            });
+            return Ok(InboundResolveResult { proto: direct(addr) });
         }
 
         // client side resolve
@@ -124,9 +128,7 @@ impl Inbound {
                     addr
                 );
 
-                return Ok(InboundResolveResult {
-                    proto: direct(addr, None),
-                });
+                return Ok(InboundResolveResult { proto: direct(addr) });
             }
         }
 
@@ -136,16 +138,17 @@ impl Inbound {
             self.resolve_dest_addr(&mut proto, false).await?;
 
             let resolved = proto.get_resolved_result().unwrap().clone();
-            let buf = resolved.pending_buf.as_ref();
 
             // check dns packet
-            if buf.is_some() && Dns::check_dns_query(&buf.unwrap()[..]) {
-                proto.set_resolved_result(ResolvedResult {
-                    // rewrite dns server address to --dns-server
-                    address: self.opts.get_dns_server(),
-                    protocol: ProtocolType::Dns,
-                    pending_buf: resolved.pending_buf,
-                });
+            if let Some(buf) = resolved.pending_buf {
+                if Dns::check_dns_query(&buf[..]) {
+                    proto.set_resolved_result(ResolvedResult {
+                        // rewrite dns server address to --dns-server
+                        address: self.opts.get_dns_server(),
+                        protocol: ProtocolType::Dns,
+                        pending_buf: Some(buf),
+                    });
+                }
             }
 
             return Ok(InboundResolveResult { proto });
@@ -156,10 +159,6 @@ impl Inbound {
 
     pub fn set_protocol_name(&mut self, name: String) {
         self.protocol_name = Some(name);
-    }
-
-    pub async fn clear_restore(&self) {
-        self.socket.clear_restore().await;
     }
 
     pub async fn handle_pending_data(&self, buf: Bytes, out_proto: &mut DynProtocol, tx: Sender<Event>) -> Result<()> {
@@ -280,7 +279,7 @@ impl Inbound {
                     resolved.address,
                 );
 
-                // https & http request should restore buffer
+                // http & https request should restore buffer
                 if matches!(resolved.protocol, ProtocolType::Http | ProtocolType::Https) {
                     socket.restore().await;
                 }
