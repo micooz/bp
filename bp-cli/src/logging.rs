@@ -32,7 +32,7 @@ pub fn init() {
     let root = Root::builder()
         .appender("console")
         .appender("rolling_file")
-        .build(LevelFilter::Trace);
+        .build(LevelFilter::Info);
 
     let config = builder.build(root).unwrap();
 
