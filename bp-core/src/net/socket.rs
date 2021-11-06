@@ -48,7 +48,7 @@ impl Socket {
         #[cfg(not(target_os = "windows"))]
         let fd = stream.as_raw_fd();
 
-        let split = io::split_tcp(stream, peer_addr);
+        let split = io::split_tcp(stream);
 
         Self {
             #[cfg(not(target_os = "windows"))]
@@ -114,6 +114,16 @@ impl Socket {
     }
 
     #[inline]
+    pub async fn restore(&self) {
+        self.reader.restore().await;
+    }
+
+    #[inline]
+    pub async fn clear_restore(&self) {
+        self.reader.clear_restore().await;
+    }
+
+    #[inline]
     pub async fn read_some(&self) -> Result<Bytes> {
         self.reader.read_some().await
     }
@@ -124,18 +134,8 @@ impl Socket {
     }
 
     #[inline]
-    pub async fn read_into(&self, buf: &mut bytes::BytesMut) -> Result<()> {
+    pub async fn read_into(&self, buf: &mut bytes::BytesMut) -> Result<usize> {
         self.reader.read_into(buf).await
-    }
-
-    #[inline]
-    pub async fn restore(&self) {
-        self.reader.restore().await;
-    }
-
-    #[inline]
-    pub async fn clear_restore(&self) {
-        self.reader.clear_restore().await;
     }
 
     #[inline]

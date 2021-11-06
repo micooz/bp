@@ -246,6 +246,7 @@ impl Connection {
             // event handle
             match event {
                 Event::ClientEncodeDone(buf) => {
+                    dbg!(&buf);
                     self.outbound.send(buf).await?;
                 }
                 Event::ServerEncodeDone(buf) => {
