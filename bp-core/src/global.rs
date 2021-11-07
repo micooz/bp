@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use lazy_static::lazy_static;
-use tokio::sync::{Mutex, RwLock};
+use parking_lot::Mutex;
+use tokio::sync::RwLock;
 use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{acl::AccessControlList, net::connection::ConnectionSnapshot};
@@ -38,7 +39,7 @@ impl SharedData {
     }
 
     pub async fn remove_connection_snapshot(&self, id: usize) {
-        let mut snapshots = self.connection_snapshots.lock().await;
+        let mut snapshots = self.connection_snapshots.lock();
         snapshots.remove(&id);
     }
 }

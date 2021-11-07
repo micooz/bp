@@ -85,7 +85,7 @@ impl MonitorCommand {
                 self.reply(format!("\n{}", include_str!("help.txt"))).await;
             }
             CommandType::List => {
-                let shared_data = shared_data.get_connection_snapshots().lock().await;
+                let shared_data = shared_data.get_connection_snapshots().lock();
                 let snapshot_list = shared_data.values();
 
                 let msg = snapshot_list

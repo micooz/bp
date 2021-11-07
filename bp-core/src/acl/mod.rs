@@ -8,12 +8,13 @@ use std::{
 
 use anyhow::{Error, Result};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use parking_lot::Mutex;
 
 // AccessControlList
 
 #[derive(Default, Debug)]
 pub struct AccessControlList {
-    domain_white_list: sync::Mutex<Vec<DomainItem>>,
+    domain_white_list: Mutex<Vec<DomainItem>>,
 }
 
 impl AccessControlList {
@@ -54,7 +55,7 @@ impl AccessControlList {
     }
 
     pub fn push(&self, host: &str, rule: DomainRule) {
-        self.domain_white_list.lock().unwrap().insert(
+        self.domain_white_list.lock().insert(
             0,
             DomainItem {
                 raw: format!("{}{}", rule, host),
@@ -65,7 +66,7 @@ impl AccessControlList {
     }
 
     pub fn is_host_hit(&self, host: &str) -> bool {
-        let domain_white_list = self.domain_white_list.lock().unwrap();
+        let domain_white_list = self.domain_white_list.lock();
 
         for item in domain_white_list.iter() {
             match item.rule {
@@ -117,18 +118,17 @@ impl AccessControlList {
     pub fn count(&self) -> usize {
         self.domain_white_list
             .lock()
-            .unwrap()
             .iter()
             .filter(|&x| x.rule != DomainRule::Ignore)
             .count()
     }
 
     fn clear(&self) {
-        self.domain_white_list.lock().unwrap().clear();
+        self.domain_white_list.lock().clear();
     }
 
     fn parse(&self, content: &str) {
-        let mut domain_white_list = self.domain_white_list.lock().unwrap();
+        let mut domain_white_list = self.domain_white_list.lock();
 
         for line in content.lines() {
             let line = line.trim();
@@ -182,7 +182,6 @@ impl AccessControlList {
     fn stringify(&self) -> String {
         self.domain_white_list
             .lock()
-            .unwrap()
             .iter()
             .rev()
             .map(|x| format!("{}{}", x.rule, x.value))

@@ -109,18 +109,18 @@ impl Socket {
 
 impl Socket {
     #[inline]
-    pub async fn cache(&self, buf: bytes::Bytes) {
-        self.reader.cache(buf).await;
+    pub fn cache(&self, buf: bytes::Bytes) {
+        self.reader.cache(buf);
     }
 
     #[inline]
-    pub async fn restore(&self) {
-        self.reader.restore().await;
+    pub fn restore(&self) {
+        self.reader.restore();
     }
 
     #[inline]
-    pub async fn disable_restore(&self) {
-        self.reader.disable_restore().await;
+    pub fn disable_restore(&self) {
+        self.reader.disable_restore();
     }
 
     #[inline]

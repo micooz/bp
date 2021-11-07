@@ -59,7 +59,7 @@ impl Inbound {
 
     pub async fn resolve(&mut self) -> Result<InboundResolveResult> {
         let res = self.try_resolve().await?;
-        self.socket.disable_restore().await;
+        self.socket.disable_restore();
         Ok(res)
     }
 
@@ -164,7 +164,7 @@ impl Inbound {
     pub async fn handle_pending_data(&self, buf: Bytes, out_proto: &mut DynProtocol, tx: Sender<Event>) -> Result<()> {
         match self.opts.service_type() {
             ServiceType::Client => {
-                self.socket.cache(buf).await;
+                self.socket.cache(buf);
 
                 match out_proto.client_encode(&self.socket).await {
                     Ok(buf) => {
@@ -281,7 +281,7 @@ impl Inbound {
 
                 // http & https request should restore buffer
                 if matches!(resolved.protocol, ProtocolType::Http | ProtocolType::Https) {
-                    socket.restore().await;
+                    socket.restore();
                 }
 
                 Ok(())
@@ -291,7 +291,7 @@ impl Inbound {
                     "[{}] [{}] use [{}] to resolve dest address failed due to: {}",
                     peer_address, socket_type, &proto_name, err,
                 ));
-                socket.restore().await;
+                socket.restore();
 
                 Err(err)
             }

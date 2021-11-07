@@ -84,7 +84,7 @@ async fn bind_udp(name: &'static str, addr: &Address, sender: Sender<Option<Sock
                     if let Some(buf) = buf.get(0..len) {
                         let socket = Socket::from_udp_socket(socket, addr);
 
-                        socket.cache(Bytes::copy_from_slice(buf)).await;
+                        socket.cache(Bytes::copy_from_slice(buf));
 
                         let _res = sender.send(Some(socket)).await;
                     }
