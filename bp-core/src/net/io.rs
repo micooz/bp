@@ -49,11 +49,7 @@ impl SocketReader {
     pub async fn read_some(&self) -> Result<Bytes> {
         let mut recv_buf = BytesMut::with_capacity(config::RECV_BUFFER_SIZE);
         let n = self.read_into(&mut recv_buf).await?;
-
-        let buf = recv_buf.copy_to_bytes(n);
-        recv_buf.clear();
-
-        Ok(buf)
+        Ok(recv_buf.copy_to_bytes(n))
     }
 
     pub async fn read_into(&self, out_buf: &mut BytesMut) -> Result<usize> {
