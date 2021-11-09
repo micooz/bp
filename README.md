@@ -104,6 +104,21 @@ The prefixes means:
 
 > Higher priority for later rules
 
+### Linux Router
+
+In order to proxy the traffic of all devices access to a router, you can add iptables rules on router to redirect all http/https traffic to bp, bp will identify the destination address in the traffic and then proxy it.
+
+Add the following rules:
+
+```
+iptables -t nat -N BP
+iptables -t nat -A BP -d 192.168.0.0/16 -j RETURN
+iptables -t nat -A BP -p tcp -j RETURN -m mark --mark 0xff
+iptables -t nat -A BP -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports 1080
+iptables -t nat -A PREROUTING -p tcp -j BP
+iptables -t nat -A OUTPUT -p tcp -j BP
+```
+
 ## Monitor (Experimental)
 
 bp executable compiled with `--features="monitor"` expose a TCP control port which can be used for remote monitoring.
