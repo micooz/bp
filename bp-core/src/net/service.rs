@@ -48,13 +48,19 @@ async fn bind_tcp(name: &'static str, addr: &Address, sender: Sender<Option<Sock
 
     tokio::spawn(async move {
         loop {
-            match listener.accept().await {
+            let accept = listener.accept().await;
+
+            if sender.is_closed() {
+                break;
+            }
+
+            match accept {
                 Ok((stream, _)) => {
-                    let _res = sender.send(Some(Socket::from_stream(stream))).await;
+                    sender.send(Some(Socket::from_stream(stream))).await.unwrap();
                 }
                 Err(err) => {
                     log::error!("[{}] encountered an error: {}", name, err);
-                    let _ = sender.send(None).await;
+                    sender.send(None).await.unwrap();
                     break;
                 }
             }
@@ -76,22 +82,24 @@ async fn bind_udp(name: &'static str, addr: &Address, sender: Sender<Option<Sock
     tokio::spawn(async move {
         loop {
             let socket = socket.clone();
-
             let mut buf = vec![0; config::UDP_MTU];
+            let recv = socket.recv_from(&mut buf).await;
 
-            match socket.recv_from(&mut buf).await {
+            if sender.is_closed() {
+                break;
+            }
+
+            match recv {
                 Ok((len, addr)) => {
                     if let Some(buf) = buf.get(0..len) {
                         let socket = Socket::from_udp_socket(socket, addr);
-
                         socket.cache(Bytes::copy_from_slice(buf));
-
-                        let _res = sender.send(Some(socket)).await;
+                        sender.send(Some(socket)).await.unwrap();
                     }
                 }
                 Err(err) => {
                     log::error!("[{}] encountered an error: {}", name, err);
-                    let _ = sender.send(None).await;
+                    sender.send(None).await.unwrap();
                     break;
                 }
             }

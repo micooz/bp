@@ -5,14 +5,10 @@ use bp_core::{check_options, Options, StartupInfo};
 use clap::Parser;
 use tokio::sync::oneshot;
 
-#[cfg(feature = "profile")]
-#[global_allocator]
-static ALLOCATOR: dhat::DhatAlloc = dhat::DhatAlloc;
-
 #[tokio::main]
 async fn main() {
-    #[cfg(feature = "profile")]
-    dhat::Dhat::start_heap_profiling();
+    // #[cfg(feature = "profile")]
+    // bp_cli::profile::set_prof_active(true);
 
     #[cfg(feature = "logging")]
     logging::init();

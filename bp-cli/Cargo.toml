@@ -3,6 +3,13 @@ name = "bp-cli"
 version = "1.0.0-alpha.4"
 edition = "2021"
 
+[features]
+profile = [
+  "jemallocator",
+  "jemalloc-ctl",
+  "jemalloc-sys",
+]
+
 [dependencies]
 bp-core = { path = "../bp-core" }
 bp-monitor = { path = "../bp-monitor" }
@@ -13,6 +20,10 @@ lazy_static = "1.4.0"
 log4rs = { version = "1.0.0", features = ["gzip"] }
 log = "0.4.0"
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
+signal-hook = "0.3.10"
+jemallocator = { version = "0.3.2", optional = true }
+jemalloc-ctl = { version = "0.3.2", optional = true }
+jemalloc-sys = { version = "0.3.2", optional = true, features = ["stats", "profiling", "unprefixed_malloc_on_supported_platforms"] }
 
 [dev-dependencies]
 bp-test = { path = "../bp-test" }
