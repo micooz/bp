@@ -18,7 +18,10 @@ pub fn init() {
     let console = ConsoleAppender::builder().encoder(encoder.clone()).build();
 
     let policy_trigger = SizeTrigger::new(10 * 1024 * 1024); // 10 MB
-    let policy_roller = FixedWindowRoller::builder().build("bp.{}.log", 5).unwrap();
+    let policy_roller = FixedWindowRoller::builder()
+        .build(&Dirs::log_file_compressed(), 5)
+        .unwrap();
+
     let compound_policy = CompoundPolicy::new(Box::new(policy_trigger), Box::new(policy_roller));
     let rolling_file = RollingFileAppender::builder()
         .encoder(encoder)

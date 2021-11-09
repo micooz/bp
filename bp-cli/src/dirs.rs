@@ -40,6 +40,13 @@ impl Dirs {
         dir
     }
 
+    // ~/.bp/logs/bp.log-{}.gz
+    pub fn log_file_compressed() -> String {
+        let mut dir = Self::log_file();
+        dir.push("-{}.gz");
+        dir.to_str().expect("valid compressed log file name pattern").into()
+    }
+
     // ~/.bp/run/daemon.out
     pub fn run_daemon_out() -> PathBuf {
         let mut dir = Self::run();

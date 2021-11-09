@@ -21,6 +21,11 @@ fn test_log_file() {
 }
 
 #[test]
+fn log_file_compressed() {
+    assert!(Dirs::log_file_compressed().ends_with("-{}.gz"));
+}
+
+#[test]
 fn test_run_daemon_out() {
     assert!(Dirs::run_daemon_out().ends_with("daemon.out"));
 }
