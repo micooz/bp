@@ -115,7 +115,7 @@ impl Outbound {
         Ok(())
     }
 
-    pub async fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
+    pub fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
         let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
         let protocol_name = out_proto.get_name();

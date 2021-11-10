@@ -7,8 +7,8 @@ use tokio::sync::oneshot;
 
 #[tokio::main]
 async fn main() {
-    // #[cfg(feature = "profile")]
-    // bp_cli::profile::set_prof_active(true);
+    #[cfg(feature = "profile")]
+    bp_cli::profile::set_prof_active(true);
 
     #[cfg(feature = "logging")]
     logging::init();

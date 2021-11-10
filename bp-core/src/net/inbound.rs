@@ -182,7 +182,7 @@ impl Inbound {
         Ok(())
     }
 
-    pub async fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
+    pub fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
         let service_type = self.opts.service_type();
         let socket = self.socket.clone();
 

@@ -178,7 +178,7 @@ impl Erp {
         let mut enc_chunks = vec![];
 
         for chunk_buf in chunks {
-            let mut buf = BytesMut::new();
+            let mut buf = BytesMut::with_capacity(1 + TAG_SIZE + 255 + 2 + TAG_SIZE + chunk_buf.len() + TAG_SIZE);
 
             // generate random padding
             let pad_len = self.get_random_bytes_len(chunk_buf.len());

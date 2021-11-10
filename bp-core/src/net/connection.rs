@@ -73,8 +73,6 @@ impl Connection {
     }
 
     pub async fn handle(&mut self) -> Result<()> {
-        self.update_snapshot().await;
-
         // NOTE: higher buffer size leads to higher memory & cpu usage
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
@@ -136,24 +134,18 @@ impl Connection {
         // start receiving data from inbound
         if matches!(self.inbound.socket_type(), SocketType::Tcp) {
             self.inbound
-                .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone())
-                .await;
+                .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone());
         }
-
-        self.update_snapshot().await;
 
         // connect to remote from outbound
         self.outbound.start_connect(&out_proto.get_name(), resolved).await?;
 
         // start receiving data from outbound
-        self.outbound.handle_incoming_data(in_proto, out_proto, tx).await;
-
-        self.update_snapshot().await;
+        self.outbound.handle_incoming_data(in_proto, out_proto, tx);
 
         self.handle_events(rx).await?;
 
         self.closed = true;
-        self.update_snapshot().await;
 
         Ok(())
     }
@@ -163,7 +155,6 @@ impl Connection {
         self.outbound.close().await?;
 
         self.closed = true;
-        self.update_snapshot().await;
 
         Ok(())
     }
@@ -268,21 +259,6 @@ impl Connection {
         }
 
         Ok(())
-    }
-
-    async fn update_snapshot(&self) {
-        #[cfg(feature = "monitor")]
-        {
-            let mut shared_data = self.opts.shared_data.write().await;
-            let snapshot = ConnectionSnapshot {
-                id: self.id,
-                closed: self.closed,
-                dest_addr: self.dest_addr.clone(),
-                inbound_snapshot: self.inbound.read().await.snapshot(),
-                outbound_snapshot: self.outbound.read().await.snapshot(),
-            };
-            shared_data.connection_snapshots.insert(self.id, snapshot);
-        }
     }
 }
 
