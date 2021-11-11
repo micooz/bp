@@ -1,7 +1,7 @@
 use anyhow::Result;
 #[cfg(feature = "monitor")]
 use bytes::BytesMut;
-use tokio::{sync, time};
+use tokio::{sync::mpsc::Receiver, time};
 
 use crate::{
     config,
@@ -115,7 +115,7 @@ impl Connection {
 
         // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
-            self.create_outbound_protocol(resolved).await
+            self.create_outbound_protocol(resolved)
         } else {
             self.outbound.set_allow_proxy(false);
             Box::new(Direct::default())
@@ -188,7 +188,7 @@ impl Connection {
         true
     }
 
-    async fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
+    fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
         // bp client should always use bp transport connect to bp server
         if self.opts.client && self.opts.server_bind.is_some() {
             return init_transport_protocol(&self.opts);
@@ -203,7 +203,7 @@ impl Connection {
     }
 
     /// handle events from inbound and outbound
-    async fn handle_events(&mut self, mut rx: sync::mpsc::Receiver<Event>) -> Result<()> {
+    async fn handle_events(&mut self, mut rx: Receiver<Event>) -> Result<()> {
         let peer_addr = self.peer_addr.clone();
         let socket_type = self.inbound.socket_type();
 
