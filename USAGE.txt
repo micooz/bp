@@ -1,4 +1,4 @@
-bp 1.0.0-alpha.4
+bp 1.0.0-alpha.5
 
 Lightweight and efficient proxy written in pure Rust
 
