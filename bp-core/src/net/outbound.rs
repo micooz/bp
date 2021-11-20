@@ -1,4 +1,10 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -33,7 +39,7 @@ pub struct Outbound {
 
     protocol_name: Option<String>,
 
-    is_closed: bool,
+    is_closed: Arc<AtomicBool>,
 
     is_allow_proxy: bool,
 }
@@ -47,7 +53,7 @@ impl Outbound {
             peer_address,
             remote_addr: None,
             protocol_name: None,
-            is_closed: false,
+            is_closed: Arc::new(AtomicBool::new(false)),
             is_allow_proxy: true,
         }
     }
@@ -129,9 +135,13 @@ impl Outbound {
 
         let service_type = self.opts.service_type();
         let socket = self.socket.clone().unwrap();
+        let is_closed = self.is_closed.clone();
 
         tokio::spawn(async move {
             loop {
+                if is_closed.load(Ordering::Relaxed) {
+                    break;
+                }
                 match service_type {
                     ServiceType::Client => match out_proto.client_decode(&socket).await {
                         Ok(buf) => {
@@ -176,12 +186,12 @@ impl Outbound {
     }
 
     pub async fn close(&mut self) -> Result<()> {
-        if !self.is_closed {
+        if !self.is_closed.load(Ordering::Relaxed) {
             if let Some(socket) = self.socket.as_ref() {
                 socket.close().await?;
             }
         }
-        self.is_closed = true;
+        self.is_closed.store(true, Ordering::Relaxed);
 
         Ok(())
     }

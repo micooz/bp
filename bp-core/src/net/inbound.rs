@@ -1,4 +1,10 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -34,7 +40,7 @@ pub struct Inbound {
 
     protocol_name: Option<String>,
 
-    is_closed: bool,
+    is_closed: Arc<AtomicBool>,
 }
 
 impl Inbound {
@@ -49,7 +55,7 @@ impl Inbound {
             peer_address,
             local_addr,
             protocol_name: None,
-            is_closed: false,
+            is_closed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -185,9 +191,13 @@ impl Inbound {
     pub fn handle_incoming_data(&self, mut in_proto: DynProtocol, mut out_proto: DynProtocol, tx: Sender<Event>) {
         let service_type = self.opts.service_type();
         let socket = self.socket.clone();
+        let is_closed = self.is_closed.clone();
 
         tokio::spawn(async move {
             loop {
+                if is_closed.load(Ordering::Relaxed) {
+                    break;
+                }
                 match service_type {
                     ServiceType::Client => match out_proto.client_encode(&socket).await {
                         Ok(buf) => {
@@ -227,10 +237,10 @@ impl Inbound {
     }
 
     pub async fn close(&mut self) -> Result<()> {
-        if !self.is_closed {
+        if !self.is_closed.load(Ordering::Relaxed) {
             self.socket.close().await?;
         }
-        self.is_closed = true;
+        self.is_closed.store(true, Ordering::Relaxed);
 
         Ok(())
     }

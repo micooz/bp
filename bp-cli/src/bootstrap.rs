@@ -1,7 +1,8 @@
-use std::{env, process::Command};
+use std::{env, fmt::Display, process::Command, sync::Arc};
 
 use anyhow::{Error, Result};
 use bp_core::{global, init_dns_resolver, start_service, Connection, Options, StartupInfo};
+use parking_lot::Mutex;
 use tokio::{sync::oneshot::Sender, task::JoinHandle, time};
 
 use crate::dirs::Dirs;
@@ -107,14 +108,15 @@ async fn start_main_service(opts: Options) -> Result<JoinHandle<()>> {
     });
 
     let handle = tokio::spawn(async move {
-        let mut id = 0usize;
+        let cnt = Arc::new(Mutex::new(Counter::default()));
 
         while let Some(socket) = receiver.recv().await {
             if socket.is_none() {
                 break;
             }
 
-            id += 1;
+            let cnt = cnt.clone();
+            cnt.lock().inc();
 
             let socket = socket.unwrap();
             let opts = opts.clone();
@@ -123,23 +125,25 @@ async fn start_main_service(opts: Options) -> Result<JoinHandle<()>> {
             tokio::spawn(async move {
                 let peer_addr = socket.peer_addr().unwrap();
 
-                log::info!("[{}] connected", peer_addr);
+                log::info!("[{}] connected, {} live connections", peer_addr, cnt.lock());
 
-                let mut conn = Connection::new(id, socket, opts);
+                let mut conn = Connection::new(0, socket, opts);
 
                 if let Err(err) = conn.handle().await {
                     log::trace!("{}", err);
                     let _ = conn.close().await;
                 }
 
-                log::info!("[{}] closed", peer_addr);
+                cnt.lock().dec();
+
+                log::info!("[{}] closed, {} live connections", peer_addr, cnt.lock());
 
                 drop(conn);
 
                 // remove item from shared_data after 1min
-                time::sleep(time::Duration::from_secs(60)).await;
+                // time::sleep(time::Duration::from_secs(60)).await;
 
-                global::SHARED_DATA.remove_connection_snapshot(id).await;
+                // global::SHARED_DATA.remove_connection_snapshot(id).await;
             });
         }
     });
@@ -186,4 +190,24 @@ fn start_monitor_service(opts: Options, tx: sync::mpsc::Sender<bp_monitor::Monit
             handle_conn(socket, tx.clone());
         }
     });
+}
+
+#[derive(Default)]
+struct Counter {
+    inner: usize,
+}
+
+impl Counter {
+    pub fn inc(&mut self) {
+        self.inner += 1;
+    }
+    pub fn dec(&mut self) {
+        self.inner -= 1;
+    }
+}
+
+impl Display for Counter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
 }

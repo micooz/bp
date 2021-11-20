@@ -325,6 +325,7 @@ dependencies = [
  "lazy_static",
  "log",
  "log4rs",
+ "parking_lot",
  "signal-hook",
  "tokio",
 ]
