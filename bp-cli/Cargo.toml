@@ -13,7 +13,7 @@ profile = [
 [dependencies]
 bp-core = { path = "../bp-core" }
 bp-monitor = { path = "../bp-monitor" }
-anyhow = "1.0.44"
+anyhow = "1.0.51"
 daemonize = "0.4.1"
 dirs = "4.0.0"
 lazy_static = "1.4.0"
