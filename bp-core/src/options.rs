@@ -68,6 +68,7 @@ pub struct Options {
 
     /// Enable quic
     #[clap(long)]
+    #[serde(default)]
     pub quic: bool,
 
     /// certificate file for TLS
