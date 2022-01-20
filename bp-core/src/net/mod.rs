@@ -4,6 +4,7 @@ pub mod dns;
 pub mod inbound;
 pub mod io;
 pub mod outbound;
+pub mod quic;
 pub mod service;
 pub mod socket;
 

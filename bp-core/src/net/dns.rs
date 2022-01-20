@@ -6,7 +6,7 @@ use trust_dns_resolver::{
     TokioAsyncResolver,
 };
 
-use crate::global;
+use crate::global::GLOBAL_DATA;
 
 pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
     let mut resolver = ResolverConfig::new();
@@ -20,7 +20,7 @@ pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
 
     let dns_resolver = TokioAsyncResolver::tokio(resolver, ResolverOpts::default())?;
 
-    global::SHARED_DATA.set_dns_resolver(dns_resolver).await;
+    GLOBAL_DATA.set_dns_resolver(dns_resolver).await;
 
     Ok(())
 }

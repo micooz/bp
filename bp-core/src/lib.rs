@@ -13,7 +13,8 @@ pub use net::{
     address::Address,
     connection::Connection,
     dns::init_dns_resolver,
-    service::{start_service, StartupInfo},
+    quic::{init_quinn_client_config, init_quinn_server_config, QuinnClientConfig, QuinnServerConfig},
+    service::{QuicService, Service, StartupInfo, TcpService, UdpService},
     socket::Socket,
 };
 pub use options::{check_options, Options, ServiceType};

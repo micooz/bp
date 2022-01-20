@@ -16,10 +16,7 @@ use tokio::{
 use crate::{
     config,
     event::*,
-    net::{
-        address::Address,
-        socket::{Socket, SocketType},
-    },
+    net::{address::Address, io::SocketType, socket::Socket},
     options::{Options, ServiceType},
     protocol::*,
 };

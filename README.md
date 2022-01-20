@@ -8,8 +8,9 @@ Lightweight and efficient proxy written in pure Rust.
 ## Features
 
 * Running on all platform and all CPU architecture.
-* Socks5/HTTP/HTTPS/DNS proxy all in one port.
+* Handle Socks5/HTTP/HTTPS/DNS requests at once in a single port.
 * Support UDP over TCP.
+* Support QUIC.
 * Work with Linux Firewall(by iptables).
 * White list control.
 

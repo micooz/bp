@@ -6,12 +6,13 @@ use tokio::{sync::mpsc::Receiver, time};
 use crate::{
     config,
     event::Event,
-    global,
+    global::GLOBAL_DATA,
     net::{
         address::Address,
         inbound::{Inbound, InboundResolveResult, InboundSnapshot},
+        io::SocketType,
         outbound::{Outbound, OutboundSnapshot},
-        socket::{Socket, SocketType},
+        socket::Socket,
     },
     options::Options,
     protocol::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
@@ -98,20 +99,7 @@ impl Connection {
         self.dest_addr = Some(resolved.address.clone());
 
         // set outbound socket type
-        let inbound_socket_type = self.inbound.socket_type();
-
-        // default the same as inbound
-        self.outbound.set_socket_type(inbound_socket_type);
-
-        // client side enable --udp-over-tcp, outbound should be TCP
-        if self.opts.udp_over_tcp && matches!(inbound_socket_type, SocketType::Udp) {
-            self.outbound.set_socket_type(SocketType::Tcp);
-        }
-
-        // server side resolved DNS protocol, outbound should be UDP
-        if self.opts.server && matches!(resolved.protocol, ProtocolType::Dns) {
-            self.outbound.set_socket_type(SocketType::Udp);
-        }
+        self.outbound.set_socket_type(self.get_outbound_socket_type(&resolved));
 
         // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
@@ -159,13 +147,34 @@ impl Connection {
         Ok(())
     }
 
+    fn get_outbound_socket_type(&self, resolved: &ResolvedResult) -> SocketType {
+        // client side enable --udp-over-tcp, outbound should be TCP
+        if self.opts.udp_over_tcp {
+            return SocketType::Tcp;
+        }
+        // server side resolved DNS protocol, outbound should be UDP
+        if self.opts.server && matches!(resolved.protocol, ProtocolType::Dns) {
+            return SocketType::Udp;
+        }
+        // client side enable --quic, outbound should be QUIC
+        if self.opts.client && self.opts.quic {
+            return SocketType::Quic;
+        }
+        // server side enable --quic, outbound should be TCP
+        if self.opts.server && self.opts.quic {
+            return SocketType::Tcp;
+        }
+        // others situation is the same as inbound
+        self.inbound.socket_type()
+    }
+
     fn check_proxy_rules(&self) -> bool {
         let dest_addr = self.dest_addr.as_ref().unwrap();
         let dest_addr_host = dest_addr.host.to_string();
 
         // white list
         if self.opts.client && self.opts.proxy_white_list.is_some() {
-            let acl = global::SHARED_DATA.get_acl();
+            let acl = GLOBAL_DATA.get_acl();
 
             if !acl.is_host_hit(&dest_addr_host) {
                 log::warn!(

@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
+use quinn::Endpoint;
 use tokio::{
     net::TcpSocket,
     sync::mpsc::Sender,
@@ -17,10 +18,11 @@ use tokio::{
 use crate::{
     config,
     event::Event,
-    global,
+    global::GLOBAL_DATA,
     net::{
         address::{Address, Host},
-        socket::{Socket, SocketType},
+        io::SocketType,
+        socket::Socket,
     },
     options::{Options, ServiceType},
     protocol::{DynProtocol, ResolvedResult},
@@ -105,7 +107,7 @@ impl Outbound {
         }
 
         // make connection
-        let socket = self.connect(remote_ip_addr).await.map_err(|err| {
+        let socket = self.connect(&remote_addr, remote_ip_addr).await.map_err(|err| {
             let msg = format!(
                 "[{}] [{}] connect to {} failed due to: {}",
                 peer_address, socket_type, remote_addr, err
@@ -225,7 +227,7 @@ impl Outbound {
         let ip_list = match &addr.host {
             Host::Name(name) => {
                 // get pre-init resolver
-                let resolver = global::SHARED_DATA.get_dns_resolver();
+                let resolver = GLOBAL_DATA.get_dns_resolver();
                 let resolver = resolver.read().await;
                 let resolver = resolver.as_ref().unwrap();
 
@@ -255,13 +257,13 @@ impl Outbound {
         Ok(ip_list[0])
     }
 
-    async fn connect(&self, addr: SocketAddr) -> Result<Arc<Socket>> {
+    async fn connect(&self, addr: &Address, ip_addr: SocketAddr) -> Result<Arc<Socket>> {
         let socket = match self.socket_type.as_ref().unwrap() {
             SocketType::Tcp => {
                 #[cfg(target_os = "linux")]
                 use std::os::unix::io::AsRawFd;
 
-                let socket = match addr {
+                let socket = match ip_addr {
                     SocketAddr::V4(..) => TcpSocket::new_v4()?,
                     SocketAddr::V6(..) => TcpSocket::new_v6()?,
                 };
@@ -271,17 +273,28 @@ impl Outbound {
                     log::error!("set SO_MARK error due to: {}", err);
                 }
 
-                let future = socket.connect(addr);
+                let future = socket.connect(ip_addr);
                 let stream = timeout(Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
 
                 Arc::new(Socket::from_stream(stream))
             }
             SocketType::Udp => {
-                let socket = Socket::bind_udp_random_port(addr).await?;
+                let socket = Socket::bind_udp_random_port(ip_addr).await?;
                 // TODO: self.mark_socket(socket.as_raw_fd());
 
                 Arc::new(socket)
             }
+            SocketType::Quic => {
+                // TODO: use N endpoint from global
+                let mut endpoint = Endpoint::client(ip_addr)?;
+                endpoint.set_default_client_config(GLOBAL_DATA.get_quinn_client_config());
+
+                let future = endpoint.connect(ip_addr, &addr.host.to_string())?;
+                let connection = timeout(Duration::from_secs(config::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
+
+                Arc::new(Socket::from_quinn_conn(connection).await)
+            }
+            SocketType::Unknown => unreachable!(),
         };
 
         Ok(socket)

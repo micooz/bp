@@ -1,6 +1,6 @@
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::{fmt::Display, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -8,29 +8,12 @@ use tokio::net;
 
 use crate::{net::io, utils::net::create_udp_client_with_random_port};
 
-#[derive(Debug, Clone, Copy)]
-pub enum SocketType {
-    Tcp,
-    Udp,
-}
-
-impl Display for SocketType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            SocketType::Tcp => "tcp",
-            SocketType::Udp => "udp",
-        };
-
-        write!(f, "{}", s)
-    }
-}
-
 #[derive(Debug)]
 pub struct Socket {
     #[cfg(not(target_os = "windows"))]
     fd: Option<RawFd>,
 
-    socket_type: SocketType,
+    socket_type: io::SocketType,
 
     reader: io::SocketReader,
 
@@ -53,9 +36,25 @@ impl Socket {
         Self {
             #[cfg(not(target_os = "windows"))]
             fd: Some(fd),
-            socket_type: SocketType::Tcp,
+            socket_type: io::SocketType::Tcp,
             reader: split.0,
             writer: split.1,
+            peer_addr,
+            local_addr,
+        }
+    }
+
+    pub async fn from_quinn_conn(conn: quinn::NewConnection) -> Self {
+        let peer_addr = conn.connection.remote_address();
+        // TODO: how to get local_addr from quinn
+        let local_addr = conn.connection.remote_address();
+        let (reader, writer) = io::split_quic(conn.connection).await;
+
+        Self {
+            fd: None,
+            socket_type: io::SocketType::Quic,
+            reader,
+            writer,
             peer_addr,
             local_addr,
         }
@@ -68,7 +67,7 @@ impl Socket {
         Self {
             #[cfg(not(target_os = "windows"))]
             fd: None,
-            socket_type: SocketType::Udp,
+            socket_type: io::SocketType::Udp,
             reader: split.0,
             writer: split.1,
             peer_addr,
@@ -93,16 +92,16 @@ impl Socket {
 
     #[inline]
     pub fn is_tcp(&self) -> bool {
-        matches!(self.socket_type, SocketType::Tcp)
+        matches!(self.socket_type, io::SocketType::Tcp)
     }
 
     #[inline]
     pub fn is_udp(&self) -> bool {
-        matches!(self.socket_type, SocketType::Udp)
+        matches!(self.socket_type, io::SocketType::Udp)
     }
 
     #[inline]
-    pub fn socket_type(&self) -> SocketType {
+    pub fn socket_type(&self) -> io::SocketType {
         self.socket_type
     }
 }

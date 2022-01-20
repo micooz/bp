@@ -44,3 +44,4 @@ lto = "fat"
 codegen-units = 1
 incremental = false
 panic = "abort"
+# debug = 1

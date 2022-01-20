@@ -44,8 +44,7 @@ pub struct Options {
     #[clap(short, long)]
     pub key: Option<String>,
 
-    /// protocol used by transport layer between client and server,
-    /// "plain" or "erp" are supported
+    /// protocol used by transport layer between client and server, "plain" or "erp" are supported
     #[clap(short, long, default_value = "erp")]
     #[serde(default)]
     pub protocol: TransportProtocol,
@@ -54,7 +53,7 @@ pub struct Options {
     #[clap(long)]
     pub proxy_white_list: Option<String>,
 
-    /// force all incoming data relay to this destination, usually for testing [default: false]
+    /// force all incoming data relay to this destination, usually for testing
     #[clap(long)]
     pub force_dest_addr: Option<Address>,
 
@@ -66,6 +65,18 @@ pub struct Options {
     /// DNS server address [default: 8.8.8.8:53]
     #[clap(long)]
     pub dns_server: Option<Address>,
+
+    /// Enable quic
+    #[clap(long)]
+    pub quic: bool,
+
+    /// certificate file for TLS
+    #[clap(long)]
+    pub certificate: Option<String>,
+
+    /// private key file for TLS, server only
+    #[clap(long)]
+    pub privatekey: Option<String>,
 }
 
 impl Options {
@@ -104,7 +115,7 @@ impl Options {
         panic!("cannot determine service type");
     }
 
-    /// Return DNS server address, default to
+    /// Return DNS server address, default to 8.8.8.8:53
     pub fn get_dns_server(&self) -> Address {
         self.dns_server
             .clone()
@@ -169,6 +180,16 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
     // check --force-dest-addr
     if opts.force_dest_addr.is_some() && !opts.client {
         return Err("--force-dest-addr can only be set on client.");
+    }
+
+    // check --quic
+    if opts.quic {
+        if opts.certificate.is_none() {
+            return Err("--certificate must be set when --quic is on.");
+        }
+        if opts.server && opts.privatekey.is_none() {
+            return Err("--privatekey must be set when --quic and --server are on.");
+        }
     }
 
     Ok(())
