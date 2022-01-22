@@ -19,13 +19,9 @@ use crate::{
     config,
     event::Event,
     global::GLOBAL_DATA,
-    net::{
-        address::{Address, Host},
-        io::SocketType,
-        socket::Socket,
-    },
+    net::{address::Address, dns::dns_resolve, io::SocketType, socket::Socket},
     options::{Options, ServiceType},
-    protocol::{DynProtocol, ResolvedResult},
+    proto::{DynProtocol, ResolvedResult},
 };
 
 pub struct Outbound {
@@ -85,7 +81,7 @@ impl Outbound {
         self.remote_addr = Some(remote_addr.clone());
 
         // resolve dest ip address
-        let remote_ip_addr = self.dns_resolve(&remote_addr).await.map_err(|err| {
+        let remote_ip_addr = dns_resolve(&remote_addr).await.map_err(|err| {
             let msg = format!(
                 "[{}] [{}] resolve ip address of {} failed due to: {}",
                 peer_address, socket_type, remote_addr, err
@@ -198,13 +194,13 @@ impl Outbound {
         Ok(())
     }
 
-    #[cfg(feature = "monitor")]
-    pub fn snapshot(&self) -> OutboundSnapshot {
-        OutboundSnapshot {
-            remote_addr: self.remote_addr.clone(),
-            protocol_name: self.protocol_name.clone(),
-        }
-    }
+    // #[cfg(feature = "monitor")]
+    // pub fn snapshot(&self) -> OutboundSnapshot {
+    //     OutboundSnapshot {
+    //         remote_addr: self.remote_addr.clone(),
+    //         protocol_name: self.protocol_name.clone(),
+    //     }
+    // }
 
     fn get_remote_addr(&self, resolved: &ResolvedResult) -> Address {
         if self.opts.server || self.opts.server_bind.is_none() || !self.is_allow_proxy {
@@ -212,49 +208,6 @@ impl Outbound {
         } else {
             self.opts.server_bind.clone().unwrap()
         }
-    }
-
-    async fn dns_resolve(&self, addr: &Address) -> Result<SocketAddr> {
-        if addr.is_ip() {
-            return Ok(addr.as_socket_addr());
-        }
-
-        let socket_type = self.socket_type.as_ref().unwrap();
-        let peer_address = self.peer_address;
-
-        log::trace!("[{}] [{}] resolving {}...", peer_address, socket_type, addr);
-
-        let ip_list = match &addr.host {
-            Host::Name(name) => {
-                // get pre-init resolver
-                let resolver = GLOBAL_DATA.get_dns_resolver();
-                let resolver = resolver.read().await;
-                let resolver = resolver.as_ref().unwrap();
-
-                // set a timeout
-                let response = timeout(
-                    Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
-                    resolver.lookup_ip(name.as_str()),
-                )
-                .await??;
-
-                response
-                    .iter()
-                    .map(|ip| SocketAddr::new(ip, addr.port))
-                    .collect::<Vec<SocketAddr>>()
-            }
-            _ => vec![],
-        };
-
-        log::trace!(
-            "[{}] [{}] resolved {} to {:?}",
-            peer_address,
-            socket_type,
-            addr,
-            ip_list
-        );
-
-        Ok(ip_list[0])
     }
 
     async fn connect(&self, addr: &Address, ip_addr: SocketAddr) -> Result<Arc<Socket>> {
@@ -286,17 +239,18 @@ impl Outbound {
             }
             SocketType::Quic => {
                 // TODO: use N endpoint from global
-                let mut endpoint = Endpoint::client(ip_addr)?;
+                let mut endpoint = Endpoint::client("0.0.0.0:0".parse().unwrap())?;
                 endpoint.set_default_client_config(GLOBAL_DATA.get_quinn_client_config());
 
                 let future = endpoint.connect(ip_addr, &addr.host.to_string())?;
-                let connection = timeout(Duration::from_secs(config::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
+                let conn = timeout(Duration::from_secs(config::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
 
-                Arc::new(Socket::from_quinn_conn(connection).await)
+                let stream = conn.connection.open_bi().await.unwrap();
+                let peer_addr = conn.connection.remote_address();
+
+                Arc::new(Socket::from_quic(peer_addr, stream))
             }
-            SocketType::Unknown => unreachable!(),
         };
-
         Ok(socket)
     }
 

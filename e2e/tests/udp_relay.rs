@@ -1,6 +1,5 @@
-use bp_cli::test_utils::run_bp;
 use bp_core::Options;
-use bp_test::send_recv::udp_oneshot;
+use e2e::{oneshot::udp_oneshot, run_bp::run_bp};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_udp_relay_without_server() {

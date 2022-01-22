@@ -37,32 +37,37 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
 
     // init quinn configs
     if opts.quic {
-        if let (Some(cert), Some(privatekey)) = (opts.certificate.as_ref(), opts.privatekey.as_ref()) {
-            if opts.server {
-                init_quinn_server_config(&cert, &privatekey).await?;
+        if opts.server {
+            if let (Some(cert), Some(privatekey)) = (opts.certificate.as_ref(), opts.privatekey.as_ref()) {
+                log::info!("loading certificate from {}", cert);
+                log::info!("loading private key from {}", privatekey);
+                init_quinn_server_config(cert, privatekey).await?;
             }
-            if opts.client {
-                init_quinn_client_config(&cert).await?;
+        }
+        if opts.client {
+            if let Some(cert) = opts.certificate.as_ref() {
+                log::info!("loading certificate from {}", cert);
+                init_quinn_client_config(cert).await?;
             }
         }
     }
 
     // monitor service
-    #[cfg(feature = "monitor")]
-    {
-        use bp_monitor::MonitorCommand;
+    // #[cfg(feature = "monitor")]
+    // {
+    //     use bp_monitor::MonitorCommand;
 
-        let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
+    //     let (tx, rx) = tokio::sync::mpsc::channel::<MonitorCommand>(32);
 
-        #[cfg(feature = "monitor")]
-        start_monitor_service(opts.clone(), tx);
+    //     #[cfg(feature = "monitor")]
+    //     start_monitor_service(opts.clone(), tx);
 
-        tokio::spawn(async move {
-            while let Some(mut cmd) = rx.recv().await {
-                cmd.exec(shared_data_monitor.clone()).await;
-            }
-        });
-    }
+    //     tokio::spawn(async move {
+    //         while let Some(mut cmd) = rx.recv().await {
+    //             cmd.exec(shared_data_monitor.clone()).await;
+    //         }
+    //     });
+    // }
 
     // main service
     let handle = start_main_service(opts.clone()).await?;
@@ -155,20 +160,20 @@ async fn start_main_service(opts: Options) -> Result<JoinHandle<()>> {
     Ok(handle)
 }
 
-#[cfg(feature = "monitor")]
-fn start_monitor_service(opts: Options, tx: sync::mpsc::Sender<bp_monitor::MonitorCommand>) {
-    use bp_monitor::handle_conn;
+// #[cfg(feature = "monitor")]
+// fn start_monitor_service(opts: Options, tx: sync::mpsc::Sender<bp_monitor::MonitorCommand>) {
+//     use bp_monitor::handle_conn;
 
-    // start monitor service
-    let bind_addr_monitor = opts.get_monitor_bind_addr();
-    let mut receiver = service::start_service("monitor", bind_addr_monitor.parse().unwrap());
+//     // start monitor service
+//     let bind_addr_monitor = opts.get_monitor_bind_addr();
+//     let mut receiver = service::start_service("monitor", bind_addr_monitor.parse().unwrap());
 
-    tokio::spawn(async move {
-        while let Some(socket) = receiver.recv().await {
-            handle_conn(socket, tx.clone());
-        }
-    });
-}
+//     tokio::spawn(async move {
+//         while let Some(socket) = receiver.recv().await {
+//             handle_conn(socket, tx.clone());
+//         }
+//     });
+// }
 
 fn daemonize_self() -> Result<()> {
     log::info!(

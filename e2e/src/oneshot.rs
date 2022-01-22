@@ -5,7 +5,8 @@ use tokio::{
 };
 
 pub async fn tcp_oneshot(bind_addr: &Address, buf: &[u8]) -> Vec<u8> {
-    let mut socket = TcpStream::connect(bind_addr.to_string()).await.unwrap();
+    let ip_addr = bind_addr.try_resolve().await.unwrap();
+    let mut socket = TcpStream::connect(ip_addr).await.unwrap();
 
     socket.write_all(buf).await.unwrap();
     socket.flush().await.unwrap();
@@ -17,9 +18,10 @@ pub async fn tcp_oneshot(bind_addr: &Address, buf: &[u8]) -> Vec<u8> {
 }
 
 pub async fn udp_oneshot(bind_addr: &Address, buf: &[u8]) -> Vec<u8> {
+    let ip_addr = bind_addr.try_resolve().await.unwrap();
     let socket = create_udp_client_with_random_port().await.unwrap();
 
-    socket.send_to(buf, bind_addr.to_string()).await.unwrap();
+    socket.send_to(buf, ip_addr).await.unwrap();
 
     let mut buf = vec![0u8; 1500];
     let n = socket.recv(&mut buf).await.unwrap();

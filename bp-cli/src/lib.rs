@@ -10,4 +10,3 @@ pub mod logging;
 pub mod profile;
 
 pub mod signal;
-pub mod test_utils;

@@ -9,6 +9,7 @@ use anyhow::{Error, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use serde::{de::Visitor, Deserialize, Deserializer};
 
+use super::dns::dns_resolve;
 use crate::net::socket;
 
 // The same as ATYP in Socks5 Protocol
@@ -161,6 +162,14 @@ impl Address {
 
                 Ok(Self::new(host, port))
             }
+        }
+    }
+
+    pub async fn try_resolve(&self) -> Result<SocketAddr> {
+        if self.is_ip() {
+            Ok(self.as_socket_addr())
+        } else {
+            dns_resolve(&self).await
         }
     }
 

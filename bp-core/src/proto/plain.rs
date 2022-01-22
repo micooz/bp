@@ -4,7 +4,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::{
     net::{address::Address, socket},
-    protocol::{Protocol, ProtocolType, ResolvedResult},
+    proto::{Protocol, ProtocolType, ResolvedResult},
 };
 
 /// # Protocol

@@ -44,11 +44,12 @@ impl Socket {
         }
     }
 
-    pub async fn from_quinn_conn(conn: quinn::NewConnection) -> Self {
-        let peer_addr = conn.connection.remote_address();
+    pub fn from_quic(peer_addr: SocketAddr, stream: (quinn::SendStream, quinn::RecvStream)) -> Self {
+        // let peer_addr = conn.remote_address();
         // TODO: how to get local_addr from quinn
-        let local_addr = conn.connection.remote_address();
-        let (reader, writer) = io::split_quic(conn.connection).await;
+        let local_addr = peer_addr;
+
+        let (reader, writer) = io::split_quic(stream);
 
         Self {
             fd: None,
@@ -88,11 +89,6 @@ impl Socket {
     #[inline]
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
         Ok(self.local_addr)
-    }
-
-    #[inline]
-    pub fn is_tcp(&self) -> bool {
-        matches!(self.socket_type, io::SocketType::Tcp)
     }
 
     #[inline]

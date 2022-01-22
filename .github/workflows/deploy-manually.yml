@@ -18,14 +18,14 @@ on:
         required: true
       version:
         description: 'Asset version to deploy'
-        default: 'v1.0.0-alpha.5'
+        default: 'v1.1.0'
         required: true
       arch:
         description: 'Asset binary architecture (Rust format)'
         default: 'x86_64-unknown-linux-gnu'
         required: true
       config:
-        description: 'Config string used by bp --config'
+        description: 'JSON config string used by bp --config'
         required: true
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
       PASSWORD: ${{ github.event.inputs.password }}
       VERSION: ${{ github.event.inputs.version }}
       ASSET_FILE: bp-${{ github.event.inputs.version }}.${{ github.event.inputs.arch }}.tar.xz
-      CONFIG_FILE: config
+      CONFIG_FILE: config.json
       DEPLOY_PATH: /root/.bp/deploy/${{ github.event.inputs.version }}
     steps:
       - name: Download Asset

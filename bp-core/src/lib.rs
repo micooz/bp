@@ -3,7 +3,7 @@ mod config;
 mod event;
 mod net;
 mod options;
-mod protocol;
+mod proto;
 
 pub mod global;
 pub mod utils;
@@ -18,4 +18,4 @@ pub use net::{
     socket::Socket,
 };
 pub use options::{check_options, Options, ServiceType};
-pub use protocol::TransportProtocol;
+pub use proto::ApplicationProtocol;

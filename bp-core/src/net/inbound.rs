@@ -18,7 +18,7 @@ use crate::{
     event::*,
     net::{address::Address, io::SocketType, socket::Socket},
     options::{Options, ServiceType},
-    protocol::*,
+    proto::*,
 };
 
 pub struct InboundResolveResult {

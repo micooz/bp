@@ -10,7 +10,7 @@ use crate::{
         address::{Address, Host},
         socket::Socket,
     },
-    protocol::{Protocol, ProtocolType, ResolvedResult},
+    proto::{Protocol, ProtocolType, ResolvedResult},
 };
 
 #[derive(Clone, Default)]

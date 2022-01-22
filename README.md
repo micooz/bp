@@ -120,7 +120,7 @@ iptables -t nat -A PREROUTING -p tcp -j BP
 iptables -t nat -A OUTPUT -p tcp -j BP
 ```
 
-## Monitor (Experimental)
+<!-- ## Monitor (Experimental)
 
 bp executable compiled with `--features="monitor"` expose a TCP control port which can be used for remote monitoring.
 
@@ -130,4 +130,4 @@ Use `telnet` connect to control port then follow the prompt:
 
 ```
 $ telnet <bp_host> <bp_monitor_port>
-```
+``` -->

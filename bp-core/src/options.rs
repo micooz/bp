@@ -5,7 +5,7 @@ use anyhow::{Error, Result};
 use crate::{
     config::{DEFAULT_DNS_SERVER_ADDRESS, DEFAULT_SERVICE_ADDRESS},
     net::address::Address,
-    protocol::TransportProtocol,
+    proto::ApplicationProtocol,
 };
 
 /// Lightweight and efficient proxy written in pure Rust
@@ -47,7 +47,7 @@ pub struct Options {
     /// protocol used by transport layer between client and server, "plain" or "erp" are supported
     #[clap(short, long, default_value = "erp")]
     #[serde(default)]
-    pub protocol: TransportProtocol,
+    pub protocol: ApplicationProtocol,
 
     /// check white list before proxy, pass a file path
     #[clap(long)]
@@ -86,23 +86,23 @@ impl Options {
         let mut fd = fs::OpenOptions::new().read(true).open(file)?;
         fd.read_to_string(&mut raw_str)?;
 
-        if let Ok(v) = Self::from_yaml_str(&raw_str) {
-            return Ok(v);
+        if file.ends_with(".yml") || file.ends_with(".yaml") {
+            return Self::from_yaml_str(&raw_str);
         }
 
-        if let Ok(v) = Self::from_json_str(&raw_str) {
-            return Ok(v);
+        if file.ends_with(".json") {
+            return Self::from_json_str(&raw_str);
         }
 
-        Err(Error::msg("file is invalid YAML or JSON"))
+        Err(Error::msg("invalid file format"))
     }
 
     fn from_yaml_str(s: &str) -> Result<Self> {
-        serde_yaml::from_str(s).map_err(|err| Error::msg(format!("Fail to load YAML config: {}", err)))
+        serde_yaml::from_str(s).map_err(|err| Error::msg(format!("fail to load YAML config: {}", err)))
     }
 
     fn from_json_str(s: &str) -> Result<Self> {
-        serde_json::from_str(s).map_err(|err| Error::msg(format!("Fail to load JSON config: {}", err)))
+        serde_json::from_str(s).map_err(|err| Error::msg(format!("fail to load JSON config: {}", err)))
     }
 
     /// Return local service type
@@ -113,7 +113,7 @@ impl Options {
         if self.server && !self.client {
             return ServiceType::Server;
         }
-        panic!("cannot determine service type");
+        unreachable!("cannot determine service type");
     }
 
     /// Return DNS server address, default to 8.8.8.8:53
@@ -123,16 +123,16 @@ impl Options {
             .unwrap_or_else(|| DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap())
     }
 
-    #[cfg(feature = "monitor")]
-    /// Return monitor bind address
-    pub fn get_monitor_bind_addr(&self) -> String {
-        use bp_lib::net::address::Address;
+    // #[cfg(feature = "monitor")]
+    // /// Return monitor bind address
+    // pub fn get_monitor_bind_addr(&self) -> String {
+    //     use bp_lib::net::address::Address;
 
-        let mut addr: Address = self.bind.parse().unwrap();
-        addr.set_port(addr.port + 1);
+    //     let mut addr: Address = self.bind.parse().unwrap();
+    //     addr.set_port(addr.port + 1);
 
-        addr.as_string()
-    }
+    //     addr.as_string()
+    // }
 }
 
 pub fn check_options(opts: &Options) -> Result<(), &'static str> {
@@ -200,13 +200,4 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
 pub enum ServiceType {
     Client,
     Server,
-}
-
-impl ServiceType {
-    pub fn is_client(&self) -> bool {
-        matches!(self, ServiceType::Client)
-    }
-    pub fn is_server(&self) -> bool {
-        matches!(self, ServiceType::Server)
-    }
 }

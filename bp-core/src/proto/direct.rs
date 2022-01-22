@@ -4,7 +4,7 @@ use bytes::Bytes;
 
 use crate::{
     net::socket::Socket,
-    protocol::{Protocol, ResolvedResult},
+    proto::{Protocol, ResolvedResult},
 };
 
 #[derive(Default, Clone)]

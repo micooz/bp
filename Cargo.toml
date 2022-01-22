@@ -1,6 +1,6 @@
 [package]
 name = "bp"
-version = "1.0.0-alpha.5"
+version = "1.1.0"
 authors = ["Micooz Lee <micooz@hotmail.com>"]
 description = "bp is a lightweight and efficient proxy written in pure Rust."
 repository = "https://github.com/micooz/bp"
@@ -15,7 +15,7 @@ path = "bin/bp.rs"
 
 [features]
 logging = []
-monitor = []
+# monitor = []
 profile = [
   "bp-cli/profile"
 ]
@@ -28,8 +28,8 @@ default = [
 members = [
     "bp-cli",
     "bp-core",
-    "bp-monitor",
-    "bp-test",
+    # "bp-monitor",
+    "e2e",
 ]
 
 [dependencies]

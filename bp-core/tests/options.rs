@@ -6,12 +6,17 @@ fn test_from_file() {
     assert_eq!(opts.client, true);
     assert_eq!(opts.daemonize, true);
     assert_eq!(opts.bind, "127.0.0.1:1080".parse().unwrap());
-    assert_eq!(opts.protocol, TransportProtocol::EncryptRandomPadding);
+    assert_eq!(opts.protocol, ApplicationProtocol::EncryptRandomPadding);
+
+    let opts = Options::from_file("tests/fixtures/config.yaml").unwrap();
+    assert_eq!(opts.client, true);
 
     let opts = Options::from_file("tests/fixtures/config.json").unwrap();
     assert_eq!(opts.server, true);
     assert_eq!(opts.bind, "127.0.0.1:1080".parse().unwrap());
     assert_eq!(opts.key, Some("key".to_string()));
+
+    assert!(Options::from_file("tests/fixtures/config.invalid").is_err());
 }
 
 #[test]
@@ -22,6 +27,13 @@ fn test_service_type() {
     };
 
     assert!(matches!(opts.service_type(), ServiceType::Client));
+
+    let opts = Options {
+        server: true,
+        ..Options::default()
+    };
+
+    assert!(matches!(opts.service_type(), ServiceType::Server));
 }
 
 #[test]
@@ -34,6 +46,17 @@ fn test_get_dns_server() {
 #[test]
 fn test_empty() {
     let opts = Options::default();
+
+    assert!(check_options(&opts).is_err());
+}
+
+#[test]
+fn test_set_client_and_server() {
+    let opts = Options {
+        client: true,
+        server: true,
+        ..Options::default()
+    };
 
     assert!(check_options(&opts).is_err());
 }
@@ -96,6 +119,7 @@ fn test_set_server_and_key() {
 fn test_set_server_and_proxy_white_list() {
     let opts = Options {
         server: true,
+        key: Some("key".to_string()),
         proxy_white_list: Some("/tmp/proxy_white_list.txt".to_string()),
         ..Options::default()
     };
@@ -129,6 +153,7 @@ fn test_set_client_and_udp_over_tcp() {
 fn test_set_server_and_udp_over_tcp() {
     let opts = Options {
         server: true,
+        key: Some("key".to_string()),
         udp_over_tcp: true,
         ..Options::default()
     };
@@ -140,7 +165,32 @@ fn test_set_server_and_udp_over_tcp() {
 fn test_set_server_and_force_dest_addr() {
     let opts = Options {
         server: true,
+        key: Some("key".to_string()),
         force_dest_addr: Some("example.com:443".parse().unwrap()),
+        ..Options::default()
+    };
+
+    assert!(check_options(&opts).is_err());
+}
+
+#[test]
+fn test_set_client_and_quic() {
+    let opts = Options {
+        client: true,
+        quic: true,
+        ..Options::default()
+    };
+
+    assert!(check_options(&opts).is_err());
+}
+
+#[test]
+fn test_set_server_and_quic() {
+    let opts = Options {
+        server: true,
+        key: Some("key".to_string()),
+        quic: true,
+        certificate: Some("cert.pem".to_string()),
         ..Options::default()
     };
 

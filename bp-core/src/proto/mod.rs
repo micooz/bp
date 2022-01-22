@@ -81,12 +81,12 @@ dyn_clone::clone_trait_object!(Protocol);
 pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TransportProtocol {
+pub enum ApplicationProtocol {
     Plain,
     EncryptRandomPadding,
 }
 
-impl str::FromStr for TransportProtocol {
+impl str::FromStr for ApplicationProtocol {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
@@ -98,16 +98,16 @@ impl str::FromStr for TransportProtocol {
     }
 }
 
-impl Default for TransportProtocol {
+impl Default for ApplicationProtocol {
     fn default() -> Self {
         Self::EncryptRandomPadding
     }
 }
 
-struct TransportProtocolVisitor;
+struct ApplicationProtocolVisitor;
 
-impl<'de> Visitor<'de> for TransportProtocolVisitor {
-    type Value = TransportProtocol;
+impl<'de> Visitor<'de> for ApplicationProtocolVisitor {
+    type Value = ApplicationProtocol;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("plain/erp")
@@ -117,22 +117,22 @@ impl<'de> Visitor<'de> for TransportProtocolVisitor {
     where
         E: serde::de::Error,
     {
-        TransportProtocol::from_str(v).map_err(serde::de::Error::custom)
+        ApplicationProtocol::from_str(v).map_err(serde::de::Error::custom)
     }
 }
 
-impl<'de> Deserialize<'de> for TransportProtocol {
+impl<'de> Deserialize<'de> for ApplicationProtocol {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_string(TransportProtocolVisitor)
+        deserializer.deserialize_string(ApplicationProtocolVisitor)
     }
 }
 
 pub fn init_transport_protocol(opts: &Options) -> DynProtocol {
     match opts.protocol {
-        TransportProtocol::Plain => Box::new(Plain::default()),
-        TransportProtocol::EncryptRandomPadding => Box::new(Erp::new(opts.key.clone().unwrap(), opts.service_type())),
+        ApplicationProtocol::Plain => Box::new(Plain::default()),
+        ApplicationProtocol::EncryptRandomPadding => Box::new(Erp::new(opts.key.clone().unwrap(), opts.service_type())),
     }
 }

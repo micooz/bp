@@ -13,7 +13,7 @@ use tokio::{
 use crate::{
     config,
     global::GLOBAL_DATA,
-    net::{address::Address, socket::Socket},
+    net::{address::Address, dns::dns_resolve, socket::Socket},
 };
 
 #[derive(Debug)]
@@ -117,7 +117,13 @@ impl Service for UdpService {
 #[async_trait]
 impl Service for QuicService {
     async fn start(name: &'static str, addr: &Address, sender: Sender<Option<Socket>>) -> Result<()> {
-        let (_endpoint, mut incoming) = Endpoint::server(GLOBAL_DATA.get_quinn_server_config(), addr.as_socket_addr())?;
+        let ip = if addr.is_hostname() {
+            dns_resolve(addr).await?
+        } else {
+            addr.as_socket_addr()
+        };
+
+        let (_endpoint, mut incoming) = Endpoint::server(GLOBAL_DATA.get_quinn_server_config(), ip)?;
 
         log::info!(
             "[{}] service running at quic://{}, waiting for connection...",
@@ -127,22 +133,44 @@ impl Service for QuicService {
 
         tokio::spawn(async move {
             loop {
-                let conn = incoming.next().await;
-
+                let sender = sender.clone();
                 if sender.is_closed() {
                     break;
                 }
 
-                match conn.unwrap().await {
-                    Ok(conn) => {
-                        sender.send(Some(Socket::from_quinn_conn(conn).await)).await.unwrap();
-                    }
-                    Err(err) => {
-                        log::error!("[{}] encountered an error: {}", name, err);
-                        sender.send(None).await.unwrap();
-                        break;
-                    }
+                let conn = incoming.next().await.unwrap().await;
+
+                if let Err(err) = conn {
+                    log::error!("[{}] encountered an error: {}", name, err);
+                    sender.send(None).await.unwrap();
+                    break;
                 }
+
+                let mut conn = conn.unwrap();
+                let conn_id = conn.connection.stable_id();
+                let peer_addr = conn.connection.remote_address();
+
+                log::info!("[{}] [{}] established new quic connection", peer_addr, conn_id);
+
+                tokio::spawn(async move {
+                    while let Some(stream) = conn.bi_streams.next().await {
+                        match stream {
+                            Ok(s) => {
+                                log::info!("[{}] [{}] handle new quic stream", peer_addr, conn_id);
+                                let socket = Socket::from_quic(peer_addr, s);
+                                sender.send(Some(socket)).await.unwrap();
+                            }
+                            Err(err) => {
+                                if matches!(err, quinn::ConnectionError::ApplicationClosed { .. }) {
+                                    log::info!("[{}] [{}] quic stream closed", peer_addr, conn_id);
+                                } else {
+                                    log::error!("[{}] [{}] quic stream error due to: {}", peer_addr, conn_id, err);
+                                }
+                                break;
+                            }
+                        };
+                    }
+                });
             }
         });
 

@@ -1,8 +1,8 @@
-use bp_cli::test_utils::run_bp;
 use bp_core::{Options, StartupInfo};
-use bp_test::{
+use e2e::{
     http_server::{run_http_mock_server, HttpServerContext},
-    send_recv::tcp_oneshot,
+    oneshot::tcp_oneshot,
+    run_bp::run_bp,
 };
 
 #[tokio::test(flavor = "multi_thread")]

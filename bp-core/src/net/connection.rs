@@ -1,6 +1,6 @@
 use anyhow::Result;
-#[cfg(feature = "monitor")]
-use bytes::BytesMut;
+// #[cfg(feature = "monitor")]
+// use bytes::BytesMut;
 use tokio::{sync::mpsc::Receiver, time};
 
 use crate::{
@@ -15,11 +15,11 @@ use crate::{
         socket::Socket,
     },
     options::Options,
-    protocol::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
+    proto::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
 };
 
-#[cfg(feature = "monitor")]
-const MAX_CACHE_SIZE: usize = 1024;
+// #[cfg(feature = "monitor")]
+// const MAX_CACHE_SIZE: usize = 1024;
 
 #[cfg(feature = "monitor")]
 struct MonitorCollectData {
@@ -41,9 +41,8 @@ pub struct Connection {
     dest_addr: Option<Address>,
 
     closed: bool,
-
-    #[cfg(feature = "monitor")]
-    monitor_collect_data: MonitorCollectData,
+    // #[cfg(feature = "monitor")]
+    // monitor_collect_data: MonitorCollectData,
 }
 
 impl Connection {
@@ -99,7 +98,7 @@ impl Connection {
         self.dest_addr = Some(resolved.address.clone());
 
         // set outbound socket type
-        self.outbound.set_socket_type(self.get_outbound_socket_type(&resolved));
+        self.outbound.set_socket_type(self.get_outbound_socket_type(resolved));
 
         // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
@@ -120,7 +119,7 @@ impl Connection {
         }
 
         // start receiving data from inbound
-        if matches!(self.inbound.socket_type(), SocketType::Tcp) {
+        if matches!(self.inbound.socket_type(), SocketType::Tcp | SocketType::Quic) {
             self.inbound
                 .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone());
         }
