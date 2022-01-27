@@ -3,11 +3,14 @@ use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_transport_plain() {
-    let resp = run_all(Options {
-        protocol: ApplicationProtocol::Plain,
-        ..Default::default()
-    })
+async fn test_plain() {
+    let resp = run_all(
+        Options {
+            protocol: ApplicationProtocol::Plain,
+            ..Default::default()
+        },
+        None,
+    )
     .await;
 
     let TestResponse {
@@ -23,11 +26,14 @@ async fn test_transport_plain() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_transport_erp() {
-    let resp = run_all(Options {
-        protocol: ApplicationProtocol::EncryptRandomPadding,
-        ..Default::default()
-    })
+async fn test_erp() {
+    let resp = run_all(
+        Options {
+            protocol: ApplicationProtocol::EncryptRandomPadding,
+            ..Default::default()
+        },
+        None,
+    )
     .await;
 
     let TestResponse {

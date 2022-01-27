@@ -13,10 +13,11 @@ use tokio::{
     time::{timeout, Duration},
 };
 
+use super::socket::SocketType;
 use crate::{
     config,
     event::*,
-    net::{address::Address, io::SocketType, socket::Socket},
+    net::{address::Address, socket::Socket},
     options::{Options, ServiceType},
     proto::*,
 };
@@ -32,9 +33,6 @@ pub struct Inbound {
 
     peer_address: SocketAddr,
 
-    #[allow(dead_code)]
-    local_addr: SocketAddr,
-
     protocol_name: Option<String>,
 
     is_closed: Arc<AtomicBool>,
@@ -43,14 +41,12 @@ pub struct Inbound {
 impl Inbound {
     pub fn new(socket: Socket, opts: Options) -> Self {
         let socket = Arc::new(socket);
-        let local_addr = socket.local_addr().unwrap();
         let peer_address = socket.peer_addr().unwrap();
 
         Self {
             opts,
             socket,
             peer_address,
-            local_addr,
             protocol_name: None,
             is_closed: Arc::new(AtomicBool::new(false)),
         }
@@ -112,9 +108,9 @@ impl Inbound {
                     // overwrite port if redirect_dest_addr exist and it's port is not bp itself.
                     // because http/https sniffer return an inaccurate port number(80 or 443)
                     if let Some(addr) = redirect_dest_addr {
-                        if addr.port != self.opts.bind.port {
+                        if addr.port() != self.opts.bind.port() {
                             let mut resolved = proto.get_resolved_result().unwrap().clone();
-                            resolved.set_port(addr.port);
+                            resolved.set_port(addr.port());
                             proto.set_resolved_result(resolved);
                         }
                     }
@@ -137,7 +133,7 @@ impl Inbound {
 
         // server side resolve
         if self.opts.server {
-            let mut proto = init_transport_protocol(&self.opts);
+            let mut proto = init_protocol(&self.opts);
             self.resolve_dest_addr(&mut proto, false).await?;
 
             let resolved = proto.get_resolved_result().unwrap().clone();
@@ -242,15 +238,6 @@ impl Inbound {
         Ok(())
     }
 
-    #[cfg(feature = "monitor")]
-    pub fn snapshot(&self) -> InboundSnapshot {
-        InboundSnapshot {
-            peer_addr: self.peer_address,
-            local_addr: self.local_addr,
-            protocol_name: self.protocol_name.clone(),
-        }
-    }
-
     async fn resolve_dest_addr(&self, proto: &mut DynProtocol, is_try: bool) -> Result<()> {
         let peer_address = self.peer_address;
         let socket = self.socket.as_ref();
@@ -328,11 +315,4 @@ impl Inbound {
         #[cfg(not(target_os = "linux"))]
         None
     }
-}
-
-#[derive(Debug)]
-pub struct InboundSnapshot {
-    pub peer_addr: SocketAddr,
-    pub local_addr: SocketAddr,
-    pub protocol_name: Option<String>,
 }

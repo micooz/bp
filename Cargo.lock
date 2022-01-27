@@ -347,6 +347,7 @@ dependencies = [
  "parking_lot",
  "quinn",
  "rand",
+ "rcgen",
  "rustls",
  "serde",
  "serde_json",
@@ -723,7 +724,6 @@ dependencies = [
  "cmd_lib",
  "httpmock",
  "lazy_static",
- "rcgen",
  "tokio",
 ]
 

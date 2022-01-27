@@ -7,8 +7,7 @@ use trust_dns_resolver::{
     TokioAsyncResolver,
 };
 
-use super::address::Host;
-use crate::{config, global::GLOBAL_DATA, Address};
+use crate::{config, global, Address};
 
 pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
     let mut resolver = ResolverConfig::new();
@@ -22,7 +21,7 @@ pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
 
     let dns_resolver = TokioAsyncResolver::tokio(resolver, ResolverOpts::default())?;
 
-    GLOBAL_DATA.set_dns_resolver(dns_resolver).await;
+    global::set_dns_resolver(dns_resolver).await;
 
     Ok(())
 }
@@ -32,27 +31,27 @@ pub async fn dns_resolve(addr: &Address) -> Result<SocketAddr> {
         return Ok(addr.as_socket_addr());
     }
 
-    let ip_list = match &addr.host {
-        Host::Name(name) => {
-            // get pre-init resolver
-            let resolver = GLOBAL_DATA.get_dns_resolver();
-            let resolver = resolver.read().await;
-            let resolver = resolver.as_ref().unwrap();
+    if addr.is_hostname() {
+        let name = addr.host();
 
-            // set a timeout
-            let response = timeout(
-                Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
-                resolver.lookup_ip(name.as_str()),
-            )
-            .await??;
+        let resolver = global::get_dns_resolver();
+        let resolver = resolver.read().await;
+        let resolver = resolver.as_ref().unwrap();
 
-            response
-                .iter()
-                .map(|ip| SocketAddr::new(ip, addr.port))
-                .collect::<Vec<SocketAddr>>()
-        }
-        _ => vec![],
-    };
+        // set a timeout
+        let response = timeout(
+            Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
+            resolver.lookup_ip(name.as_str()),
+        )
+        .await??;
 
-    Ok(ip_list[0])
+        let ip_list = response
+            .iter()
+            .map(|ip| SocketAddr::new(ip, addr.port()))
+            .collect::<Vec<SocketAddr>>();
+
+        return Ok(ip_list[0]);
+    }
+
+    unreachable!()
 }

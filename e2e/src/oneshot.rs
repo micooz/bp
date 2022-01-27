@@ -1,12 +1,13 @@
-use bp_core::{utils::net::create_udp_client_with_random_port, Address};
+use std::net::SocketAddr;
+
+use bp_core::utils::net::create_udp_client_with_random_port;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
 
-pub async fn tcp_oneshot(bind_addr: &Address, buf: &[u8]) -> Vec<u8> {
-    let ip_addr = bind_addr.try_resolve().await.unwrap();
-    let mut socket = TcpStream::connect(ip_addr).await.unwrap();
+pub async fn tcp_oneshot(bind_addr: SocketAddr, buf: &[u8]) -> Vec<u8> {
+    let mut socket = TcpStream::connect(bind_addr).await.unwrap();
 
     socket.write_all(buf).await.unwrap();
     socket.flush().await.unwrap();
@@ -17,11 +18,10 @@ pub async fn tcp_oneshot(bind_addr: &Address, buf: &[u8]) -> Vec<u8> {
     buf[0..n].to_vec()
 }
 
-pub async fn udp_oneshot(bind_addr: &Address, buf: &[u8]) -> Vec<u8> {
-    let ip_addr = bind_addr.try_resolve().await.unwrap();
+pub async fn udp_oneshot(bind_addr: SocketAddr, buf: &[u8]) -> Vec<u8> {
     let socket = create_udp_client_with_random_port().await.unwrap();
 
-    socket.send_to(buf, ip_addr).await.unwrap();
+    socket.send_to(buf, bind_addr).await.unwrap();
 
     let mut buf = vec![0u8; 1500];
     let n = socket.recv(&mut buf).await.unwrap();

@@ -44,7 +44,7 @@ pub struct Options {
     #[clap(short, long)]
     pub key: Option<String>,
 
-    /// protocol used by transport layer between client and server, "plain" or "erp" are supported
+    /// protocol used between client and server, "plain" or "erp" are supported
     #[clap(short, long, default_value = "erp")]
     #[serde(default)]
     pub protocol: ApplicationProtocol,
@@ -66,18 +66,28 @@ pub struct Options {
     #[clap(long)]
     pub dns_server: Option<Address>,
 
-    /// Enable quic
+    /// Enable QUIC to transfer data
     #[clap(long)]
     #[serde(default)]
     pub quic: bool,
 
-    /// certificate file for TLS
+    /// the max number of QUIC connections [default: 65535]
     #[clap(long)]
-    pub certificate: Option<String>,
+    #[serde(default)]
+    pub quic_max_concurrency: Option<u16>,
 
-    /// private key file for TLS, server only
+    /// generate TLS certificate and key files(in der format) to CWD
     #[clap(long)]
-    pub privatekey: Option<String>,
+    #[serde(default)]
+    pub generate_cert: bool,
+
+    /// certificate file for Quic or TLS
+    #[clap(long)]
+    pub tls_cert: Option<String>,
+
+    /// private key file for Quic or TLS, server only
+    #[clap(long)]
+    pub tls_key: Option<String>,
 }
 
 impl Options {
@@ -122,20 +132,13 @@ impl Options {
             .clone()
             .unwrap_or_else(|| DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap())
     }
-
-    // #[cfg(feature = "monitor")]
-    // /// Return monitor bind address
-    // pub fn get_monitor_bind_addr(&self) -> String {
-    //     use bp_lib::net::address::Address;
-
-    //     let mut addr: Address = self.bind.parse().unwrap();
-    //     addr.set_port(addr.port + 1);
-
-    //     addr.as_string()
-    // }
 }
 
 pub fn check_options(opts: &Options) -> Result<(), &'static str> {
+    if opts.generate_cert {
+        return Ok(());
+    }
+
     if !opts.client && !opts.server {
         return Err("--c or --s must be set.");
     }
@@ -185,11 +188,18 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
 
     // check --quic
     if opts.quic {
-        if opts.certificate.is_none() {
-            return Err("--certificate must be set when --quic is on.");
+        if opts.tls_cert.is_none() {
+            return Err("--tls-cert must be set when --quic is on.");
         }
-        if opts.server && opts.privatekey.is_none() {
-            return Err("--privatekey must be set when --quic and --server are on.");
+        if opts.server && opts.tls_key.is_none() {
+            return Err("--tls-key must be set when --quic and --server are on.");
+        }
+    }
+
+    // check --quic-max-concurrency
+    if let Some(n) = opts.quic_max_concurrency {
+        if n < 1 {
+            return Err("--quic-max-concurrency should not be zero.");
         }
     }
 

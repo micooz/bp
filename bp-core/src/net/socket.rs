@@ -1,78 +1,75 @@
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::{net::SocketAddr, sync::Arc};
+use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use bytes::Bytes;
 use tokio::net;
 
-use crate::{net::io, utils::net::create_udp_client_with_random_port};
+use crate::{
+    io::{
+        reader::SocketReader,
+        utils::{split_quic, split_tcp, split_udp},
+        writer::SocketWriter,
+    },
+    utils::net::create_udp_client_with_random_port,
+};
 
 #[derive(Debug)]
 pub struct Socket {
     #[cfg(not(target_os = "windows"))]
     fd: Option<RawFd>,
 
-    socket_type: io::SocketType,
+    socket_type: SocketType,
 
-    reader: io::SocketReader,
+    reader: SocketReader,
 
-    writer: io::SocketWriter,
+    writer: SocketWriter,
 
     peer_addr: SocketAddr,
-
-    local_addr: SocketAddr,
 }
 
 impl Socket {
     pub fn from_stream(stream: net::TcpStream) -> Self {
         let peer_addr = stream.peer_addr().unwrap();
-        let local_addr = stream.local_addr().unwrap();
+
         #[cfg(not(target_os = "windows"))]
         let fd = stream.as_raw_fd();
 
-        let split = io::split_tcp(stream);
+        let split = split_tcp(stream);
 
         Self {
             #[cfg(not(target_os = "windows"))]
             fd: Some(fd),
-            socket_type: io::SocketType::Tcp,
+            socket_type: SocketType::Tcp,
             reader: split.0,
             writer: split.1,
             peer_addr,
-            local_addr,
         }
     }
 
     pub fn from_quic(peer_addr: SocketAddr, stream: (quinn::SendStream, quinn::RecvStream)) -> Self {
-        // let peer_addr = conn.remote_address();
-        // TODO: how to get local_addr from quinn
-        let local_addr = peer_addr;
-
-        let (reader, writer) = io::split_quic(stream);
+        let (reader, writer) = split_quic(stream);
 
         Self {
             fd: None,
-            socket_type: io::SocketType::Quic,
+            socket_type: SocketType::Quic,
             reader,
             writer,
             peer_addr,
-            local_addr,
         }
     }
 
     pub fn from_udp_socket(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
-        let local_addr = socket.local_addr().unwrap();
-        let split = io::split_udp(socket, peer_addr);
+        let split = split_udp(socket, peer_addr);
 
         Self {
             #[cfg(not(target_os = "windows"))]
             fd: None,
-            socket_type: io::SocketType::Udp,
+            socket_type: SocketType::Udp,
             reader: split.0,
             writer: split.1,
             peer_addr,
-            local_addr,
         }
     }
 
@@ -87,17 +84,12 @@ impl Socket {
     }
 
     #[inline]
-    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        Ok(self.local_addr)
-    }
-
-    #[inline]
     pub fn is_udp(&self) -> bool {
-        matches!(self.socket_type, io::SocketType::Udp)
+        matches!(self.socket_type, SocketType::Udp)
     }
 
     #[inline]
-    pub fn socket_type(&self) -> io::SocketType {
+    pub fn socket_type(&self) -> SocketType {
         self.socket_type
     }
 }
@@ -148,5 +140,23 @@ impl Socket {
 impl AsRawFd for Socket {
     fn as_raw_fd(&self) -> RawFd {
         self.fd.unwrap()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SocketType {
+    Tcp,
+    Udp,
+    Quic,
+}
+
+impl Display for SocketType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SocketType::Tcp => "tcp",
+            SocketType::Udp => "udp",
+            SocketType::Quic => "quic",
+        };
+        write!(f, "{}", s)
     }
 }

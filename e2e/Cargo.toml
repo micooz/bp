@@ -15,5 +15,4 @@ bp-cli = { path = "../bp-cli" }
 cmd_lib = "1.2.4"
 httpmock = "0.6.2"
 lazy_static = "1.4.0"
-rcgen = "0.8.14"
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }

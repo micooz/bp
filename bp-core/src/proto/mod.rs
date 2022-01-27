@@ -130,7 +130,7 @@ impl<'de> Deserialize<'de> for ApplicationProtocol {
     }
 }
 
-pub fn init_transport_protocol(opts: &Options) -> DynProtocol {
+pub fn init_protocol(opts: &Options) -> DynProtocol {
     match opts.protocol {
         ApplicationProtocol::Plain => Box::new(Plain::default()),
         ApplicationProtocol::EncryptRandomPadding => Box::new(Erp::new(opts.key.clone().unwrap(), opts.service_type())),

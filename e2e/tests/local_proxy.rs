@@ -15,8 +15,8 @@ async fn test_socks5() {
         ..Options::default()
     };
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
-    let bind_addr = bind_addr.as_string();
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
+    let bind_addr = bind_addr.to_string();
 
     assert_eq!(run_fun!(curl --socks5 $bind_addr $http_addr).unwrap(), http_resp);
     assert_eq!(
@@ -32,9 +32,9 @@ async fn test_socks5_udp() {
         ..Options::default()
     };
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts, Some("127.0.0.1")).await;
 
-    let buf = udp_oneshot(&bind_addr, include_bytes!("fixtures/socks5_dns_query.bin")).await;
+    let buf = udp_oneshot(bind_addr, include_bytes!("fixtures/socks5_dns_query.bin")).await;
 
     // TODO: improve this assertion
     assert_eq!(buf[0..7], include_bytes!("fixtures/dns_resp.bin")[0..7]);
@@ -49,8 +49,8 @@ async fn test_http() {
         ..Options::default()
     };
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
-    let bind_addr = bind_addr.as_string();
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
+    let bind_addr = bind_addr.to_string();
 
     assert_eq!(run_fun!(curl -x $bind_addr $http_addr).unwrap(), http_resp);
 }

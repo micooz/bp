@@ -15,9 +15,9 @@ async fn test_force_dest() {
         ..Options::default()
     };
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
 
-    let buf = tcp_oneshot(&bind_addr, include_bytes!("fixtures/http_req.bin")).await;
+    let buf = tcp_oneshot(bind_addr, include_bytes!("fixtures/http_req_mock.bin")).await;
     let resp = String::from_utf8(buf).unwrap();
 
     assert!(resp.contains(http_resp));

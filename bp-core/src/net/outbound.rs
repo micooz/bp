@@ -8,18 +8,18 @@ use std::{
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
-use quinn::Endpoint;
 use tokio::{
     net::TcpSocket,
     sync::mpsc::Sender,
     time::{timeout, Duration},
 };
 
+use super::socket::SocketType;
 use crate::{
     config,
     event::Event,
-    global::GLOBAL_DATA,
-    net::{address::Address, dns::dns_resolve, io::SocketType, socket::Socket},
+    global,
+    net::{address::Address, dns::dns_resolve, quic::RandomEndpoint, socket::Socket},
     options::{Options, ServiceType},
     proto::{DynProtocol, ResolvedResult},
 };
@@ -92,21 +92,21 @@ impl Outbound {
 
         if remote_addr.is_hostname() {
             log::info!(
-                "[{}] [{}] connecting to {} resolved to {}...",
+                "[{}] [{}] connecting to {}({})...",
                 peer_address,
                 socket_type,
-                remote_addr,
-                remote_ip_addr
+                remote_ip_addr,
+                remote_addr
             );
         } else {
-            log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr,);
+            log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr);
         }
 
         // make connection
         let socket = self.connect(&remote_addr, remote_ip_addr).await.map_err(|err| {
             let msg = format!(
                 "[{}] [{}] connect to {} failed due to: {}",
-                peer_address, socket_type, remote_addr, err
+                peer_address, socket_type, remote_ip_addr, err
             );
             log::error!("{}", msg);
             Error::msg(msg)
@@ -114,7 +114,7 @@ impl Outbound {
 
         self.socket = Some(socket);
 
-        log::info!("[{}] [{}] connected to {}", peer_address, socket_type, remote_addr);
+        log::info!("[{}] [{}] connected to {}", peer_address, socket_type, remote_ip_addr);
 
         Ok(())
     }
@@ -194,14 +194,6 @@ impl Outbound {
         Ok(())
     }
 
-    // #[cfg(feature = "monitor")]
-    // pub fn snapshot(&self) -> OutboundSnapshot {
-    //     OutboundSnapshot {
-    //         remote_addr: self.remote_addr.clone(),
-    //         protocol_name: self.protocol_name.clone(),
-    //     }
-    // }
-
     fn get_remote_addr(&self, resolved: &ResolvedResult) -> Address {
         if self.opts.server || self.opts.server_bind.is_none() || !self.is_allow_proxy {
             resolved.address.clone()
@@ -211,6 +203,9 @@ impl Outbound {
     }
 
     async fn connect(&self, addr: &Address, ip_addr: SocketAddr) -> Result<Arc<Socket>> {
+        let socket_type = self.socket_type.as_ref().unwrap();
+        let peer_address = self.peer_address;
+
         let socket = match self.socket_type.as_ref().unwrap() {
             SocketType::Tcp => {
                 #[cfg(target_os = "linux")]
@@ -238,11 +233,18 @@ impl Outbound {
                 Arc::new(socket)
             }
             SocketType::Quic => {
-                // TODO: use N endpoint from global
-                let mut endpoint = Endpoint::client("0.0.0.0:0".parse().unwrap())?;
-                endpoint.set_default_client_config(GLOBAL_DATA.get_quinn_client_config());
+                let RandomEndpoint { inner: endpoint, reuse } = global::get_random_endpoint()?;
 
-                let future = endpoint.connect(ip_addr, &addr.host.to_string())?;
+                if reuse {
+                    log::info!(
+                        "[{}] [{}] reuse endpoint (local_port = {})",
+                        peer_address,
+                        socket_type,
+                        endpoint.local_addr()?.port()
+                    );
+                }
+
+                let future = endpoint.connect(ip_addr, &addr.host())?;
                 let conn = timeout(Duration::from_secs(config::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
 
                 let stream = conn.connection.open_bi().await.unwrap();
@@ -275,10 +277,4 @@ impl Outbound {
 
         Ok(())
     }
-}
-
-#[derive(Debug)]
-pub struct OutboundSnapshot {
-    pub remote_addr: Option<Address>,
-    pub protocol_name: Option<String>,
 }

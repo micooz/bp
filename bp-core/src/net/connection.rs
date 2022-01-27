@@ -1,35 +1,22 @@
 use anyhow::Result;
-// #[cfg(feature = "monitor")]
-// use bytes::BytesMut;
 use tokio::{sync::mpsc::Receiver, time};
 
+use super::socket::SocketType;
 use crate::{
     config,
     event::Event,
-    global::GLOBAL_DATA,
+    global,
     net::{
         address::Address,
-        inbound::{Inbound, InboundResolveResult, InboundSnapshot},
-        io::SocketType,
-        outbound::{Outbound, OutboundSnapshot},
+        inbound::{Inbound, InboundResolveResult},
+        outbound::Outbound,
         socket::Socket,
     },
     options::Options,
-    proto::{init_transport_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
+    proto::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
 };
 
-// #[cfg(feature = "monitor")]
-// const MAX_CACHE_SIZE: usize = 1024;
-
-#[cfg(feature = "monitor")]
-struct MonitorCollectData {
-    last_decoded_data: BytesMut,
-}
-
 pub struct Connection {
-    #[allow(dead_code)]
-    id: usize,
-
     opts: Options,
 
     inbound: Inbound,
@@ -41,12 +28,10 @@ pub struct Connection {
     dest_addr: Option<Address>,
 
     closed: bool,
-    // #[cfg(feature = "monitor")]
-    // monitor_collect_data: MonitorCollectData,
 }
 
 impl Connection {
-    pub fn new(id: usize, socket: Socket, opts: Options) -> Self {
+    pub fn new(socket: Socket, opts: Options) -> Self {
         let peer_addr = socket.peer_addr().unwrap();
         // create inbound
         let inbound = Inbound::new(socket, opts.clone());
@@ -54,22 +39,13 @@ impl Connection {
         let outbound = Outbound::new(peer_addr, opts.clone());
 
         Connection {
-            id,
             inbound,
             outbound,
             peer_addr: peer_addr.into(),
             dest_addr: None,
             opts,
-            #[cfg(feature = "monitor")]
-            monitor_collect_data: MonitorCollectData {
-                last_decoded_data: BytesMut::with_capacity(MAX_CACHE_SIZE),
-            },
             closed: false,
         }
-    }
-
-    pub fn id(&self) -> usize {
-        self.id
     }
 
     pub async fn handle(&mut self) -> Result<()> {
@@ -82,18 +58,8 @@ impl Connection {
 
         let resolved = in_proto.get_resolved_result().unwrap();
 
-        // we must drop connection to bp itself, because:
-        // connect to bp itself will cause listener.accept() run into infinite loop and
-        // produce "No file descriptors available" errors.
-        // TODO: how about comparing between localhost and 127.0.0.1?
-        if resolved.address == self.opts.bind {
-            log::error!(
-                "[{}] [{}] detected dest address is bp itself, dropped",
-                self.peer_addr,
-                self.inbound.socket_type()
-            );
-            return Ok(());
-        }
+        // check resolved target address
+        self.check_resolved_result(resolved).await?;
 
         self.dest_addr = Some(resolved.address.clone());
 
@@ -167,13 +133,33 @@ impl Connection {
         self.inbound.socket_type()
     }
 
+    async fn check_resolved_result(&self, resolved: &ResolvedResult) -> Result<()> {
+        // we must drop connection to bp itself, because:
+        // connect to bp itself will cause listener.accept() run into infinite loop and
+        // produce "No file descriptors available" errors.
+        let resolved_addr = resolved.address.resolve().await?;
+        let bind_addr = self.opts.bind.resolve().await?;
+
+        if resolved_addr == bind_addr {
+            let msg = format!(
+                "[{}] [{}] detected dest address is bp itself, dropped",
+                self.peer_addr,
+                self.inbound.socket_type()
+            );
+            log::error!("{}", msg);
+            return Err(anyhow::Error::msg(msg));
+        }
+
+        Ok(())
+    }
+
     fn check_proxy_rules(&self) -> bool {
         let dest_addr = self.dest_addr.as_ref().unwrap();
-        let dest_addr_host = dest_addr.host.to_string();
+        let dest_addr_host = dest_addr.host();
 
         // white list
         if self.opts.client && self.opts.proxy_white_list.is_some() {
-            let acl = GLOBAL_DATA.get_acl();
+            let acl = global::get_acl();
 
             if !acl.is_host_hit(&dest_addr_host) {
                 log::warn!(
@@ -199,7 +185,7 @@ impl Connection {
     fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
         // bp client should always use bp transport connect to bp server
         if self.opts.client && self.opts.server_bind.is_some() {
-            return init_transport_protocol(&self.opts);
+            return init_protocol(&self.opts);
         }
 
         // server dns outbound
@@ -267,56 +253,5 @@ impl Connection {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct ConnectionSnapshot {
-    id: usize,
-    closed: bool,
-    dest_addr: Option<Address>,
-    inbound_snapshot: InboundSnapshot,
-    outbound_snapshot: OutboundSnapshot,
-}
-
-impl ConnectionSnapshot {
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    pub fn get_abstract(&self) -> String {
-        let peer_addr = self.inbound_snapshot.peer_addr;
-        let local_addr = self.inbound_snapshot.local_addr;
-
-        let remote_addr = match self.outbound_snapshot.remote_addr.as_ref() {
-            Some(addr) => addr.as_string(),
-            None => "<?>".into(),
-        };
-
-        let in_proto_name = match self.inbound_snapshot.protocol_name.as_ref() {
-            Some(name) => name.as_str(),
-            None => "<?>",
-        };
-
-        let out_proto_name = match self.outbound_snapshot.protocol_name.as_ref() {
-            Some(name) => name.as_str(),
-            None => "<?>",
-        };
-
-        let dest_addr = match self.dest_addr.as_ref() {
-            Some(addr) => addr.as_string(),
-            None => "<?>".into(),
-        };
-
-        format!(
-            "{} <--[{} => {}]--> {} <--[{}]--> {} {}",
-            peer_addr,
-            in_proto_name,
-            dest_addr,
-            local_addr,
-            out_proto_name,
-            remote_addr,
-            if self.closed { "[closed]" } else { "[alive]" }
-        )
     }
 }

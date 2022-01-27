@@ -8,13 +8,14 @@ lazy_static::lazy_static! {
     static ref INCREMENTAL_PORT_NUM :Mutex<u16> = Mutex::new(1080);
 }
 
-pub async fn run_bp(mut opts: Options) -> StartupInfo {
-    let opts = {
-        let mut port = INCREMENTAL_PORT_NUM.lock().unwrap();
-        *port += 1;
-        opts.bind = Address::from_str(&format!("{}:{}", "localhost", port)).unwrap();
-        opts
-    };
+pub async fn run_bp(mut opts: Options, host: Option<&str>) -> StartupInfo {
+    let mut port = INCREMENTAL_PORT_NUM.lock().unwrap();
+    *port += 1;
+
+    opts.bind = Address::from_str(&format!("{}:{}", host.unwrap_or("127.0.0.1"), port)).unwrap();
+
+    // should release mutex guard for port here
+    drop(port);
 
     check_options(&opts).unwrap();
 

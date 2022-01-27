@@ -11,6 +11,7 @@ use crate::{
     options::ServiceType,
     proto::{Protocol, ProtocolType, ResolvedResult},
     utils,
+    utils::crypto::Crypto,
 };
 
 const MAX_CHUNK_SIZE: usize = 0x3FFF;
@@ -82,7 +83,7 @@ impl Erp {
             // only client side can generate salt and derived_key
             // generate on server side will take no effect.
             ServiceType::Client => {
-                let salt = utils::crypto::random_bytes(SALT_SIZE);
+                let salt = Crypto::random_bytes(SALT_SIZE);
                 let derived_key = Self::derive_key(key.clone(), salt.clone());
                 (Some(salt), Some(derived_key))
             }
@@ -100,7 +101,7 @@ impl Erp {
     }
 
     fn derive_key(raw_key: String, salt: Bytes) -> Bytes {
-        let derived_key = utils::crypto::hkdf_sha256(raw_key.into(), salt, HKDF_INFO.as_bytes().into(), KEY_SIZE);
+        let derived_key = Crypto::hkdf_sha256(raw_key.into(), salt, HKDF_INFO.as_bytes().into(), KEY_SIZE);
         if log::log_enabled!(log::Level::Debug) {
             log::debug!("encrypt/decrypt key = {}", utils::fmt::ToHex(derived_key.to_vec()));
         }
@@ -161,7 +162,7 @@ impl Erp {
         if chunk_len > 1440 {
             return 0;
         }
-        let rand = utils::crypto::random_u8() as usize;
+        let rand = Crypto::random_u8() as usize;
         if chunk_len > 1300 {
             rand % 31
         } else if chunk_len > 900 {
@@ -182,7 +183,7 @@ impl Erp {
 
             // generate random padding
             let pad_len = self.get_random_bytes_len(chunk_buf.len());
-            let pad_buf = utils::crypto::random_bytes(pad_len);
+            let pad_buf = Crypto::random_bytes(pad_len);
 
             // PaddingLen + PaddingLen Tag
             let enc_pad_len = self.encrypt(utils::buffer::num_to_buf_be(pad_len as u64, 1))?;

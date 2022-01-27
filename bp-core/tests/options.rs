@@ -190,7 +190,19 @@ fn test_set_server_and_quic() {
         server: true,
         key: Some("key".to_string()),
         quic: true,
-        certificate: Some("cert.pem".to_string()),
+        tls_cert: Some("cert.pem".to_string()),
+        ..Options::default()
+    };
+
+    assert!(check_options(&opts).is_err());
+}
+
+#[test]
+fn test_set_quic_max_concurrency() {
+    let opts = Options {
+        server: true,
+        key: Some("key".to_string()),
+        quic_max_concurrency: Some(0),
         ..Options::default()
     };
 

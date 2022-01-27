@@ -18,7 +18,7 @@ pub struct AccessControlList {
 }
 
 impl AccessControlList {
-    pub fn load_from_file(&self, path: String) -> Result<()> {
+    pub fn load_from_file(&self, path: &str) -> Result<()> {
         if path.is_empty() {
             return Err(Error::msg("empty string specified"));
         }
@@ -92,7 +92,7 @@ impl AccessControlList {
         false
     }
 
-    pub fn watch(&self, path: String) -> notify::Result<()> {
+    pub fn watch(&self, path: &str) -> notify::Result<()> {
         // Create a channel to receive the events.
         let (tx, rx) = sync::mpsc::channel();
 
@@ -108,7 +108,7 @@ impl AccessControlList {
         // for example to handle I/O.
         loop {
             if let Ok(notify::DebouncedEvent::Write(_)) = rx.recv() {
-                if let Err(res) = self.load_from_file(path.clone()) {
+                if let Err(res) = self.load_from_file(path) {
                     log::warn!("reload failed due to: {}", res.to_string())
                 }
             }

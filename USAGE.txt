@@ -1,5 +1,4 @@
-bp 1.0.0-alpha.5
-
+bp 1.1.0
 Lightweight and efficient proxy written in pure Rust
 
 USAGE:
@@ -22,7 +21,10 @@ OPTIONS:
             DNS server address [default: 8.8.8.8:53]
 
         --force-dest-addr <FORCE_DEST_ADDR>
-            force all incoming data relay to this destination, usually for testing [default: false]
+            force all incoming data relay to this destination, usually for testing
+
+        --generate-cert
+            generate TLS certificate and key files(in der format) to CWD
 
     -h, --help
             Print help information
@@ -31,17 +33,28 @@ OPTIONS:
             symmetric encryption key
 
     -p, --protocol <PROTOCOL>
-            protocol used by transport layer between client and server, "plain" or "erp" are
-            supported [default: erp]
+            protocol used between client and server, "plain" or "erp" are supported [default: erp]
 
         --proxy-white-list <PROXY_WHITE_LIST>
             check white list before proxy, pass a file path
+
+        --quic
+            Enable QUIC to transfer data
+
+        --quic-max-concurrency <QUIC_MAX_CONCURRENCY>
+            the max number of QUIC connections [default: 65535]
 
     -s, --server
             run as server
 
         --server-bind <SERVER_BIND>
             bp server bind address, client only. If not set, bp will relay directly
+
+        --tls-cert <TLS_CERT>
+            certificate file for Quic or TLS
+
+        --tls-key <TLS_KEY>
+            private key file for Quic or TLS, server only
 
         --udp-over-tcp
             proxy UDP via TCP, client only. Requires --server-bind to be set if true [default:

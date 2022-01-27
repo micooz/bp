@@ -8,9 +8,9 @@ async fn test_udp_relay_without_server() {
         ..Options::default()
     };
 
-    let client = run_bp(client_opts).await;
+    let client = run_bp(client_opts, None).await;
 
-    let buf = udp_oneshot(&client.bind_addr, include_bytes!("fixtures/normal_dns_query.bin")).await;
+    let buf = udp_oneshot(client.bind_addr, include_bytes!("fixtures/normal_dns_query.bin")).await;
 
     assert!(!buf.is_empty());
 }
@@ -32,19 +32,19 @@ async fn run_test(udp_over_tcp: bool) {
         ..Options::default()
     };
 
-    let server = run_bp(server_opts).await;
+    let server = run_bp(server_opts, None).await;
 
     let client_opts = Options {
         client: true,
         key: Some("key".to_string()),
-        server_bind: Some(server.bind_addr.clone()),
+        server_bind: Some(server.bind_addr.into()),
         udp_over_tcp,
         ..Options::default()
     };
 
-    let client = run_bp(client_opts).await;
+    let client = run_bp(client_opts, None).await;
 
-    let buf = udp_oneshot(&client.bind_addr, include_bytes!("fixtures/normal_dns_query.bin")).await;
+    let buf = udp_oneshot(client.bind_addr, include_bytes!("fixtures/normal_dns_query.bin")).await;
 
     assert!(!buf.is_empty());
 }

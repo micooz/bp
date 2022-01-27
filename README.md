@@ -69,9 +69,9 @@ $ bp -c --key key --udp-over-tcp --server-bind <host:port>
 $ bp -c --force-dest-addr <host:port>
 ```
 
-### Change Transport Protocol
+### Change Protocol
 
-The transport protocol can be switched between bp client and bp server, available protocols are:
+The protocol can be switched between bp client and bp server, available protocols are:
 
 * `plain`: without encryption.
 * `erp`: with AEAD encryption as well as random padding. (default)
@@ -79,7 +79,6 @@ The transport protocol can be switched between bp client and bp server, availabl
 ```
 $ bp -s --bind 127.0.0.1:9000 --key test --protocol plain
 ```
-
 
 ### Proxy White List
 
@@ -119,15 +118,3 @@ iptables -t nat -A BP -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports
 iptables -t nat -A PREROUTING -p tcp -j BP
 iptables -t nat -A OUTPUT -p tcp -j BP
 ```
-
-<!-- ## Monitor (Experimental)
-
-bp executable compiled with `--features="monitor"` expose a TCP control port which can be used for remote monitoring.
-
-### use telnet
-
-Use `telnet` connect to control port then follow the prompt:
-
-```
-$ telnet <bp_host> <bp_monitor_port>
-``` -->

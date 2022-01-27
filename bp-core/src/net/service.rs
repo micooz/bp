@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::{Error, Result};
 use async_trait::async_trait;
@@ -10,20 +10,19 @@ use tokio::{
     sync::mpsc::Sender,
 };
 
-use crate::{
-    config,
-    global::GLOBAL_DATA,
-    net::{address::Address, dns::dns_resolve, socket::Socket},
-};
+use crate::{config, global, net::socket::Socket};
 
 #[derive(Debug)]
 pub struct StartupInfo {
-    pub bind_addr: Address,
+    pub bind_addr: SocketAddr,
+    pub bind_ip: String,
+    pub bind_host: String,
+    pub bind_port: u16,
 }
 
 #[async_trait]
 pub trait Service {
-    async fn start(name: &'static str, bind_addr: &Address, sender: Sender<Option<Socket>>) -> Result<()>;
+    async fn start(name: &'static str, addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()>;
 }
 
 pub struct TcpService;
@@ -32,15 +31,18 @@ pub struct QuicService;
 
 #[async_trait]
 impl Service for TcpService {
-    async fn start(name: &'static str, addr: &Address, sender: Sender<Option<Socket>>) -> Result<()> {
-        let listener = TcpListener::bind(addr.to_string())
-            .await
-            .map_err(|err| Error::msg(format!("[{}] tcp service start failed due to: {}", name, err)))?;
+    async fn start(name: &'static str, addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+        let listener = TcpListener::bind(addr).await.map_err(|err| {
+            Error::msg(format!(
+                "[{}] tcp service start failed from {} due to: {}",
+                name, addr, err
+            ))
+        })?;
 
         log::info!(
             "[{}] service running at tcp://{}, waiting for connection...",
             name,
-            addr.as_string()
+            addr,
         );
 
         tokio::spawn(async move {
@@ -70,17 +72,18 @@ impl Service for TcpService {
 
 #[async_trait]
 impl Service for UdpService {
-    async fn start(name: &'static str, addr: &Address, sender: Sender<Option<Socket>>) -> Result<()> {
-        let socket = Arc::new(
-            UdpSocket::bind(addr.to_string())
-                .await
-                .map_err(|err| Error::msg(format!("[{}] udp service start failed due to: {}", name, err)))?,
-        );
+    async fn start(name: &'static str, addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+        let socket = Arc::new(UdpSocket::bind(addr).await.map_err(|err| {
+            Error::msg(format!(
+                "[{}] udp service start failed from {} due to: {}",
+                name, addr, err
+            ))
+        })?);
 
         log::info!(
             "[{}] service running at udp://{}, waiting for data packets...",
             name,
-            addr.as_string()
+            addr,
         );
 
         tokio::spawn(async move {
@@ -116,19 +119,18 @@ impl Service for UdpService {
 
 #[async_trait]
 impl Service for QuicService {
-    async fn start(name: &'static str, addr: &Address, sender: Sender<Option<Socket>>) -> Result<()> {
-        let ip = if addr.is_hostname() {
-            dns_resolve(addr).await?
-        } else {
-            addr.as_socket_addr()
-        };
-
-        let (_endpoint, mut incoming) = Endpoint::server(GLOBAL_DATA.get_quinn_server_config(), ip)?;
+    async fn start(name: &'static str, addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+        let (_endpoint, mut incoming) = Endpoint::server(global::get_quinn_server_config(), addr).map_err(|err| {
+            Error::msg(format!(
+                "[{}] quic service start failed from {} due to: {}",
+                name, addr, err
+            ))
+        })?;
 
         log::info!(
             "[{}] service running at quic://{}, waiting for connection...",
             name,
-            addr.as_string()
+            addr,
         );
 
         tokio::spawn(async move {

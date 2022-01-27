@@ -1,9 +1,9 @@
 use anyhow::Result;
-use quinn::{ClientConfig, ServerConfig};
+use quinn::{ClientConfig, Endpoint, ServerConfig};
 use rustls::{Certificate, PrivateKey, RootCertStore};
 use tokio::fs;
 
-use crate::global::GLOBAL_DATA;
+use crate::{global, utils::crypto::Crypto};
 
 pub async fn init_quinn_server_config(certificate_path: &str, private_key_path: &str) -> Result<()> {
     let cert = fs::read(certificate_path).await?;
@@ -14,7 +14,7 @@ pub async fn init_quinn_server_config(certificate_path: &str, private_key_path: 
 
     let config = ServerConfig::with_single_cert(vec![cert], key)?;
 
-    GLOBAL_DATA.set_quinn_server_config(config);
+    global::set_quinn_server_config(config);
 
     Ok(())
 }
@@ -28,35 +28,46 @@ pub async fn init_quinn_client_config(certificate_path: &str) -> Result<()> {
 
     let config = ClientConfig::with_root_certificates(certs);
 
-    GLOBAL_DATA.set_quinn_client_config(config);
+    global::set_quinn_client_config(config);
 
     Ok(())
 }
 
 #[derive(Default)]
-pub struct QuinnServerConfig {
-    inner: Option<ServerConfig>,
+pub struct EndpointPool {
+    size: u16,
+    data: Vec<Endpoint>,
 }
 
-impl QuinnServerConfig {
-    pub fn new(config: ServerConfig) -> Self {
-        Self { inner: Some(config) }
+impl EndpointPool {
+    pub fn set_size(&mut self, size: u16) {
+        self.size = size;
     }
-    pub fn inner(&self) -> ServerConfig {
-        self.inner.as_ref().unwrap().clone()
+
+    pub fn random_endpoint(&mut self) -> Result<RandomEndpoint> {
+        let mut reuse = true;
+
+        if self.data.len() < self.size as usize {
+            self.create()?;
+            reuse = false;
+        }
+
+        let endpoint = Crypto::random_choose(&self.data).unwrap().clone();
+
+        Ok(RandomEndpoint { inner: endpoint, reuse })
+    }
+
+    fn create(&mut self) -> Result<()> {
+        let mut endpoint = Endpoint::client("0.0.0.0:0".parse().unwrap())?;
+        endpoint.set_default_client_config(global::get_quinn_client_config());
+
+        self.data.push(endpoint);
+
+        Ok(())
     }
 }
 
-#[derive(Default)]
-pub struct QuinnClientConfig {
-    inner: Option<ClientConfig>,
-}
-
-impl QuinnClientConfig {
-    pub fn new(config: ClientConfig) -> Self {
-        Self { inner: Some(config) }
-    }
-    pub fn inner(&self) -> ClientConfig {
-        self.inner.as_ref().unwrap().clone()
-    }
+pub struct RandomEndpoint {
+    pub inner: Endpoint,
+    pub reuse: bool,
 }

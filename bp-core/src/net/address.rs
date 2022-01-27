@@ -64,8 +64,8 @@ impl ToString for Host {
 // +------+----------+----------+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Address {
-    pub host: Host,
-    pub port: u16,
+    host: Host,
+    port: u16,
 }
 
 impl Address {
@@ -165,11 +165,11 @@ impl Address {
         }
     }
 
-    pub async fn try_resolve(&self) -> Result<SocketAddr> {
+    pub async fn resolve(&self) -> Result<SocketAddr> {
         if self.is_ip() {
             Ok(self.as_socket_addr())
         } else {
-            dns_resolve(&self).await
+            dns_resolve(self).await
         }
     }
 
@@ -221,6 +221,14 @@ impl Address {
         };
 
         Ok((addr, if !buf.is_empty() { Some(buf) } else { None }))
+    }
+
+    pub fn host(&self) -> String {
+        self.host.to_string()
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
     }
 
     pub fn set_port(&mut self, port: u16) {

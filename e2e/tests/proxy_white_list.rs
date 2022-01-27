@@ -4,10 +4,13 @@ use e2e::run_all::{run_all, TestResponse};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_proxy_white_list() {
-    let resp = run_all(Options {
-        proxy_white_list: Some("tests/fixtures/proxy_white_list.txt".to_string()),
-        ..Default::default()
-    })
+    let resp = run_all(
+        Options {
+            proxy_white_list: Some("tests/fixtures/proxy_white_list.txt".to_string()),
+            ..Default::default()
+        },
+        None,
+    )
     .await;
 
     let TestResponse { bind_addr, .. } = resp;

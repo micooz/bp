@@ -15,7 +15,6 @@ path = "bin/bp.rs"
 
 [features]
 logging = []
-# monitor = []
 profile = [
   "bp-cli/profile"
 ]
@@ -28,7 +27,6 @@ default = [
 members = [
     "bp-cli",
     "bp-core",
-    # "bp-monitor",
     "e2e",
 ]
 

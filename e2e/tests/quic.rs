@@ -1,18 +1,25 @@
-use bp_core::Options;
+use bp_core::{utils::tls::TLS, Options};
 use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
-use rcgen::generate_simple_self_signed;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_quic() {
-    let (certificate, privatekey) = generate_cert_and_key().await;
+    let cert_path = String::from("tests/tmp/cert.der");
+    let key_path = String::from("tests/tmp/key.der");
 
-    let resp = run_all(Options {
-        quic: true,
-        certificate: Some(certificate),
-        privatekey: Some(privatekey),
-        ..Default::default()
-    })
+    TLS::gen_cert_and_key(vec!["localhost".to_string()], &cert_path, &key_path)
+        .await
+        .unwrap();
+
+    let resp = run_all(
+        Options {
+            quic: true,
+            tls_cert: Some(cert_path),
+            tls_key: Some(key_path),
+            ..Default::default()
+        },
+        Some("localhost"),
+    )
     .await;
 
     let TestResponse {
@@ -25,22 +32,4 @@ async fn test_quic() {
         run_fun!(curl --socks5-hostname $bind_addr $http_addr).unwrap(),
         http_resp
     );
-}
-
-async fn generate_cert_and_key() -> (String, String) {
-    let subject_alt_names = vec!["localhost".to_string()];
-    let cert = generate_simple_self_signed(subject_alt_names).unwrap();
-
-    let certificate = String::from("tests/tmp/cert.der");
-    let privatekey = String::from("tests/tmp/key.der");
-
-    tokio::fs::write(&certificate, cert.serialize_der().unwrap())
-        .await
-        .unwrap();
-
-    tokio::fs::write(&privatekey, cert.serialize_private_key_der())
-        .await
-        .unwrap();
-
-    (certificate, privatekey)
 }

@@ -8,9 +8,9 @@ async fn test_http_sniff() {
         ..Options::default()
     };
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
 
-    let buf = tcp_oneshot(&bind_addr, include_bytes!("fixtures/http_req.bin")).await;
+    let buf = tcp_oneshot(bind_addr, include_bytes!("fixtures/http_req.bin")).await;
     let resp = String::from_utf8(buf).unwrap();
 
     assert!(resp.starts_with("HTTP/1.1 200 OK"));
@@ -23,9 +23,9 @@ async fn test_https_sniff() {
         ..Options::default()
     };
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
 
-    let buf = tcp_oneshot(&bind_addr, include_bytes!("fixtures/https_client_hello.bin")).await;
+    let buf = tcp_oneshot(bind_addr, include_bytes!("fixtures/https_client_hello.bin")).await;
 
     assert!(!buf.is_empty());
 }
