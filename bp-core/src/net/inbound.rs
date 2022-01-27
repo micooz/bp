@@ -41,7 +41,7 @@ pub struct Inbound {
 impl Inbound {
     pub fn new(socket: Socket, opts: Options) -> Self {
         let socket = Arc::new(socket);
-        let peer_address = socket.peer_addr().unwrap();
+        let peer_address = socket.peer_addr();
 
         Self {
             opts,
@@ -90,7 +90,11 @@ impl Inbound {
         // client side resolve
         if self.opts.client {
             // obtain iptables redirect dest address first
+            #[cfg(target_os = "linux")]
             let redirect_dest_addr = self.get_redirected_dest_addr();
+
+            #[cfg(not(target_os = "linux"))]
+            let redirect_dest_addr: Option<Address> = None;
 
             let mut try_list: Vec<DynProtocol> = vec![
                 Box::new(Socks::new(Some(self.opts.bind.clone()))),
@@ -292,27 +296,23 @@ impl Inbound {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn get_redirected_dest_addr(&self) -> Option<Address> {
-        #[cfg(target_os = "linux")]
-        {
-            // TODO: get_original_destination_addr always return a value on linux
-            use std::os::unix::io::AsRawFd;
+        // TODO: get_original_destination_addr always return a value on linux
+        use std::os::unix::io::AsRawFd;
 
-            use crate::net::linux::get_original_destination_addr;
+        use crate::net::linux::get_original_destination_addr;
 
-            if self.socket.is_udp() {
-                return None;
-            }
-
-            let fd = self.socket.as_raw_fd();
-
-            match get_original_destination_addr(self.local_addr, fd) {
-                Ok(addr) => Some(addr.into()),
-                Err(_) => None,
-            }
+        if self.socket.is_udp() {
+            return None;
         }
 
-        #[cfg(not(target_os = "linux"))]
-        None
+        let fd = self.socket.as_raw_fd();
+        let local_addr = self.socket.local_addr();
+
+        match get_original_destination_addr(local_addr, fd) {
+            Ok(addr) => Some(addr.into()),
+            Err(_) => None,
+        }
     }
 }

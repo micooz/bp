@@ -26,12 +26,15 @@ pub struct Socket {
 
     writer: SocketWriter,
 
+    local_addr: Option<SocketAddr>,
+
     peer_addr: SocketAddr,
 }
 
 impl Socket {
     pub fn from_stream(stream: net::TcpStream) -> Self {
         let peer_addr = stream.peer_addr().unwrap();
+        let local_addr = stream.local_addr().unwrap();
 
         #[cfg(not(target_os = "windows"))]
         let fd = stream.as_raw_fd();
@@ -44,6 +47,7 @@ impl Socket {
             socket_type: SocketType::Tcp,
             reader: split.0,
             writer: split.1,
+            local_addr: Some(local_addr),
             peer_addr,
         }
     }
@@ -56,11 +60,13 @@ impl Socket {
             socket_type: SocketType::Quic,
             reader,
             writer,
+            local_addr: None,
             peer_addr,
         }
     }
 
     pub fn from_udp_socket(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
+        let local_addr = socket.local_addr().unwrap();
         let split = split_udp(socket, peer_addr);
 
         Self {
@@ -69,6 +75,7 @@ impl Socket {
             socket_type: SocketType::Udp,
             reader: split.0,
             writer: split.1,
+            local_addr: Some(local_addr),
             peer_addr,
         }
     }
@@ -79,8 +86,13 @@ impl Socket {
     }
 
     #[inline]
-    pub fn peer_addr(&self) -> std::io::Result<SocketAddr> {
-        Ok(self.peer_addr)
+    pub fn local_addr(&self) -> Option<SocketAddr> {
+        self.local_addr.clone()
+    }
+
+    #[inline]
+    pub fn peer_addr(&self) -> SocketAddr {
+        self.peer_addr
     }
 
     #[inline]

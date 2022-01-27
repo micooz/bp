@@ -114,7 +114,7 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
 
             // put socket to new task to create a Connection
             tokio::spawn(async move {
-                let peer_addr = socket.peer_addr().unwrap();
+                let peer_addr = socket.peer_addr();
 
                 log::info!("[{}] connected, {} live connections", peer_addr, cnt.lock());
 

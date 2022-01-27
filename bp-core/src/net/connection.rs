@@ -32,7 +32,7 @@ pub struct Connection {
 
 impl Connection {
     pub fn new(socket: Socket, opts: Options) -> Self {
-        let peer_addr = socket.peer_addr().unwrap();
+        let peer_addr = socket.peer_addr();
         // create inbound
         let inbound = Inbound::new(socket, opts.clone());
         // create outbound
