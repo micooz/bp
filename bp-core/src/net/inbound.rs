@@ -308,13 +308,9 @@ impl Inbound {
         }
 
         let fd = self.socket.as_raw_fd();
-        let local_addr = self.socket.local_addr();
+        let local_addr = self.socket.local_addr()?;
 
-        if local_addr.is_none() {
-            return None;
-        }
-
-        match get_original_destination_addr(local_addr.unwrap(), fd) {
+        match get_original_destination_addr(local_addr, fd) {
             Ok(addr) => Some(addr.into()),
             Err(_) => None,
         }

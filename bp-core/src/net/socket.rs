@@ -87,7 +87,7 @@ impl Socket {
 
     #[inline]
     pub fn local_addr(&self) -> Option<SocketAddr> {
-        self.local_addr.clone()
+        self.local_addr
     }
 
     #[inline]
