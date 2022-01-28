@@ -92,7 +92,7 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
                 let path = path.clone();
 
                 tokio::spawn(async move {
-                    acl.watch(path).unwrap();
+                    acl.watch(&path).unwrap();
                 });
             }
         }
