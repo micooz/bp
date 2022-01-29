@@ -32,7 +32,7 @@ async fn main() {
                 exit(ExitError::BootstrapError);
             }
 
-            log::info!("process exit with code 0");
+            log::info!("[{}] process exit with code 0", process::id());
         }
         Err(err) => {
             log::error!("{}", err);

@@ -75,13 +75,9 @@ impl SocketWriter {
 
     pub async fn close(&self) -> tokio::io::Result<()> {
         match &mut *self.writer.lock().await {
-            WriterType::Tcp(writer) => {
-                writer.shutdown().await?;
-            }
-            WriterType::Quic(writer) => {
-                writer.shutdown().await?;
-            }
-            WriterType::Udp(_writer) => {}
+            WriterType::Tcp(writer) => writer.shutdown().await?,
+            WriterType::Quic(writer) => writer.shutdown().await?,
+            WriterType::Udp(_writer) => (),
             WriterType::Unknown => unreachable!(),
         }
 

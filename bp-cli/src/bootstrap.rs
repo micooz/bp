@@ -9,7 +9,6 @@ use parking_lot::Mutex;
 use tokio::{
     sync::{mpsc::channel, oneshot::Sender},
     task::JoinHandle,
-    time,
 };
 
 #[cfg(target_family = "unix")]
@@ -128,13 +127,6 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
                 cnt.lock().dec();
 
                 log::info!("[{}] closed, {} live connections", peer_addr, cnt.lock());
-
-                drop(conn);
-
-                // remove item from shared_data after 1min
-                time::sleep(time::Duration::from_secs(60)).await;
-
-                // global::SHARED_DATA.remove_connection_snapshot(id).await;
             });
         }
     });

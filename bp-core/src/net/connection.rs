@@ -26,16 +26,12 @@ pub struct Connection {
     peer_addr: Address,
 
     dest_addr: Option<Address>,
-
-    closed: bool,
 }
 
 impl Connection {
     pub fn new(socket: Socket, opts: Options) -> Self {
         let peer_addr = socket.peer_addr();
-        // create inbound
         let inbound = Inbound::new(socket, opts.clone());
-        // create outbound
         let outbound = Outbound::new(peer_addr, opts.clone());
 
         Connection {
@@ -44,7 +40,6 @@ impl Connection {
             peer_addr: peer_addr.into(),
             dest_addr: None,
             opts,
-            closed: false,
         }
     }
 
@@ -97,17 +92,12 @@ impl Connection {
 
         self.handle_events(rx).await?;
 
-        self.closed = true;
-
         Ok(())
     }
 
     pub async fn close(&mut self) -> Result<()> {
         self.inbound.close().await?;
         self.outbound.close().await?;
-
-        self.closed = true;
-
         Ok(())
     }
 
@@ -240,11 +230,7 @@ impl Connection {
                 Event::ServerDecodeDone(buf) => {
                     self.outbound.send(buf).await?;
                 }
-                Event::InboundError(_) => {
-                    self.close().await?;
-                    break;
-                }
-                Event::OutboundError(_) => {
+                Event::InboundError(_) | Event::OutboundError(_) => {
                     self.close().await?;
                     break;
                 }

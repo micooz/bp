@@ -140,26 +140,29 @@ impl Outbound {
                 if is_closed.load(Ordering::Relaxed) {
                     break;
                 }
-                match service_type {
-                    ServiceType::Client => match out_proto.client_decode(&socket).await {
-                        Ok(buf) => {
-                            let _ = tx.send(Event::ClientDecodeDone(buf)).await;
-                        }
-                        Err(err) => {
-                            let _ = tx.send(Event::OutboundError(err)).await;
-                            break;
-                        }
-                    },
-                    ServiceType::Server => match in_proto.server_encode(&socket).await {
-                        Ok(buf) => {
-                            let _ = tx.send(Event::ServerEncodeDone(buf)).await;
-                        }
-                        Err(err) => {
-                            let _ = tx.send(Event::OutboundError(err)).await;
-                            break;
-                        }
-                    },
+
+                // protocol process
+                let res = match service_type {
+                    ServiceType::Client => out_proto.client_decode(&socket).await,
+                    ServiceType::Server => in_proto.server_encode(&socket).await,
                 };
+
+                if let Err(err) = res {
+                    let _ = tx.send(Event::OutboundError(err)).await;
+                    break;
+                }
+
+                let buf = res.unwrap();
+
+                // send data out
+                let event = match service_type {
+                    ServiceType::Client => Event::ClientDecodeDone(buf),
+                    ServiceType::Server => Event::ServerEncodeDone(buf),
+                };
+
+                if tx.send(event).await.is_err() {
+                    break;
+                }
             }
         });
     }
