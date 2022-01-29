@@ -143,9 +143,8 @@ impl Service for QuicService {
                 let conn = incoming.next().await.unwrap().await;
 
                 if let Err(err) = conn {
-                    log::error!("[{}] encountered an error: {}", name, err);
-                    sender.send(None).await.unwrap();
-                    break;
+                    log::error!("[{}] cannot establish quic connection due to: {}", name, err);
+                    continue;
                 }
 
                 let mut conn = conn.unwrap();

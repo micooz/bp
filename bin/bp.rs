@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::process;
 
 use bp_cli::{bootstrap::bootstrap, logging};
 use bp_core::{check_options, Options, StartupInfo};
@@ -19,7 +19,7 @@ async fn main() {
     if let Some(config) = opts.config {
         opts = Options::from_file(&config).unwrap_or_else(|err| {
             log::error!("Unrecognized format of {}: {}", &config, err);
-            exit(ExitError::ArgumentsError.into());
+            exit(ExitError::ArgumentsError);
         });
     }
 
@@ -29,23 +29,32 @@ async fn main() {
 
             if let Err(err) = bootstrap(opts, tx).await {
                 log::error!("{}", err);
+                exit(ExitError::BootstrapError);
             }
+
+            log::info!("process exit with code 0");
         }
         Err(err) => {
             log::error!("{}", err);
-            exit(ExitError::ArgumentsError.into());
+            exit(ExitError::ArgumentsError);
         }
     }
 }
 
+fn exit(err: ExitError) -> ! {
+    process::exit(err.into());
+}
+
 enum ExitError {
     ArgumentsError,
+    BootstrapError,
 }
 
 impl From<ExitError> for i32 {
     fn from(v: ExitError) -> Self {
         match v {
-            ExitError::ArgumentsError => -1,
+            ExitError::ArgumentsError => 100,
+            ExitError::BootstrapError => 200,
         }
     }
 }
