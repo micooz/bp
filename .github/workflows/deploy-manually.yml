@@ -39,7 +39,7 @@ jobs:
       VERSION: ${{ github.event.inputs.version }}
       ASSET_FILE: bp-${{ github.event.inputs.version }}.${{ github.event.inputs.arch }}.tar.xz
       CONFIG_FILE: config.json
-      DEPLOY_PATH: /root/.bp/deploy/${{ github.event.inputs.version }}
+      DEPLOY_PATH: /home/${{ github.event.inputs.username }}/.bp/deploy/${{ github.event.inputs.version }}
     steps:
       - name: Download Asset
         uses: dsaltares/fetch-gh-release-asset@master
