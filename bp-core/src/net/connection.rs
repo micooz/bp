@@ -63,13 +63,12 @@ impl Connection {
 
         self.dest_addr = Some(resolved.address.clone());
 
-        // set outbound socket type
-        self.outbound.set_socket_type(self.get_outbound_socket_type(resolved));
-
         // check proxy rules then create outbound protocol
         let mut out_proto = if self.check_proxy_rules() {
+            self.outbound.set_socket_type(self.get_outbound_socket_type(resolved));
             self.create_outbound_protocol(resolved)
         } else {
+            self.outbound.set_socket_type(SocketType::Tcp);
             self.outbound.set_allow_proxy(false);
             Box::new(Direct::default())
         };
