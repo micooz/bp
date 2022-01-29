@@ -298,7 +298,7 @@ checksum = "5988cb1d626264ac94100be357308f29ff7cbdd3b36bda27f450a4ee3f713426"
 
 [[package]]
 name = "bp"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "bp-cli",
  "bp-core",
@@ -309,7 +309,7 @@ dependencies = [
 
 [[package]]
 name = "bp-cli"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anyhow",
  "bp-core",
@@ -328,7 +328,7 @@ dependencies = [
 
 [[package]]
 name = "bp-core"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -717,7 +717,7 @@ checksum = "ee2626afccd7561a06cf1367e2950c4718ea04565e20fb5029b6c7d8ad09abcf"
 
 [[package]]
 name = "e2e"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "bp-cli",
  "bp-core",
