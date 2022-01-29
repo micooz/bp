@@ -217,8 +217,10 @@ impl Outbound {
                 };
 
                 #[cfg(target_os = "linux")]
-                if let Err(err) = self.mark_socket(socket.as_raw_fd(), 0xff) {
-                    log::error!("set SO_MARK error due to: {}", err);
+                if self.opts.client {
+                    if let Err(err) = self.mark_socket(socket.as_raw_fd(), 0xff) {
+                        log::error!("set SO_MARK error due to: {}", err);
+                    }
                 }
 
                 let future = socket.connect(ip_addr);
@@ -228,8 +230,6 @@ impl Outbound {
             }
             SocketType::Udp => {
                 let socket = Socket::bind_udp_random_port(ip_addr).await?;
-                // TODO: self.mark_socket(socket.as_raw_fd());
-
                 Arc::new(socket)
             }
             SocketType::Quic => {
