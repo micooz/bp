@@ -1,4 +1,4 @@
-bp 1.1.1
+bp 1.1.2
 Lightweight and efficient proxy written in pure Rust
 
 USAGE:

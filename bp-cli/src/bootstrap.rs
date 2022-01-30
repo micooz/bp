@@ -99,15 +99,18 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
     });
 
     let handle = tokio::spawn(async move {
-        let cnt = Arc::new(Mutex::new(Counter::default()));
+        let mut total_cnt = 0usize;
+        let live_cnt = Arc::new(Mutex::new(Counter::default()));
 
         while let Some(socket) = receiver.recv().await {
             if socket.is_none() {
                 break;
             }
 
-            let cnt = cnt.clone();
-            cnt.lock().inc();
+            total_cnt += 1;
+
+            let live_cnt = live_cnt.clone();
+            live_cnt.lock().inc();
 
             let socket = socket.unwrap();
             let opts = opts.clone();
@@ -116,7 +119,12 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
             tokio::spawn(async move {
                 let peer_addr = socket.peer_addr();
 
-                log::info!("[{}] connected, {} live connections", peer_addr, cnt.lock());
+                log::info!(
+                    "[{}] connected, {} live connections, {} in total",
+                    peer_addr,
+                    live_cnt.lock(),
+                    total_cnt
+                );
 
                 let mut conn = Connection::new(socket, opts);
 
@@ -125,9 +133,14 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
                     let _ = conn.close().await;
                 }
 
-                cnt.lock().dec();
+                live_cnt.lock().dec();
 
-                log::info!("[{}] closed, {} live connections", peer_addr, cnt.lock());
+                log::info!(
+                    "[{}] closed, {} live connections, {} in total",
+                    peer_addr,
+                    live_cnt.lock(),
+                    total_cnt
+                );
             });
         }
     });
