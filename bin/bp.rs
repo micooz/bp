@@ -10,6 +10,7 @@ async fn main() {
     #[cfg(feature = "profile")]
     // bp_cli::profile::set_prof_active(true);
     tokio::spawn(async {
+        use std::time::Duration;
         let _profiler = bp_cli::profile::new_heap();
         tokio::time::sleep(Duration::from_secs(10)).await;
     });
