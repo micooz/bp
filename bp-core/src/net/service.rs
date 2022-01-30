@@ -157,7 +157,7 @@ impl Service for QuicService {
                     while let Some(stream) = conn.bi_streams.next().await {
                         match stream {
                             Ok(s) => {
-                                log::info!("[{}] [{}] handle new quic stream", peer_addr, conn_id);
+                                log::info!("[{}] [{}] create new quic stream", peer_addr, conn_id);
                                 let socket = Socket::from_quic(peer_addr, s);
                                 sender.send(Some(socket)).await.unwrap();
                             }
@@ -165,7 +165,7 @@ impl Service for QuicService {
                                 if matches!(err, quinn::ConnectionError::ApplicationClosed { .. }) {
                                     log::info!("[{}] [{}] quic stream closed", peer_addr, conn_id);
                                 } else {
-                                    log::error!("[{}] [{}] quic stream error due to: {}", peer_addr, conn_id, err);
+                                    log::warn!("[{}] [{}] quic stream error due to: {}", peer_addr, conn_id, err);
                                 }
                                 break;
                             }

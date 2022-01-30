@@ -1,4 +1,4 @@
-bp 1.1.0
+bp 1.1.1
 Lightweight and efficient proxy written in pure Rust
 
 USAGE:
@@ -13,9 +13,6 @@ OPTIONS:
 
         --config <CONFIG>
             Configuration file in YAML/JSON format
-
-    -d, --daemonize
-            run as daemon process, unix only
 
         --dns-server <DNS_SERVER>
             DNS server address [default: 8.8.8.8:53]

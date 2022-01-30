@@ -69,7 +69,7 @@ impl Outbound {
         let peer_address = self.peer_address;
 
         log::info!(
-            "[{}] [{}] use [{}] protocol for outbound",
+            "[{}] [{}] use [{}] for outbound",
             peer_address,
             socket_type,
             protocol_name
@@ -90,23 +90,19 @@ impl Outbound {
             Error::msg(msg)
         })?;
 
-        if remote_addr.is_hostname() {
-            log::info!(
-                "[{}] [{}] connecting to {}({})...",
-                peer_address,
-                socket_type,
-                remote_ip_addr,
-                remote_addr
-            );
+        let target_str = if remote_addr.is_hostname() {
+            format!("{}({})", remote_addr, remote_ip_addr)
         } else {
-            log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, remote_addr);
-        }
+            format!("{}", remote_addr)
+        };
+
+        log::info!("[{}] [{}] connecting to {}...", peer_address, socket_type, target_str);
 
         // make connection
         let socket = self.connect(&remote_addr, remote_ip_addr).await.map_err(|err| {
             let msg = format!(
                 "[{}] [{}] connect to {} failed due to: {}",
-                peer_address, socket_type, remote_ip_addr, err
+                peer_address, socket_type, target_str, err
             );
             log::error!("{}", msg);
             Error::msg(msg)
@@ -114,7 +110,7 @@ impl Outbound {
 
         self.socket = Some(socket);
 
-        log::info!("[{}] [{}] connected to {}", peer_address, socket_type, remote_ip_addr);
+        log::info!("[{}] [{}] connected to {}", peer_address, socket_type, target_str);
 
         Ok(())
     }

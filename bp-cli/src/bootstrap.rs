@@ -15,6 +15,7 @@ use tokio::{
 use crate::daemonize::daemonize;
 use crate::dirs::Dirs;
 
+#[allow(dead_code)]
 const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
@@ -36,11 +37,11 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
     log::info!("log files are stored at {}", Dirs::log_file().to_str().unwrap());
 
     // daemonize
-    #[cfg(target_family = "unix")]
-    if opts.daemonize && !env::vars().any(|(k, _)| k == ENV_DISABLE_DAEMONIZE) {
-        daemonize_self()?;
-        return Ok(());
-    }
+    // #[cfg(target_family = "unix")]
+    // if opts.daemonize && !env::vars().any(|(k, _)| k == ENV_DISABLE_DAEMONIZE) {
+    //     daemonize_self()?;
+    //     return Ok(());
+    // }
 
     // dns server
     init_dns_resolver(opts.get_dns_server().as_socket_addr()).await?;
@@ -168,6 +169,7 @@ async fn init_quic(opts: &Options) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn daemonize_self() -> Result<()> {
     log::info!(
         "start daemonize, stdout/stderr will be redirected to {}",

@@ -27,10 +27,10 @@ pub struct Options {
     #[serde(default)]
     pub client: bool,
 
-    /// run as daemon process, unix only
-    #[clap(short, long)]
-    #[serde(default)]
-    pub daemonize: bool,
+    // run as daemon process, unix only
+    // #[clap(short, long)]
+    // #[serde(default)]
+    // pub daemonize: bool,
 
     /// local service bind address
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
@@ -153,10 +153,10 @@ pub fn check_options(opts: &Options) -> Result<(), &'static str> {
     }
 
     // check --daemonize
-    #[cfg(not(target_family = "unix"))]
-    if opts.daemonize {
-        log::warn!("--daemonize only works on unix.");
-    }
+    // #[cfg(not(target_family = "unix"))]
+    // if opts.daemonize {
+    //     log::warn!("--daemonize only works on unix.");
+    // }
 
     // check --key
     if opts.key.is_none() && (opts.server_bind.is_some() || opts.server) {
