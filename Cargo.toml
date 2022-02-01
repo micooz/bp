@@ -27,6 +27,7 @@ default = [
 members = [
     "bp-cli",
     "bp-core",
+    "bp-monitor",
     "e2e",
 ]
 

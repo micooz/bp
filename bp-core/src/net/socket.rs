@@ -67,7 +67,7 @@ impl Socket {
 
     pub fn from_udp_socket(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
         let local_addr = socket.local_addr().unwrap();
-        let split = split_udp(socket, peer_addr);
+        let split = split_udp(socket);
 
         Self {
             #[cfg(not(target_os = "windows"))]
@@ -139,7 +139,16 @@ impl Socket {
 
     #[inline]
     pub async fn send(&self, buf: &[u8]) -> tokio::io::Result<()> {
-        self.writer.send(buf).await
+        if self.is_udp() {
+            self.writer.send_to(buf, self.peer_addr()).await
+        } else {
+            self.writer.send(buf).await
+        }
+    }
+
+    #[inline]
+    pub async fn send_to(&self, buf: &[u8], peer_addr: SocketAddr) -> tokio::io::Result<()> {
+        self.writer.send_to(buf, peer_addr).await
     }
 
     #[inline]

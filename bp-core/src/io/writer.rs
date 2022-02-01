@@ -23,29 +23,25 @@ impl Default for WriterType {
 /// SocketWriter
 #[derive(Debug, Default)]
 pub struct SocketWriter {
-    writer: Mutex<WriterType>,
-    peer_addr: Option<SocketAddr>,
+    inner: Mutex<WriterType>,
 }
 
 impl SocketWriter {
     pub fn from_tcp(write_half: WriteHalf<TcpStream>) -> Self {
         Self {
-            peer_addr: None,
-            writer: Mutex::new(WriterType::Tcp(write_half)),
+            inner: Mutex::new(WriterType::Tcp(write_half)),
         }
     }
 
-    pub fn from_udp(socket: Arc<UdpSocket>, peer_addr: SocketAddr) -> Self {
+    pub fn from_udp(socket: Arc<UdpSocket>) -> Self {
         Self {
-            peer_addr: Some(peer_addr),
-            writer: Mutex::new(WriterType::Udp(socket)),
+            inner: Mutex::new(WriterType::Udp(socket)),
         }
     }
 
     pub fn from_quic(send_stream: quinn::SendStream) -> Self {
         Self {
-            peer_addr: None,
-            writer: Mutex::new(WriterType::Quic(send_stream)),
+            inner: Mutex::new(WriterType::Quic(send_stream)),
         }
     }
 
@@ -57,24 +53,27 @@ impl SocketWriter {
             }};
         }
 
-        macro_rules! write_packet {
-            ($writer:ident) => {{
-                $writer.send_to(buf, self.peer_addr.as_ref().unwrap()).await?;
-            }};
-        }
-
-        match &mut *self.writer.lock().await {
+        match &mut *self.inner.lock().await {
             WriterType::Tcp(writer) => write_stream!(writer),
             WriterType::Quic(writer) => write_stream!(writer),
-            WriterType::Udp(writer) => write_packet!(writer),
-            WriterType::Unknown => unreachable!(),
+            _ => unreachable!(),
         }
 
         Ok(())
     }
 
+    pub async fn send_to(&self, buf: &[u8], peer_addr: SocketAddr) -> tokio::io::Result<()> {
+        match &mut *self.inner.lock().await {
+            WriterType::Udp(writer) => {
+                writer.send_to(buf, peer_addr).await?;
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
     pub async fn close(&self) -> tokio::io::Result<()> {
-        match &mut *self.writer.lock().await {
+        match &mut *self.inner.lock().await {
             WriterType::Tcp(writer) => writer.shutdown().await?,
             WriterType::Quic(writer) => writer.shutdown().await?,
             WriterType::Udp(_writer) => (),

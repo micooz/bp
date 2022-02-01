@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use tokio::net::{TcpStream, UdpSocket};
 
@@ -13,9 +13,9 @@ pub fn split_tcp(stream: TcpStream) -> (SocketReader, SocketWriter) {
     (reader, writer)
 }
 
-pub fn split_udp(socket: Arc<UdpSocket>, peer_addr: SocketAddr) -> (SocketReader, SocketWriter) {
+pub fn split_udp(socket: Arc<UdpSocket>) -> (SocketReader, SocketWriter) {
     let reader = SocketReader::from_udp(socket.clone());
-    let writer = SocketWriter::from_udp(socket, peer_addr);
+    let writer = SocketWriter::from_udp(socket);
 
     (reader, writer)
 }

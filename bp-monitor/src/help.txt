@@ -1,4 +1,0 @@
-Welcome to bp monitor, type the following command to continue:
-- help,h: show this info
-- ls: list all live connections
-- dump <N> <K?>: dump K bytes transmission data from the N-th connection

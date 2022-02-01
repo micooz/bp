@@ -1,4 +1,4 @@
-/target
-/*.log
-/.tmp
-/dhat
+target
+*.log
+.tmp
+dhat

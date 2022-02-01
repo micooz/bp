@@ -223,16 +223,6 @@ impl Inbound {
     }
 
     pub async fn send(&self, buf: bytes::Bytes) -> tokio::io::Result<()> {
-        if self.socket.is_udp() {
-            log::info!(
-                "[{}] [{}] [{}] sent an udp packet: {} bytes",
-                self.peer_address,
-                self.socket.socket_type(),
-                self.protocol_name.as_ref().unwrap(),
-                buf.len()
-            );
-        }
-
         self.socket.send(&buf).await
     }
 
