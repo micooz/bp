@@ -195,7 +195,6 @@ impl SocketReader {
         cache.push_back(buf);
     }
 
-    #[inline]
     async fn packet_recv(&self, socket: &Arc<UdpSocket>) -> Result<(Bytes, usize)> {
         let mut buf = vec![0u8; config::UDP_MTU];
         let (len, _addr) = socket.recv_from(&mut buf).await?;

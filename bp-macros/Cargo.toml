@@ -1,8 +1,0 @@
-[package]
-name = "bp-macros"
-version = "0.1.0"
-license = "MIT"
-edition = "2021"
-
-[lib]
-proc-macro = true

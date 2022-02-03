@@ -1,4 +1,4 @@
-bp 1.1.2
+bp 2.0.0-alpha.0
 bp is a set of advanced and efficient proxy tools written in pure Rust.
 
 USAGE:
