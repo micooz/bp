@@ -12,8 +12,8 @@ use crate::{
         outbound::Outbound,
         socket::Socket,
     },
-    options::Options,
     proto::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
+    Options,
 };
 
 pub struct Connection {
@@ -103,19 +103,19 @@ impl Connection {
 
     fn get_outbound_socket_type(&self, resolved: &ResolvedResult) -> SocketType {
         // client side enable --udp-over-tcp, outbound should be TCP
-        if self.opts.udp_over_tcp {
+        if self.opts.is_client() && self.opts.udp_over_tcp() {
             return SocketType::Tcp;
         }
         // server side resolved DNS protocol, outbound should be UDP
-        if self.opts.server && matches!(resolved.protocol, ProtocolType::Dns) {
+        if self.opts.is_server() && matches!(resolved.protocol, ProtocolType::Dns) {
             return SocketType::Udp;
         }
         // client side enable --quic, outbound should be QUIC
-        if self.opts.client && self.opts.quic {
+        if self.opts.is_client() && self.opts.quic() {
             return SocketType::Quic;
         }
         // server side enable --quic, outbound should be TCP
-        if self.opts.server && self.opts.quic {
+        if self.opts.is_server() && self.opts.quic() {
             return SocketType::Tcp;
         }
         // others situation is the same as inbound
@@ -127,7 +127,7 @@ impl Connection {
         // connect to bp itself will cause listener.accept() run into infinite loop and
         // produce "No file descriptors available" errors.
         let resolved_addr = resolved.address.resolve().await?;
-        let bind_addr = self.opts.bind.resolve().await?;
+        let bind_addr = self.opts.bind().resolve().await?;
 
         if resolved_addr == bind_addr {
             let msg = format!(
@@ -147,7 +147,7 @@ impl Connection {
         let dest_addr_host = dest_addr.host();
 
         // white list
-        if self.opts.client && self.opts.proxy_white_list.is_some() {
+        if self.opts.is_client() && self.opts.proxy_white_list().is_some() {
             let acl = global::get_acl();
 
             if !acl.is_host_hit(&dest_addr_host) {
@@ -173,13 +173,13 @@ impl Connection {
 
     fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
         // bp client should always use bp transport connect to bp server
-        if self.opts.client && self.opts.server_bind.is_some() {
-            return init_protocol(&self.opts);
+        if self.opts.is_client() && self.opts.server_bind().is_some() {
+            return init_protocol(self.opts.protocol(), self.opts.key(), self.opts.service_type());
         }
 
         // server dns outbound
-        if self.opts.server && matches!(resolved.protocol, ProtocolType::Dns) {
-            return Box::new(Dns::new(self.opts.get_dns_server()));
+        if self.opts.is_server() && matches!(resolved.protocol, ProtocolType::Dns) {
+            return Box::new(Dns::new(self.opts.dns_server()));
         }
 
         Box::new(Direct::default())

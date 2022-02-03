@@ -7,7 +7,7 @@ use serde::{de::Visitor, Deserialize, Deserializer};
 
 use crate::{
     net::{address::Address, socket::Socket},
-    options::Options,
+    ServiceType,
 };
 
 mod direct;
@@ -80,7 +80,7 @@ dyn_clone::clone_trait_object!(Protocol);
 
 pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ApplicationProtocol {
     Plain,
     EncryptRandomPadding,
@@ -130,9 +130,9 @@ impl<'de> Deserialize<'de> for ApplicationProtocol {
     }
 }
 
-pub fn init_protocol(opts: &Options) -> DynProtocol {
-    match opts.protocol {
+pub fn init_protocol(protocol: ApplicationProtocol, key: String, service_type: ServiceType) -> DynProtocol {
+    match protocol {
         ApplicationProtocol::Plain => Box::new(Plain::default()),
-        ApplicationProtocol::EncryptRandomPadding => Box::new(Erp::new(opts.key.clone().unwrap(), opts.service_type())),
+        ApplicationProtocol::EncryptRandomPadding => Box::new(Erp::new(key, service_type)),
     }
 }

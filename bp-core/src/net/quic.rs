@@ -33,6 +33,12 @@ pub async fn init_quinn_client_config(certificate_path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn init_quic_endpoint_pool(max_concurrency: u16) {
+    let mut pool = EndpointPool::default();
+    pool.set_size(max_concurrency);
+    global::set_quic_endpoint_pool(pool);
+}
+
 #[derive(Default)]
 pub struct EndpointPool {
     size: u16,

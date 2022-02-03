@@ -6,7 +6,7 @@ use bp_core::*;
 fn test_load_from_file() {
     let acl = AccessControlList::default();
 
-    assert!(acl.load_from_file("tests/fixtures/acl.txt".into()).is_ok());
+    assert!(acl.load_from_file("tests/fixtures/acl.txt").is_ok());
     assert_eq!(acl.count(), 1);
 }
 

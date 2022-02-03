@@ -2,7 +2,7 @@
 name = "bp"
 version = "1.1.2"
 authors = ["Micooz Lee <micooz@hotmail.com>"]
-description = "bp is a lightweight and efficient proxy written in pure Rust."
+description = "bp is a set of advanced and efficient proxy tools written in pure Rust."
 repository = "https://github.com/micooz/bp"
 readme = "README.md"
 keywords = ["bp", "proxy", "socks", "socks5", "firewall"]

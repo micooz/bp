@@ -16,5 +16,5 @@ fn test_cache() {
 
     cache.push_back(Bytes::from_static(b"foo"));
     assert_eq!(cache.pull_all(), Bytes::from_static(b"foo"));
-    assert_eq!(cache.is_empty(), true);
+    assert!(cache.is_empty());
 }

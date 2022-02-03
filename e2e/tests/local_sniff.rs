@@ -1,12 +1,9 @@
-use bp_core::{Options, StartupInfo};
+use bp_core::{ClientOptions, Options, StartupInfo};
 use e2e::{oneshot::tcp_oneshot, run_bp::run_bp};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_http_sniff() {
-    let opts = Options {
-        client: true,
-        ..Options::default()
-    };
+    let opts = Options::Client(ClientOptions::default());
 
     let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
 
@@ -18,10 +15,7 @@ async fn test_http_sniff() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_https_sniff() {
-    let opts = Options {
-        client: true,
-        ..Options::default()
-    };
+    let opts = Options::Client(ClientOptions::default());
 
     let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
 

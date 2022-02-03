@@ -1,11 +1,15 @@
-use bp_core::{ApplicationProtocol, Options};
+use bp_core::{ApplicationProtocol, ClientOptions, ServerOptions};
 use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_plain() {
     let resp = run_all(
-        Options {
+        ClientOptions {
+            protocol: ApplicationProtocol::Plain,
+            ..Default::default()
+        },
+        ServerOptions {
             protocol: ApplicationProtocol::Plain,
             ..Default::default()
         },
@@ -28,7 +32,11 @@ async fn test_plain() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_erp() {
     let resp = run_all(
-        Options {
+        ClientOptions {
+            protocol: ApplicationProtocol::EncryptRandomPadding,
+            ..Default::default()
+        },
+        ServerOptions {
             protocol: ApplicationProtocol::EncryptRandomPadding,
             ..Default::default()
         },

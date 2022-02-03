@@ -1,4 +1,4 @@
-use bp_core::{Options, StartupInfo};
+use bp_core::{ClientOptions, Options, StartupInfo};
 use e2e::{
     http_server::{run_http_mock_server, HttpServerContext},
     oneshot::tcp_oneshot,
@@ -9,11 +9,10 @@ use e2e::{
 async fn test_force_dest() {
     let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
 
-    let opts = Options {
-        client: true,
+    let opts = Options::Client(ClientOptions {
         force_dest_addr: Some(http_addr.into()),
-        ..Options::default()
-    };
+        ..Default::default()
+    });
 
     let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
 

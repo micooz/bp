@@ -1,0 +1,15 @@
+bp 1.1.2
+bp is a set of advanced and efficient proxy tools written in pure Rust.
+
+USAGE:
+    bp <SUBCOMMAND>
+
+OPTIONS:
+    -h, --help       Print help information
+    -V, --version    Print version information
+
+SUBCOMMANDS:
+    client      Run bp client
+    generate    Run file generator
+    help        Print this message or the help of the given subcommand(s)
+    server      Run bp server

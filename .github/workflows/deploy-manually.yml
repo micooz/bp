@@ -83,6 +83,6 @@ jobs:
             pm2 delete bp || true
 
             echo "Start bp service"
-            pm2 start $BIN_FILE -- --config $CONFIG_FILE
+            pm2 start $BIN_FILE -- server --config $CONFIG_FILE
 
             echo "> All Done."

@@ -4,49 +4,49 @@
 
 # bp
 
-Lightweight and efficient proxy written in pure Rust.
+bp is a set of advanced and efficient proxy tools written in pure Rust.
 
 ## Features
 
-* Running on all platform and all CPU architecture.
-* Handle Socks5/HTTP/HTTPS/DNS requests at once in a single port.
-* Support UDP over TCP.
-* Support QUIC.
-* Work with Linux Firewall(by iptables).
-* White list control.
+* Cross-platform, of course. Linux/Windows/MacOS and others.
+* Support Socks5/HTTP/HTTPS Proxy Protocols.
+* Support proxy non-proxy protocols, for example: HTTP/HTTPS/DNS.
+* Support multiple transport protocols, for example: TLS/QUIC.
+* Support custom proxy whitelist.
+* Work with Linux Firewall(via iptables).
 
-## Usage
+## Basic Usages
 
-Please check -h/--help for more information, or check out [USAGE](USAGE.txt).
+Please check -h/--help first, or see [USAGE](usage).
 
 ```
 $ bp -h
 ```
 
-## Examples
-
-### Run as client
+### Run as Client
 
 ```
 $ bp -c --key key --server-bind <host:port>
 ```
 
-### Run as server
+### Run as Server
 
 ```
 $ bp -s --bind 127.0.0.1:9000 --key key
 ```
 
-### Test with Curl
+### Curl Test
 
-> Both Socks5 and HTTP Proxy requests are acceptable by bp client.
+> Both Socks5 and HTTP Proxy requests are acceptable by bp client on the same port.
+
+Assume bp client is running at `127.0.0.1:1080`:
 
 ```
-$ curl -Lx 127.0.0.1:1080 cn.bing.com
-$ curl -L --sock5-hostname 127.0.0.1:1080 cn.bing.com
+$ curl --sock5-hostname 127.0.0.1:1080 cn.bing.com
+$ curl -x 127.0.0.1:1080 cn.bing.com
 ```
 
-## Advanced Usage
+## Advanced Usages
 
 ### Relay Directly
 
@@ -60,6 +60,28 @@ $ bp -c
 
 ```
 $ bp -c --key key --udp-over-tcp --server-bind <host:port>
+```
+
+### Enable QUIC
+
+[QUIC](https://quicwg.github.io/) is a transport protocol based on UDP and TLS, it force use TLS, so we should first generate TLS Certificate and Private Key.
+
+Use the following command to automatically generate self-signed certificates:
+
+```
+$ bp generate --certificate --hostname localhost
+```
+
+Then, provide bp server with Certificate and Private Key:
+
+```
+$ bp server --tls-cert <cert_path> --tls-key <key_path> <other_options>
+```
+
+Finally, provide bp client with Certificate only:
+
+```
+$ bp client --tls-cert <cert_path> <other_options>
 ```
 
 ### Pin Destination Address
@@ -119,3 +141,16 @@ iptables -t nat -A BP -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports
 iptables -t nat -A PREROUTING -p tcp -j BP
 iptables -t nat -A OUTPUT -p tcp -j BP
 ```
+
+## 2.0 Roadmap
+
+- [x] Refine CLI to multiple subcommands
+- [ ] Improve performance of I/O reader
+- [ ] TLS transport layer
+- [ ] HTTP Client Proxy Authorization
+- [ ] HTTPS Client Proxy with Authorization
+- [ ] Tracer & Monitor Service
+- [ ] Web GUI
+- [ ] iOS GUI
+- [ ] PAC Service
+- [ ] Proxy Rule List to PAC

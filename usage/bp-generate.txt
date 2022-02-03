@@ -1,0 +1,10 @@
+bp-generate 
+Run file generator
+
+USAGE:
+    bp generate [OPTIONS]
+
+OPTIONS:
+        --certificate            Generate self-signed TLS certificates(in DER format) to CWD
+    -h, --help                   Print help information
+        --hostname <HOSTNAME>    Hostname for generating TLS certificates

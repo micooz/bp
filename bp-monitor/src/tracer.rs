@@ -5,19 +5,13 @@ use tokio::{net::UdpSocket, sync::Mutex};
 
 use crate::events::Event;
 
+#[derive(Default)]
 pub struct Tracer {
     subscribers: Arc<Mutex<Vec<SocketAddr>>>,
     sender: Option<Arc<UdpSocket>>,
 }
 
 impl Tracer {
-    pub fn new() -> Self {
-        Tracer {
-            subscribers: Arc::new(Mutex::new(vec![])),
-            sender: None,
-        }
-    }
-
     pub async fn init(&mut self) {
         let addr = format!("{}:{}", "0.0.0.0", "8080");
         let addr = addr.parse::<SocketAddr>().unwrap();

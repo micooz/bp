@@ -5,7 +5,7 @@ use tokio::time::sleep;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tracer() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::default();
     tracer.init().await;
 
     tracer.add_subscriber("127.0.0.1:1234".parse().unwrap()).await;

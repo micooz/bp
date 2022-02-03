@@ -1,9 +1,9 @@
-use std::{env, fmt::Display, process::Command, sync::Arc};
+use std::{env, fmt::Display, sync::Arc};
 
 use anyhow::{Error, Result};
 use bp_core::{
-    global, init_dns_resolver, init_quinn_client_config, init_quinn_server_config, utils::tls::TLS, Connection,
-    EndpointPool, Options, QuicService, Service, Socket, StartupInfo, TcpService, UdpService,
+    get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
+    Connection, Options, QuicService, Service, Socket, StartupInfo, TcpService, UdpService,
 };
 use parking_lot::Mutex;
 use tokio::{
@@ -20,17 +20,6 @@ const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
 pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<()> {
-    // generate TLS certificate and private key
-    if opts.generate_cert {
-        if !opts.bind.is_hostname() {
-            return Err(Error::msg(
-                "should bind to a hostname when --gen-cert, please check --bind",
-            ));
-        }
-        TLS::gen_cert_and_key(vec![opts.bind.host()], "cert.der", "key.der").await?;
-        return Ok(());
-    }
-
     // dirs init
     Dirs::init()?;
 
@@ -44,10 +33,10 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
     // }
 
     // dns server
-    init_dns_resolver(opts.get_dns_server().as_socket_addr()).await?;
+    init_dns_resolver(opts.dns_server().as_socket_addr()).await?;
 
     // init quinn configs
-    if opts.quic {
+    if opts.quic() {
         init_quic(&opts).await?;
     }
 
@@ -62,13 +51,13 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
 async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<JoinHandle<()>> {
     let (sender, mut receiver) = channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
 
-    let bind_addr = opts.bind.resolve().await?;
+    let bind_addr = opts.bind().resolve().await?;
     let bind_ip = bind_addr.ip().to_string();
-    let bind_host = opts.bind.host();
-    let bind_port = opts.bind.port();
+    let bind_host = opts.bind().host();
+    let bind_port = opts.bind().port();
 
     // server side enable --quic, start Quic service
-    if opts.quic && opts.server {
+    if opts.quic() && opts.is_server() {
         QuicService::start("main", bind_addr, sender).await?;
     } else {
         TcpService::start("main", bind_addr, sender.clone()).await?;
@@ -79,8 +68,11 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
 
     // load acl
     tokio::spawn(async move {
-        if let Some(ref path) = opts_for_acl.proxy_white_list {
-            let acl = global::get_acl();
+        if !opts_for_acl.is_client() {
+            return;
+        }
+        if let Some(ref path) = opts_for_acl.proxy_white_list() {
+            let acl = get_acl();
 
             if let Err(err) = acl.load_from_file(path) {
                 log::error!("[acl] load white list failed due to: {}", err);
@@ -158,25 +150,21 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
 }
 
 async fn init_quic(opts: &Options) -> Result<()> {
-    if opts.server {
-        if let (Some(cert), Some(key)) = (opts.tls_cert.as_ref(), opts.tls_key.as_ref()) {
+    if opts.is_server() {
+        if let (Some(cert), Some(key)) = (opts.tls_cert().as_ref(), opts.tls_key().as_ref()) {
             log::info!("loading TLS certificate from {}", cert);
             log::info!("loading TLS private key from {}", key);
             init_quinn_server_config(cert, key).await?;
         }
     }
 
-    if opts.client {
-        if let Some(cert) = opts.tls_cert.as_ref() {
+    if opts.is_client() {
+        if let Some(cert) = opts.tls_cert().as_ref() {
             log::info!("loading TLS certificate from {}", cert);
             init_quinn_client_config(cert).await?;
         }
-
-        let mut endpoint_pool = EndpointPool::default();
-        let quic_max_concurrency = opts.quic_max_concurrency.unwrap_or(u16::MAX);
-        endpoint_pool.set_size(quic_max_concurrency);
-
-        global::set_quic_endpoint_pool(endpoint_pool);
+        let quic_max_concurrency = opts.quic_max_concurrency().unwrap_or(u16::MAX);
+        init_quic_endpoint_pool(quic_max_concurrency);
     }
 
     Ok(())
@@ -197,7 +185,7 @@ fn daemonize_self() -> Result<()> {
 
     log::info!("spawning a new child process before exit");
 
-    let mut command = Command::new(bin_path);
+    let mut command = std::process::Command::new(bin_path);
     command.current_dir(work_dir);
     command.env(ENV_DISABLE_DAEMONIZE, "1");
 

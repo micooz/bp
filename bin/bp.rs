@@ -1,8 +1,8 @@
 use std::process;
 
 use bp_cli::{bootstrap::bootstrap, logging};
-use bp_core::{check_options, Options, StartupInfo};
-use clap::Parser;
+use bp_core::{utils::tls::TLS, Cli, Command, StartupInfo};
+use clap::StructOpt;
 use tokio::sync::oneshot;
 
 #[tokio::main]
@@ -18,32 +18,48 @@ async fn main() {
     #[cfg(feature = "logging")]
     logging::init();
 
-    let mut opts: Options = Parser::parse();
+    let cli: Cli = Cli::parse();
 
-    // load config from file
-    if let Some(config) = opts.config {
-        opts = Options::from_file(&config).unwrap_or_else(|err| {
-            log::error!("Unrecognized format of {}: {}", &config, err);
-            exit(ExitError::ArgumentsError);
-        });
-    }
-
-    match check_options(&opts) {
-        Ok(_) => {
-            let (tx, _rx) = oneshot::channel::<StartupInfo>();
-
-            if let Err(err) = bootstrap(opts, tx).await {
-                log::error!("{}", err);
-                exit(ExitError::BootstrapError);
-            }
-
-            log::info!("[{}] process exit with code 0", process::id());
-        }
-        Err(err) => {
-            log::error!("{}", err);
+    // generate TLS certificate and private key
+    if let Command::Generate(opts) = cli.command {
+        if opts.hostname.is_none() {
+            log::error!("should set --hostname when --certificate is set");
             exit(ExitError::ArgumentsError);
         }
+
+        let res = TLS::gen_cert_and_key(vec![opts.hostname.unwrap()], "cert.der", "key.der").await;
+
+        if let Err(err) = res {
+            log::error!("failed to generate TLS certificate due to: {}", err);
+            exit(ExitError::ArgumentsError);
+        }
+
+        return;
     }
+
+    let mut opts = cli.service_options();
+
+    // try load bp service options from --config
+    if let Err(err) = opts.try_load_from_file(&opts.config().unwrap()) {
+        log::error!("Unrecognized format of --config: {}", err);
+        exit(ExitError::ArgumentsError);
+    }
+
+    // check options
+    if let Err(err) = opts.check() {
+        log::error!("{}", err);
+        exit(ExitError::ArgumentsError);
+    }
+
+    // bootstrap bp service
+    let (tx, _rx) = oneshot::channel::<StartupInfo>();
+
+    if let Err(err) = bootstrap(opts, tx).await {
+        log::error!("{}", err);
+        exit(ExitError::BootstrapError);
+    }
+
+    log::info!("[{}] process exit with code 0", process::id());
 }
 
 fn exit(err: ExitError) -> ! {

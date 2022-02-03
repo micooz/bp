@@ -1,4 +1,4 @@
-use bp_core::{Options, StartupInfo};
+use bp_core::{ClientOptions, Options, StartupInfo};
 use cmd_lib::run_fun;
 use e2e::{
     http_server::{run_http_mock_server, HttpServerContext},
@@ -10,10 +10,7 @@ use e2e::{
 async fn test_socks5() {
     let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
 
-    let opts = Options {
-        client: true,
-        ..Options::default()
-    };
+    let opts = Options::Client(ClientOptions::default());
 
     let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
     let bind_addr = bind_addr.to_string();
@@ -27,10 +24,7 @@ async fn test_socks5() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_socks5_udp() {
-    let opts = Options {
-        client: true,
-        ..Options::default()
-    };
+    let opts = Options::Client(ClientOptions::default());
 
     let StartupInfo { bind_addr, .. } = run_bp(opts, Some("127.0.0.1")).await;
 
@@ -44,10 +38,7 @@ async fn test_socks5_udp() {
 async fn test_http() {
     let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
 
-    let opts = Options {
-        client: true,
-        ..Options::default()
-    };
+    let opts = Options::Client(ClientOptions::default());
 
     let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
     let bind_addr = bind_addr.to_string();

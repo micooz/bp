@@ -20,8 +20,8 @@ use crate::{
     event::Event,
     global,
     net::{address::Address, dns::dns_resolve, quic::RandomEndpoint, socket::Socket},
-    options::{Options, ServiceType},
     proto::{DynProtocol, ResolvedResult},
+    Options, ServiceType,
 };
 
 pub struct Outbound {
@@ -180,10 +180,10 @@ impl Outbound {
     }
 
     fn get_remote_addr(&self, resolved: &ResolvedResult) -> Address {
-        if self.opts.server || self.opts.server_bind.is_none() || !self.is_allow_proxy {
+        if self.opts.is_server() || self.opts.server_bind().is_none() || !self.is_allow_proxy {
             resolved.address.clone()
         } else {
-            self.opts.server_bind.clone().unwrap()
+            self.opts.server_bind().unwrap()
         }
     }
 

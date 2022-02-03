@@ -18,8 +18,8 @@ use crate::{
     config,
     event::*,
     net::{address::Address, socket::Socket},
-    options::{Options, ServiceType},
     proto::*,
+    Options, ServiceType,
 };
 
 pub struct InboundResolveResult {
@@ -75,20 +75,19 @@ impl Inbound {
             direct
         }
 
-        // check --force-dest-addr flag
-        if let Some(addr) = &self.opts.force_dest_addr {
-            log::warn!(
-                "[{}] [{}] --force-dest-addr set, will relay to the fixed dest address {}",
-                self.peer_address,
-                self.socket.socket_type(),
-                addr,
-            );
-
-            return Ok(InboundResolveResult { proto: direct(addr) });
-        }
-
         // client side resolve
-        if self.opts.client {
+        if self.opts.is_client() {
+            // check --force-dest-addr flag
+            if let Some(addr) = &self.opts.force_dest_addr() {
+                log::warn!(
+                    "[{}] [{}] --force-dest-addr set, will relay to the fixed dest address {}",
+                    self.peer_address,
+                    self.socket.socket_type(),
+                    addr,
+                );
+                return Ok(InboundResolveResult { proto: direct(addr) });
+            }
+
             // obtain iptables redirect dest address first
             #[cfg(target_os = "linux")]
             let redirect_dest_addr = self.get_redirected_dest_addr();
@@ -97,13 +96,13 @@ impl Inbound {
             let redirect_dest_addr: Option<Address> = None;
 
             let mut try_list: Vec<DynProtocol> = vec![
-                Box::new(Socks::new(Some(self.opts.bind.clone()))),
+                Box::new(Socks::new(Some(self.opts.bind()))),
                 Box::new(Http::default()),
                 Box::new(Https::default()),
             ];
 
             if self.socket.is_udp() {
-                try_list.push(Box::new(Dns::new(self.opts.get_dns_server())));
+                try_list.push(Box::new(Dns::new(self.opts.dns_server())));
             }
 
             // check one by one
@@ -112,7 +111,7 @@ impl Inbound {
                     // overwrite port if redirect_dest_addr exist and it's port is not bp itself.
                     // because http/https sniffer return an inaccurate port number(80 or 443)
                     if let Some(addr) = redirect_dest_addr {
-                        if addr.port() != self.opts.bind.port() {
+                        if addr.port() != self.opts.bind().port() {
                             let mut resolved = proto.get_resolved_result().unwrap().clone();
                             resolved.set_port(addr.port());
                             proto.set_resolved_result(resolved);
@@ -136,8 +135,8 @@ impl Inbound {
         }
 
         // server side resolve
-        if self.opts.server {
-            let mut proto = init_protocol(&self.opts);
+        if self.opts.is_server() {
+            let mut proto = init_protocol(self.opts.protocol(), self.opts.key(), self.opts.service_type());
             self.resolve_dest_addr(&mut proto, false).await?;
 
             let resolved = proto.get_resolved_result().unwrap().clone();
@@ -147,7 +146,7 @@ impl Inbound {
                 if Dns::check_dns_query(&buf[..]) {
                     proto.set_resolved_result(ResolvedResult {
                         // rewrite dns server address to --dns-server
-                        address: self.opts.get_dns_server(),
+                        address: self.opts.dns_server(),
                         protocol: ProtocolType::Dns,
                         pending_buf: Some(buf),
                     });

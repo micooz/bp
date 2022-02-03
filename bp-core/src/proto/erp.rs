@@ -8,10 +8,10 @@ use chacha20poly1305::{
 
 use crate::{
     net::{address::Address, socket::Socket},
-    options::ServiceType,
     proto::{Protocol, ProtocolType, ResolvedResult},
     utils,
     utils::crypto::Crypto,
+    ServiceType,
 };
 
 const MAX_CHUNK_SIZE: usize = 0x3FFF;

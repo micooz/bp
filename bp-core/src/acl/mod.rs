@@ -3,12 +3,19 @@ use std::{
     fs,
     io::{Read, Write},
     path::PathBuf,
-    sync, time,
+    sync::{self, Arc},
+    time,
 };
 
 use anyhow::{Error, Result};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
+
+use crate::global;
+
+pub fn get_acl() -> Arc<AccessControlList> {
+    global::get_acl()
+}
 
 // AccessControlList
 

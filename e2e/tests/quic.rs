@@ -1,4 +1,4 @@
-use bp_core::{utils::tls::TLS, Options};
+use bp_core::{utils::tls::TLS, ClientOptions, ServerOptions};
 use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
 
@@ -12,7 +12,12 @@ async fn test_quic() {
         .unwrap();
 
     let resp = run_all(
-        Options {
+        ClientOptions {
+            quic: true,
+            tls_cert: Some(cert_path.clone()),
+            ..Default::default()
+        },
+        ServerOptions {
             quic: true,
             tls_cert: Some(cert_path),
             tls_key: Some(key_path),

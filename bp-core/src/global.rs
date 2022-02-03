@@ -7,7 +7,10 @@ use quinn::{ClientConfig, ServerConfig};
 use tokio::sync::RwLock;
 use trust_dns_resolver::TokioAsyncResolver;
 
-use crate::{acl::AccessControlList, net::quic::RandomEndpoint, EndpointPool};
+use crate::{
+    acl::AccessControlList,
+    net::quic::{EndpointPool, RandomEndpoint},
+};
 
 lazy_static! {
     static ref ACL: Arc<AccessControlList> = Default::default();
