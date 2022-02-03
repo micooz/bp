@@ -40,9 +40,11 @@ async fn main() {
     let mut opts = cli.service_options();
 
     // try load bp service options from --config
-    if let Err(err) = opts.try_load_from_file(&opts.config().unwrap()) {
-        log::error!("Unrecognized format of --config: {}", err);
-        exit(ExitError::ArgumentsError);
+    if let Some(config) = opts.config() {
+        if let Err(err) = opts.try_load_from_file(&config) {
+            log::error!("Unrecognized format of --config: {}", err);
+            exit(ExitError::ArgumentsError);
+        }
     }
 
     // check options

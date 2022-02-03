@@ -26,13 +26,13 @@ $ bp -h
 ### Run as Client
 
 ```
-$ bp -c --key key --server-bind <host:port>
+$ bp client --key key --server-bind <host:port>
 ```
 
 ### Run as Server
 
 ```
-$ bp -s --bind 127.0.0.1:9000 --key key
+$ bp server --bind 127.0.0.1:9000 --key key
 ```
 
 ### Curl Test
@@ -53,13 +53,13 @@ $ curl -x 127.0.0.1:1080 cn.bing.com
 If not set `--server-bind`, bp will relay directly.
 
 ```
-$ bp -c
+$ bp client
 ```
 
 ### UDP over TCP
 
 ```
-$ bp -c --key key --udp-over-tcp --server-bind <host:port>
+$ bp client --key key --udp-over-tcp --server-bind <host:port>
 ```
 
 ### Enable QUIC
@@ -89,7 +89,7 @@ $ bp client --tls-cert <cert_path> <other_options>
 > NOTE: this is usually for testing via **iperf**
 
 ```
-$ bp -c --force-dest-addr <host:port>
+$ bp client --force-dest-addr <host:port>
 ```
 
 ### Change Protocol
@@ -100,13 +100,13 @@ The protocol can be switched between bp client and bp server, available protocol
 * `erp`: with AEAD encryption as well as random padding. (default)
 
 ```
-$ bp -s --bind 127.0.0.1:9000 --key test --protocol plain
+$ bp client --bind 127.0.0.1:9000 --key test --protocol plain
 ```
 
 ### Proxy White List
 
 ```
-$ bp -c --proxy-white-list /path/to/list.txt
+$ bp client --proxy-white-list /path/to/list.txt
 ```
 
 Assume that the white list file contains the following rules:
