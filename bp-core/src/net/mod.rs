@@ -8,3 +8,4 @@ pub mod outbound;
 pub mod quic;
 pub mod service;
 pub mod socket;
+pub mod tls;

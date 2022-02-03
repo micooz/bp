@@ -386,6 +386,7 @@ dependencies = [
  "sha2",
  "socket2 0.4.4",
  "tokio",
+ "tokio-rustls",
  "trust-dns-resolver",
  "url",
 ]
@@ -2518,6 +2519,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokio-rustls"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a27d5f2b839802bd8267fa19b0530f5a08b9c08cd417976be2a65d130fe1c11b"
+dependencies = [
+ "rustls",
+ "tokio",
+ "webpki",
 ]
 
 [[package]]

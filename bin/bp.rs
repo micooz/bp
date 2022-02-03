@@ -27,7 +27,8 @@ async fn main() {
             exit(ExitError::ArgumentsError);
         }
 
-        let res = TLS::gen_cert_and_key(vec![opts.hostname.unwrap()], "cert.der", "key.der").await;
+        let hostname = opts.hostname.unwrap();
+        let res = TLS::generate_cert_and_key(vec![hostname], "cert.der", "key.der");
 
         if let Err(err) = res {
             log::error!("failed to generate TLS certificate due to: {}", err);

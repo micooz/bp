@@ -11,6 +11,7 @@ use tokio::{
     net::{TcpStream, UdpSocket},
     sync::Mutex,
 };
+use tokio_rustls::TlsStream;
 
 use crate::{config, utils::store::Store};
 
@@ -18,6 +19,7 @@ use crate::{config, utils::store::Store};
 enum ReaderType {
     Unknown,
     Tcp(ReadHalf<TcpStream>),
+    Tls(ReadHalf<TlsStream<TcpStream>>),
     Udp(Arc<UdpSocket>),
     Quic(quinn::RecvStream),
 }
@@ -41,6 +43,13 @@ impl SocketReader {
     pub fn from_tcp(tcp_read_half: ReadHalf<TcpStream>) -> Self {
         Self {
             reader: Mutex::new(ReaderType::Tcp(tcp_read_half)),
+            ..Self::default()
+        }
+    }
+
+    pub fn from_tls(tcp_read_half: ReadHalf<TlsStream<TcpStream>>) -> Self {
+        Self {
+            reader: Mutex::new(ReaderType::Tls(tcp_read_half)),
             ..Self::default()
         }
     }
@@ -106,6 +115,7 @@ impl SocketReader {
 
         match &mut *self.reader.lock().await {
             ReaderType::Tcp(reader) => Ok(read_stream!(reader)),
+            ReaderType::Tls(reader) => Ok(read_stream!(reader)),
             ReaderType::Quic(reader) => Ok(read_stream!(reader)),
             ReaderType::Udp(reader) => Ok(read_packet!(reader)),
             ReaderType::Unknown => unreachable!(),
@@ -148,6 +158,7 @@ impl SocketReader {
         if len > cache_len {
             match &mut *self.reader.lock().await {
                 ReaderType::Tcp(reader) => read_stream!(reader),
+                ReaderType::Tls(reader) => read_stream!(reader),
                 ReaderType::Quic(reader) => read_stream!(reader),
                 ReaderType::Udp(reader) => read_packet!(reader),
                 ReaderType::Unknown => unreachable!(),

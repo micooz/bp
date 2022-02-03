@@ -114,6 +114,13 @@ impl Options {
         }
     }
 
+    pub fn tls(&self) -> bool {
+        match self {
+            Self::Client(opts) => opts.tls,
+            Self::Server(opts) => opts.tls,
+        }
+    }
+
     pub fn quic_max_concurrency(&self) -> Option<u16> {
         if let Self::Client(opts) = self {
             return opts.quic_max_concurrency;

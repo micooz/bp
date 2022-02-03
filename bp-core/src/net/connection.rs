@@ -102,24 +102,30 @@ impl Connection {
     }
 
     fn get_outbound_socket_type(&self, resolved: &ResolvedResult) -> SocketType {
-        // client side enable --udp-over-tcp, outbound should be TCP
-        if self.opts.is_client() && self.opts.udp_over_tcp() {
-            return SocketType::Tcp;
+        if self.opts.is_server() {
+            // server side resolved DNS protocol, outbound should be UDP
+            if matches!(resolved.protocol, ProtocolType::Dns) {
+                return SocketType::Udp;
+            }
         }
-        // server side resolved DNS protocol, outbound should be UDP
-        if self.opts.is_server() && matches!(resolved.protocol, ProtocolType::Dns) {
-            return SocketType::Udp;
+
+        if self.opts.is_client() {
+            if matches!(self.inbound.socket_type(), SocketType::Udp) && !self.opts.udp_over_tcp() {
+                // inbound is UDP, but not enable --udp-over-tcp, outbound should be UDP as well
+                return SocketType::Udp;
+            }
+            // client side enable --tls, outbound should be TLS
+            if self.opts.tls() {
+                return SocketType::Tls;
+            }
+            // client side enable --quic, outbound should be QUIC
+            if self.opts.quic() {
+                return SocketType::Quic;
+            }
         }
-        // client side enable --quic, outbound should be QUIC
-        if self.opts.is_client() && self.opts.quic() {
-            return SocketType::Quic;
-        }
-        // server side enable --quic, outbound should be TCP
-        if self.opts.is_server() && self.opts.quic() {
-            return SocketType::Tcp;
-        }
-        // others situation is the same as inbound
-        self.inbound.socket_type()
+
+        // default is TCP
+        SocketType::Tcp
     }
 
     async fn check_resolved_result(&self, resolved: &ResolvedResult) -> Result<()> {

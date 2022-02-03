@@ -8,17 +8,19 @@ use std::{
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
+use rustls;
 use tokio::{
     net::TcpSocket,
     sync::mpsc::Sender,
     time::{timeout, Duration},
 };
+use tokio_rustls::{TlsConnector, TlsStream};
 
 use super::socket::SocketType;
 use crate::{
     config,
     event::Event,
-    global,
+    global::{self, get_tls_client_config},
     net::{address::Address, dns::dns_resolve, quic::RandomEndpoint, socket::Socket},
     proto::{DynProtocol, ResolvedResult},
     Options, ServiceType,
@@ -191,8 +193,8 @@ impl Outbound {
         let socket_type = self.socket_type.as_ref().unwrap();
         let peer_address = self.peer_address;
 
-        let socket = match self.socket_type.as_ref().unwrap() {
-            SocketType::Tcp => {
+        let socket = match socket_type {
+            SocketType::Tcp | SocketType::Tls => {
                 #[cfg(target_os = "linux")]
                 use std::os::unix::io::AsRawFd;
 
@@ -209,9 +211,21 @@ impl Outbound {
                 }
 
                 let future = socket.connect(ip_addr);
-                let stream = timeout(Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
+                let tcp_stream = timeout(Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
 
-                Arc::new(Socket::from_stream(stream))
+                match socket_type {
+                    SocketType::Tcp => Arc::new(Socket::from_tcp_stream(tcp_stream)),
+                    SocketType::Tls => {
+                        // create TlsStream from TcpStream
+                        let connector = TlsConnector::from(Arc::new(get_tls_client_config()));
+                        let domain = rustls::ServerName::try_from(addr.host().as_str())?;
+
+                        let tls_stream = connector.connect(domain, tcp_stream).await?;
+
+                        Arc::new(Socket::from_tls_stream(TlsStream::Client(tls_stream)))
+                    }
+                    _ => unreachable!(),
+                }
             }
             SocketType::Udp => {
                 let socket = Socket::bind_udp_random_port(ip_addr).await?;

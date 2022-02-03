@@ -62,11 +62,9 @@ $ bp client
 $ bp client --key key --udp-over-tcp --server-bind <host:port>
 ```
 
-### Enable QUIC
+### Enable TLS
 
-[QUIC](https://quicwg.github.io/) is a transport protocol based on UDP and TLS, it force use TLS, so we should first generate TLS Certificate and Private Key.
-
-Use the following command to automatically generate self-signed certificates:
+First, generate self-signed certificates:
 
 ```
 $ bp generate --certificate --hostname localhost
@@ -75,14 +73,18 @@ $ bp generate --certificate --hostname localhost
 Then, provide bp server with Certificate and Private Key:
 
 ```
-$ bp server --tls-cert <cert_path> --tls-key <key_path> <other_options>
+$ bp server --tls --tls-cert <cert_path> --tls-key <key_path> <other_options>
 ```
 
 Finally, provide bp client with Certificate only:
 
 ```
-$ bp client --tls-cert <cert_path> <other_options>
+$ bp client --tls --tls-cert <cert_path> <other_options>
 ```
+
+### Enable QUIC
+
+[QUIC](https://quicwg.github.io/) is a transport protocol based on UDP and TLS, it force use TLS, so we should first generate TLS Certificate and Private Key. The steps are almost the same as **Enable TLS**, just need replace `--tls` to `--quic`.
 
 ### Pin Destination Address
 
@@ -145,8 +147,8 @@ iptables -t nat -A OUTPUT -p tcp -j BP
 ## 2.0 Roadmap
 
 - [x] Refine CLI to multiple subcommands
+- [x] TLS transport layer
 - [ ] Improve performance of I/O reader
-- [ ] TLS transport layer
 - [ ] HTTP Client Proxy Authorization
 - [ ] HTTPS Client Proxy with Authorization
 - [ ] Tracer & Monitor Service

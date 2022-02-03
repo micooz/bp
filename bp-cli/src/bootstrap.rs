@@ -3,7 +3,8 @@ use std::{env, fmt::Display, sync::Arc};
 use anyhow::{Error, Result};
 use bp_core::{
     get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
-    Connection, Options, QuicService, Service, Socket, StartupInfo, TcpService, UdpService,
+    init_tls_client_config, init_tls_server_config, Connection, Options, QuicService, Service, Socket, StartupInfo,
+    TcpService, TlsService, UdpService,
 };
 use parking_lot::Mutex;
 use tokio::{
@@ -35,9 +36,15 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
     // dns server
     init_dns_resolver(opts.dns_server().as_socket_addr()).await?;
 
-    // init quinn configs
-    if opts.quic() {
-        init_quic(&opts).await?;
+    // init tls configs
+    if opts.tls() || opts.quic() {
+        init_tls_configs(&opts)?;
+    }
+
+    // init quic endpoint pool
+    if opts.is_client() && opts.quic() {
+        let quic_max_concurrency = opts.quic_max_concurrency().unwrap_or(u16::MAX);
+        init_quic_endpoint_pool(quic_max_concurrency);
     }
 
     // main service
@@ -57,11 +64,22 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
     let bind_port = opts.bind().port();
 
     // server side enable --quic, start Quic service
-    if opts.quic() && opts.is_server() {
-        QuicService::start("main", bind_addr, sender).await?;
-    } else {
+    #[allow(clippy::never_loop)]
+    loop {
+        if opts.is_server() {
+            if opts.tls() {
+                TlsService::start("main", bind_addr, sender.clone()).await?;
+                UdpService::start("main", bind_addr, sender).await?;
+                break;
+            }
+            if opts.quic() {
+                QuicService::start("main", bind_addr, sender).await?;
+                break;
+            }
+        }
         TcpService::start("main", bind_addr, sender.clone()).await?;
         UdpService::start("main", bind_addr, sender).await?;
+        break;
     }
 
     let opts_for_acl = opts.clone();
@@ -149,22 +167,32 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
     Ok(handle)
 }
 
-async fn init_quic(opts: &Options) -> Result<()> {
+fn init_tls_configs(opts: &Options) -> Result<()> {
     if opts.is_server() {
         if let (Some(cert), Some(key)) = (opts.tls_cert().as_ref(), opts.tls_key().as_ref()) {
             log::info!("loading TLS certificate from {}", cert);
             log::info!("loading TLS private key from {}", key);
-            init_quinn_server_config(cert, key).await?;
+
+            if opts.tls() {
+                init_tls_server_config(cert, key)?;
+            }
+            if opts.quic() {
+                init_quinn_server_config(cert, key)?;
+            }
         }
     }
 
     if opts.is_client() {
         if let Some(cert) = opts.tls_cert().as_ref() {
             log::info!("loading TLS certificate from {}", cert);
-            init_quinn_client_config(cert).await?;
+
+            if opts.tls() {
+                init_tls_client_config(cert)?;
+            }
+            if opts.quic() {
+                init_quinn_client_config(cert)?;
+            }
         }
-        let quic_max_concurrency = opts.quic_max_concurrency().unwrap_or(u16::MAX);
-        init_quic_endpoint_pool(quic_max_concurrency);
     }
 
     Ok(())

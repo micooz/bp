@@ -4,12 +4,13 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use bytes::Bytes;
-use tokio::net;
+use tokio::net::{TcpStream, UdpSocket};
+use tokio_rustls::TlsStream;
 
 use crate::{
     io::{
         reader::SocketReader,
-        utils::{split_quic, split_tcp, split_udp},
+        utils::{split_quic, split_tcp, split_tls, split_udp},
         writer::SocketWriter,
     },
     utils::net::create_udp_client_with_random_port,
@@ -32,7 +33,7 @@ pub struct Socket {
 }
 
 impl Socket {
-    pub fn from_stream(stream: net::TcpStream) -> Self {
+    pub fn from_tcp_stream(stream: TcpStream) -> Self {
         let peer_addr = stream.peer_addr().unwrap();
         let local_addr = stream.local_addr().unwrap();
 
@@ -40,6 +41,28 @@ impl Socket {
         let fd = stream.as_raw_fd();
 
         let split = split_tcp(stream);
+
+        Self {
+            #[cfg(not(target_os = "windows"))]
+            fd: Some(fd),
+            socket_type: SocketType::Tcp,
+            reader: split.0,
+            writer: split.1,
+            local_addr: Some(local_addr),
+            peer_addr,
+        }
+    }
+
+    pub fn from_tls_stream(stream: TlsStream<TcpStream>) -> Self {
+        let (tcp_stream, _state) = stream.get_ref();
+
+        let peer_addr = tcp_stream.peer_addr().unwrap();
+        let local_addr = tcp_stream.local_addr().unwrap();
+
+        #[cfg(not(target_os = "windows"))]
+        let fd = tcp_stream.as_raw_fd();
+
+        let split = split_tls(stream);
 
         Self {
             #[cfg(not(target_os = "windows"))]
@@ -65,7 +88,7 @@ impl Socket {
         }
     }
 
-    pub fn from_udp_socket(socket: Arc<net::UdpSocket>, peer_addr: SocketAddr) -> Self {
+    pub fn from_udp_socket(socket: Arc<UdpSocket>, peer_addr: SocketAddr) -> Self {
         let local_addr = socket.local_addr().unwrap();
         let split = split_udp(socket);
 
@@ -168,6 +191,7 @@ impl AsRawFd for Socket {
 pub enum SocketType {
     Tcp,
     Udp,
+    Tls,
     Quic,
 }
 
@@ -176,6 +200,7 @@ impl Display for SocketType {
         let s = match self {
             SocketType::Tcp => "tcp",
             SocketType::Udp => "udp",
+            SocketType::Tls => "tls",
             SocketType::Quic => "quic",
         };
         write!(f, "{}", s)

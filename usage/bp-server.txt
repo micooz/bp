@@ -13,5 +13,6 @@ OPTIONS:
     -p, --protocol <PROTOCOL>        Protocol for Application Layer, e.g, "plain" or "erp" [default:
                                      erp]
         --quic                       Enable QUIC for Transport Layer, [default: false]
+        --tls                        Enable TLS for Transport Layer, [default: false]
         --tls-cert <TLS_CERT>        Certificate file for QUIC or TLS, [default: <empty>]
         --tls-key <TLS_KEY>          Private key file for QUIC or TLS, [default: <empty>]

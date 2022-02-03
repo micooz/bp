@@ -38,6 +38,9 @@ OPTIONS:
         --server-bind <SERVER_BIND>
             Server bind address. If not set, bp will relay directly, [default: <empty>]
 
+        --tls
+            Enable TLS for Transport Layer, [default: false]
+
         --tls-cert <TLS_CERT>
             Certificate for QUIC or TLS, [default: <empty>]
 

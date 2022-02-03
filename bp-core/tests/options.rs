@@ -52,6 +52,13 @@ mod test_client {
         assert!(opts.check().is_err());
 
         let opts = ClientOptions {
+            tls: true,
+            quic: true,
+            ..Default::default()
+        };
+        assert!(opts.check().is_err());
+
+        let opts = ClientOptions {
             quic: true,
             ..Default::default()
         };
@@ -73,6 +80,13 @@ mod test_server {
     fn test_checker() {
         let opts = ServerOptions::default();
         assert!(opts.check().is_ok());
+
+        let opts = ServerOptions {
+            tls: true,
+            quic: true,
+            ..Default::default()
+        };
+        assert!(opts.check().is_err());
 
         let mut opts = ServerOptions {
             quic: true,

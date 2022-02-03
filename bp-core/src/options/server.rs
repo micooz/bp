@@ -27,6 +27,11 @@ pub struct ServerOptions {
     #[clap(long)]
     pub dns_server: Option<Address>,
 
+    /// Enable TLS for Transport Layer, [default: false]
+    #[clap(long)]
+    #[serde(default)]
+    pub tls: bool,
+
     /// Enable QUIC for Transport Layer, [default: false]
     #[clap(long)]
     #[serde(default)]
@@ -43,12 +48,16 @@ pub struct ServerOptions {
 
 impl OptionsChecker for ServerOptions {
     fn check(&self) -> Result<()> {
-        if self.quic {
+        if self.tls && self.quic {
+            return Err(Error::msg("--tls and --quic can only set one."));
+        }
+
+        if self.tls || self.quic {
             if self.tls_cert.is_none() {
-                return Err(Error::msg("--tls-cert must be set when --quic is on."));
+                return Err(Error::msg("--tls-cert must be set when --tls or --quic is on."));
             }
             if self.tls_key.is_none() {
-                return Err(Error::msg("--tls-key must be set when --quic is on."));
+                return Err(Error::msg("--tls-key must be set when --tls or --quic is on."));
             }
         }
 

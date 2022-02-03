@@ -5,11 +5,13 @@ use tokio::{
     net::{TcpStream, UdpSocket},
     sync::Mutex,
 };
+use tokio_rustls::TlsStream;
 
 #[derive(Debug)]
 enum WriterType {
     Unknown,
     Tcp(WriteHalf<TcpStream>),
+    Tls(WriteHalf<TlsStream<TcpStream>>),
     Udp(Arc<UdpSocket>),
     Quic(quinn::SendStream),
 }
@@ -30,6 +32,12 @@ impl SocketWriter {
     pub fn from_tcp(write_half: WriteHalf<TcpStream>) -> Self {
         Self {
             inner: Mutex::new(WriterType::Tcp(write_half)),
+        }
+    }
+
+    pub fn from_tls(write_half: WriteHalf<TlsStream<TcpStream>>) -> Self {
+        Self {
+            inner: Mutex::new(WriterType::Tls(write_half)),
         }
     }
 
@@ -55,6 +63,7 @@ impl SocketWriter {
 
         match &mut *self.inner.lock().await {
             WriterType::Tcp(writer) => write_stream!(writer),
+            WriterType::Tls(writer) => write_stream!(writer),
             WriterType::Quic(writer) => write_stream!(writer),
             _ => unreachable!(),
         }
@@ -75,6 +84,7 @@ impl SocketWriter {
     pub async fn close(&self) -> tokio::io::Result<()> {
         match &mut *self.inner.lock().await {
             WriterType::Tcp(writer) => writer.shutdown().await?,
+            WriterType::Tls(writer) => writer.shutdown().await?,
             WriterType::Quic(writer) => writer.shutdown().await?,
             WriterType::Udp(_writer) => (),
             WriterType::Unknown => unreachable!(),

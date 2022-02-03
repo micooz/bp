@@ -1,33 +1,29 @@
 use anyhow::Result;
 use quinn::{ClientConfig, Endpoint, ServerConfig};
-use rustls::{Certificate, PrivateKey, RootCertStore};
-use tokio::fs;
+use rustls::RootCertStore;
 
-use crate::{global, utils::crypto::Crypto};
+use crate::{
+    global,
+    utils::{crypto::Crypto, tls::TLS},
+};
 
-pub async fn init_quinn_server_config(certificate_path: &str, private_key_path: &str) -> Result<()> {
-    let cert = fs::read(certificate_path).await?;
-    let cert = Certificate(cert);
-
-    let key = fs::read(private_key_path).await?;
-    let key = PrivateKey(key);
+pub fn init_quinn_server_config(cert_path: &str, key_path: &str) -> Result<()> {
+    let cert = TLS::read_cert_from_file(cert_path)?;
+    let key = TLS::read_key_from_file(key_path)?;
 
     let config = ServerConfig::with_single_cert(vec![cert], key)?;
-
     global::set_quinn_server_config(config);
 
     Ok(())
 }
 
-pub async fn init_quinn_client_config(certificate_path: &str) -> Result<()> {
-    let cert = fs::read(certificate_path).await?;
-    let cert = Certificate(cert);
+pub fn init_quinn_client_config(cert_path: &str) -> Result<()> {
+    let cert = TLS::read_cert_from_file(cert_path)?;
 
     let mut certs = RootCertStore::empty();
     certs.add(&cert)?;
 
     let config = ClientConfig::with_root_certificates(certs);
-
     global::set_quinn_client_config(config);
 
     Ok(())
@@ -36,6 +32,7 @@ pub async fn init_quinn_client_config(certificate_path: &str) -> Result<()> {
 pub fn init_quic_endpoint_pool(max_concurrency: u16) {
     let mut pool = EndpointPool::default();
     pool.set_size(max_concurrency);
+
     global::set_quic_endpoint_pool(pool);
 }
 
