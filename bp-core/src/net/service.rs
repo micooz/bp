@@ -12,7 +12,7 @@ use tokio::{
 use tokio_rustls::{TlsAcceptor, TlsStream};
 
 use crate::{
-    config,
+    constants,
     global::{self, get_tls_server_config},
     net::socket::Socket,
 };
@@ -95,7 +95,7 @@ impl Service for UdpService {
         tokio::spawn(async move {
             loop {
                 let socket = socket.clone();
-                let mut buf = vec![0; config::UDP_MTU];
+                let mut buf = vec![0; constants::UDP_MTU];
                 let recv = socket.recv_from(&mut buf).await;
 
                 if sender.is_closed() {

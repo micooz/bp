@@ -1,3 +1,5 @@
+#![feature(path_try_exists)]
+
 pub mod bootstrap;
 
 #[cfg(target_family = "unix")]

@@ -15,7 +15,7 @@ use tokio::{
 
 use super::socket::SocketType;
 use crate::{
-    config,
+    constants,
     event::*,
     net::{address::Address, socket::Socket},
     proto::*,
@@ -254,7 +254,10 @@ impl Inbound {
         ));
 
         let future = proto.resolve_dest_addr(socket);
-        let result = timeout(Duration::from_secs(config::DEST_ADDR_RESOLVE_TIMEOUT_SECONDS), future);
+        let result = timeout(
+            Duration::from_secs(constants::DEST_ADDR_RESOLVE_TIMEOUT_SECONDS),
+            future,
+        );
         let result = result.await?;
 
         match result {

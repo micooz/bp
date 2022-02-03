@@ -1,7 +1,7 @@
 #![feature(derive_default_enum)]
 
 mod acl;
-mod config;
+mod constants;
 mod event;
 mod global;
 mod io;

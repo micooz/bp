@@ -15,6 +15,19 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 * Support custom proxy whitelist.
 * Work with Linux Firewall(via iptables).
 
+## 2.0 Roadmap
+
+- [x] Refine CLI to multiple subcommands
+- [x] TLS transport layer
+- [ ] Improve performance of I/O reader
+- [ ] HTTP Client Proxy Authorization
+- [ ] HTTPS Client Proxy with Authorization
+- [ ] Tracer & Monitor Service
+- [ ] Web GUI
+- [ ] iOS GUI
+- [ ] PAC Service
+- [ ] Proxy Rule List to PAC
+
 ## Basic Usages
 
 Please check -h/--help first, or see [USAGE](usage).
@@ -143,16 +156,3 @@ iptables -t nat -A BP -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports
 iptables -t nat -A PREROUTING -p tcp -j BP
 iptables -t nat -A OUTPUT -p tcp -j BP
 ```
-
-## 2.0 Roadmap
-
-- [x] Refine CLI to multiple subcommands
-- [x] TLS transport layer
-- [ ] Improve performance of I/O reader
-- [ ] HTTP Client Proxy Authorization
-- [ ] HTTPS Client Proxy with Authorization
-- [ ] Tracer & Monitor Service
-- [ ] Web GUI
-- [ ] iOS GUI
-- [ ] PAC Service
-- [ ] Proxy Rule List to PAC

@@ -13,7 +13,7 @@ use tokio::{
 };
 use tokio_rustls::TlsStream;
 
-use crate::{config, utils::store::Store};
+use crate::{constants, utils::store::Store};
 
 #[derive(Debug)]
 enum ReaderType {
@@ -40,16 +40,16 @@ pub struct SocketReader {
 }
 
 impl SocketReader {
-    pub fn from_tcp(tcp_read_half: ReadHalf<TcpStream>) -> Self {
+    pub fn from_tcp(read_half: ReadHalf<TcpStream>) -> Self {
         Self {
-            reader: Mutex::new(ReaderType::Tcp(tcp_read_half)),
+            reader: Mutex::new(ReaderType::Tcp(read_half)),
             ..Self::default()
         }
     }
 
-    pub fn from_tls(tcp_read_half: ReadHalf<TlsStream<TcpStream>>) -> Self {
+    pub fn from_tls(read_half: ReadHalf<TlsStream<TcpStream>>) -> Self {
         Self {
-            reader: Mutex::new(ReaderType::Tls(tcp_read_half)),
+            reader: Mutex::new(ReaderType::Tls(read_half)),
             ..Self::default()
         }
     }
@@ -69,7 +69,7 @@ impl SocketReader {
     }
 
     pub async fn read_some(&self) -> Result<Bytes> {
-        let mut recv_buf = BytesMut::with_capacity(config::RECV_BUFFER_SIZE);
+        let mut recv_buf = BytesMut::with_capacity(constants::RECV_BUFFER_SIZE);
         let n = self.read_into(&mut recv_buf).await?;
         Ok(recv_buf.copy_to_bytes(n))
     }
@@ -196,7 +196,7 @@ impl SocketReader {
     }
 
     async fn packet_recv(&self, socket: &Arc<UdpSocket>) -> Result<(Bytes, usize)> {
-        let mut buf = vec![0u8; config::UDP_MTU];
+        let mut buf = vec![0u8; constants::UDP_MTU];
         let (len, _addr) = socket.recv_from(&mut buf).await?;
 
         if let Some(packet) = buf.get(0..len) {

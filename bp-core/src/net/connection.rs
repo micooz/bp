@@ -3,7 +3,7 @@ use tokio::{sync::mpsc::Receiver, time};
 
 use super::socket::SocketType;
 use crate::{
-    config,
+    constants,
     event::Event,
     global,
     net::{
@@ -200,14 +200,14 @@ impl Connection {
             let future = rx.recv();
 
             // timeout check
-            let timeout = time::timeout(time::Duration::from_secs(config::READ_WRITE_TIMEOUT_SECONDS), future).await;
+            let timeout = time::timeout(time::Duration::from_secs(constants::READ_WRITE_TIMEOUT_SECONDS), future).await;
 
             if timeout.is_err() {
                 log::warn!(
                     "[{}] [{}] no data read/write for {} seconds",
                     peer_addr,
                     socket_type,
-                    config::READ_WRITE_TIMEOUT_SECONDS
+                    constants::READ_WRITE_TIMEOUT_SECONDS
                 );
                 self.close().await?;
                 break;

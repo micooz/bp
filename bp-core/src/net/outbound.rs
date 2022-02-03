@@ -18,7 +18,7 @@ use tokio_rustls::{TlsConnector, TlsStream};
 
 use super::socket::SocketType;
 use crate::{
-    config,
+    constants,
     event::Event,
     global::{self, get_tls_client_config},
     net::{address::Address, dns::dns_resolve, quic::RandomEndpoint, socket::Socket},
@@ -211,7 +211,7 @@ impl Outbound {
                 }
 
                 let future = socket.connect(ip_addr);
-                let tcp_stream = timeout(Duration::from_secs(config::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
+                let tcp_stream = timeout(Duration::from_secs(constants::TCP_CONNECT_TIMEOUT_SECONDS), future).await??;
 
                 match socket_type {
                     SocketType::Tcp => Arc::new(Socket::from_tcp_stream(tcp_stream)),
@@ -244,7 +244,7 @@ impl Outbound {
                 }
 
                 let future = endpoint.connect(ip_addr, &addr.host())?;
-                let conn = timeout(Duration::from_secs(config::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
+                let conn = timeout(Duration::from_secs(constants::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
 
                 let stream = conn.connection.open_bi().await.unwrap();
                 let peer_addr = conn.connection.remote_address();

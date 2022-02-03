@@ -7,7 +7,7 @@ use trust_dns_resolver::{
     TokioAsyncResolver,
 };
 
-use crate::{config, global, Address};
+use crate::{constants, global, Address};
 
 pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
     let mut resolver = ResolverConfig::new();
@@ -40,7 +40,7 @@ pub async fn dns_resolve(addr: &Address) -> Result<SocketAddr> {
 
         // set a timeout
         let response = timeout(
-            Duration::from_secs(config::DNS_RESOLVE_TIMEOUT_SECONDS),
+            Duration::from_secs(constants::DNS_RESOLVE_TIMEOUT_SECONDS),
             resolver.lookup_ip(name.as_str()),
         )
         .await??;

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{config, options_from_file, Address, ApplicationProtocol, ClientOptions, ServerOptions};
+use crate::{constants, options_from_file, Address, ApplicationProtocol, ClientOptions, ServerOptions};
 
 pub trait OptionsChecker {
     fn check(&self) -> Result<()>;
@@ -83,7 +83,7 @@ impl Options {
             Self::Client(opts) => opts.dns_server.clone(),
             Self::Server(opts) => opts.dns_server.clone(),
         };
-        server.unwrap_or_else(|| config::DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap())
+        server.unwrap_or_else(|| constants::DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap())
     }
 
     pub fn udp_over_tcp(&self) -> bool {

@@ -2,3 +2,5 @@ target
 *.log
 .tmp
 dhat
+/log4rs.yaml
+logs
