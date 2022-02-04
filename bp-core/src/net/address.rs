@@ -51,7 +51,10 @@ pub enum Host {
 impl ToString for Host {
     fn to_string(&self) -> String {
         match self {
-            Host::Ip(ip) => ip.to_string(),
+            Host::Ip(ip) => match ip {
+                IpAddr::V4(v4) => v4.to_string(),
+                IpAddr::V6(v6) => format!("[{}]", v6.to_string()),
+            },
             Host::Name(name) => name.clone(),
         }
     }
@@ -114,7 +117,10 @@ impl Address {
     }
 
     pub fn as_socket_addr(&self) -> std::net::SocketAddr {
-        self.as_string().parse().expect("cannot convert to <ip>:<port>")
+        let addr_str = self.as_string();
+        addr_str
+            .parse()
+            .expect(format!("cannot parse {} to SocketAddr", addr_str).as_str())
     }
 
     pub async fn from_socket(socket: &socket::Socket) -> Result<Self> {
