@@ -4,7 +4,7 @@ use bytes::Bytes;
 
 use crate::{
     net::{address::Address, socket::Socket},
-    proto::{Protocol, ProtocolType, ResolvedResult},
+    protos::{Protocol, ProtocolType, ResolvedResult},
     utils,
 };
 

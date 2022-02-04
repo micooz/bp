@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
 
 use super::common::OptionsChecker;
-use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, proto::ApplicationProtocol};
+use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::ApplicationProtocol};
 
 #[derive(clap::Args, serde::Deserialize, Default, Clone)]
 pub struct ClientOptions {
@@ -17,6 +17,10 @@ pub struct ClientOptions {
     /// Server bind address. If not set, bp will relay directly, [default: <empty>]
     #[clap(long)]
     pub server_bind: Option<Address>,
+
+    /// Start a PAC server at the same time, requires --proxy-white-list [default: <empty>]
+    #[clap(long)]
+    pub pac_bind: Option<Address>,
 
     /// Symmetric encryption key, required if --server-bind is set, [default: <empty>]
     #[clap(short, long)]
@@ -72,6 +76,10 @@ impl OptionsChecker for ClientOptions {
 
         if self.server_bind.is_some() && self.key.is_none() {
             return Err(Error::msg("-k or --key must be set."));
+        }
+
+        if self.pac_bind.is_some() && self.proxy_white_list.is_none() {
+            return Err(Error::msg("--pac-bind requires --proxy-white-list to be set."));
         }
 
         if self.udp_over_tcp && self.server_bind.is_none() {

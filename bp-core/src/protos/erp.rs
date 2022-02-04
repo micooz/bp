@@ -8,7 +8,7 @@ use chacha20poly1305::{
 
 use crate::{
     net::{address::Address, socket::Socket},
-    proto::{Protocol, ProtocolType, ResolvedResult},
+    protos::{Protocol, ProtocolType, ResolvedResult},
     utils,
     utils::crypto::Crypto,
     ServiceType,

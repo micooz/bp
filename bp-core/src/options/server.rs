@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
 
 use super::common::OptionsChecker;
-use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, proto::ApplicationProtocol};
+use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::ApplicationProtocol};
 
 #[derive(clap::Args, serde::Deserialize, Default, Clone)]
 pub struct ServerOptions {

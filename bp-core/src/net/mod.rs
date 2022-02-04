@@ -6,6 +6,5 @@ pub mod inbound;
 pub mod linux;
 pub mod outbound;
 pub mod quic;
-pub mod service;
 pub mod socket;
 pub mod tls;

@@ -135,6 +135,13 @@ impl Options {
         }
     }
 
+    pub fn pac_bind(&self) -> Option<Address> {
+        if let Self::Client(opts) = self {
+            return opts.pac_bind.clone();
+        }
+        unreachable!()
+    }
+
     pub fn server_bind(&self) -> Option<Address> {
         if let Self::Client(opts) = self {
             return opts.server_bind.clone();

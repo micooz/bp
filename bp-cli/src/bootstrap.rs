@@ -3,8 +3,8 @@ use std::{env, fmt::Display, sync::Arc};
 use anyhow::{Error, Result};
 use bp_core::{
     get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
-    init_tls_client_config, init_tls_server_config, Connection, Options, QuicService, Service, Socket, StartupInfo,
-    TcpService, TlsService, UdpService,
+    init_tls_client_config, init_tls_server_config, start_pac_service, start_quic_service, start_tcp_service,
+    start_tls_service, start_udp_service, Connection, Options, Socket, StartupInfo,
 };
 use parking_lot::Mutex;
 use tokio::{
@@ -24,7 +24,7 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
     // dirs init
     Dirs::init()?;
 
-    log::info!("log files are stored at {}", Dirs::log_file().to_str().unwrap());
+    log::info!("log files are stored at logs/bp.log");
 
     // daemonize
     // #[cfg(target_family = "unix")]
@@ -47,15 +47,15 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
         init_quic_endpoint_pool(quic_max_concurrency);
     }
 
-    // main service
-    let handle = start_main_service(opts.clone(), sender_ready).await?;
+    // start services
+    let handle = start_services(opts.clone(), sender_ready).await?;
 
     handle.await.unwrap();
 
     Ok(())
 }
 
-async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<JoinHandle<()>> {
+async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<JoinHandle<()>> {
     let (sender, mut receiver) = channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
 
     let bind_addr = opts.bind().resolve().await?;
@@ -63,23 +63,37 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
     let bind_host = opts.bind().host();
     let bind_port = opts.bind().port();
 
-    // server side enable --quic, start Quic service
-    #[allow(clippy::never_loop)]
-    loop {
-        if opts.is_server() {
+    if opts.is_server() {
+        #[allow(clippy::never_loop)]
+        loop {
+            // server side enable --tls, start TLS service
             if opts.tls() {
-                TlsService::start("main", bind_addr, sender.clone()).await?;
-                UdpService::start("main", bind_addr, sender).await?;
+                start_tls_service("main", bind_addr, sender.clone()).await?;
+                start_udp_service("main", bind_addr, sender.clone()).await?;
                 break;
             }
+            // server side enable --quic, start QUIC service
             if opts.quic() {
-                QuicService::start("main", bind_addr, sender).await?;
+                start_quic_service("main", bind_addr, sender.clone()).await?;
                 break;
+            }
+            start_tcp_service("main", bind_addr, sender.clone()).await?;
+            start_udp_service("main", bind_addr, sender.clone()).await?;
+            break;
+        }
+    }
+
+    if opts.is_client() {
+        start_tcp_service("main", bind_addr, sender.clone()).await?;
+        start_udp_service("main", bind_addr, sender).await?;
+
+        // start pac service based on --proxy-white-list
+        if opts.is_client() {
+            if let Some(pac_bind) = opts.pac_bind() {
+                let pac_bind = pac_bind.resolve().await?;
+                start_pac_service("pac", pac_bind, opts.bind().as_string()).await?;
             }
         }
-        TcpService::start("main", bind_addr, sender.clone()).await?;
-        UdpService::start("main", bind_addr, sender).await?;
-        break;
     }
 
     let opts_for_acl = opts.clone();
@@ -108,6 +122,7 @@ async fn start_main_service(opts: Options, sender_ready: Sender<StartupInfo>) ->
         }
     });
 
+    // consume sockets from receiver
     let handle = tokio::spawn(async move {
         let mut total_cnt = 0usize;
         let live_cnt = Arc::new(Mutex::new(Counter::default()));

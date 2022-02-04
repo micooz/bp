@@ -22,7 +22,7 @@ use crate::{
     event::Event,
     global::{self, get_tls_client_config},
     net::{address::Address, dns::dns_resolve, quic::RandomEndpoint, socket::Socket},
-    proto::{DynProtocol, ResolvedResult},
+    protos::{DynProtocol, ResolvedResult},
     Options, ServiceType,
 };
 

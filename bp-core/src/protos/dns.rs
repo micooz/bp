@@ -5,7 +5,7 @@ use dns_parser::Packet;
 
 use crate::{
     net::socket::Socket,
-    proto::{Protocol, ProtocolType, ResolvedResult},
+    protos::{Protocol, ProtocolType, ResolvedResult},
     Address,
 };
 

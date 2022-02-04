@@ -12,7 +12,7 @@ use crate::{
         outbound::Outbound,
         socket::Socket,
     },
-    proto::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
+    protos::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
     Options,
 };
 

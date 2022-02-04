@@ -7,8 +7,8 @@ pub struct Dirs;
 impl Dirs {
     pub fn init() -> std::io::Result<()> {
         create_dir_all(Self::root())?;
-        create_dir_all(Self::run())?;
-        create_dir_all(Self::logs())?;
+        // create_dir_all(Self::run())?;
+        // create_dir_all(Self::logs())?;
         Ok(())
     }
 

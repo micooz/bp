@@ -7,7 +7,7 @@ use crate::{
         address::{Address, Host},
         socket::Socket,
     },
-    proto::{Protocol, ProtocolType, ResolvedResult},
+    protos::{Protocol, ProtocolType, ResolvedResult},
     utils,
 };
 

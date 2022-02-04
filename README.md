@@ -8,24 +8,24 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 
 ## Features
 
-* Cross-platform, of course. Linux/Windows/MacOS and others.
+* Cross-platform, of course. Linux/Windows/macOS and others.
 * Support Socks5/HTTP/HTTPS Proxy Protocols.
 * Support proxy non-proxy protocols, for example: HTTP/HTTPS/DNS.
 * Support multiple transport protocols, for example: TLS/QUIC.
-* Support custom proxy whitelist.
+* Support custom proxy whitelist and PAC service.
 * Work with Linux Firewall(via iptables).
 
 ## 2.0 Roadmap
 
 - [x] Refine CLI to multiple subcommands
 - [x] TLS transport layer
+- [x] PAC Service
 - [ ] Improve performance of I/O reader
 - [ ] HTTP Client Proxy Authorization
 - [ ] HTTPS Client Proxy with Authorization
 - [ ] Tracer & Monitor Service
 - [ ] Web GUI
 - [ ] iOS GUI
-- [ ] PAC Service
 - [ ] Proxy Rule List to PAC
 
 ## Basic Usages
@@ -141,6 +141,14 @@ The prefixes means:
 * `#`: comment string, will skip matching
 
 > Higher priority for later rules
+
+### PAC Service
+
+By adding `--pac-bind`, you can start a PAC service at specified address while bp client started. The content of `proxy.pac` is based on your `--proxy-white-list`, you must prepare this file first.
+
+```
+$ bp client --proxy-white-list /path/to/list.txt --pac-bind <host:port>
+```
 
 ### Linux Router
 

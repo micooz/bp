@@ -5,9 +5,15 @@ use bp_core::*;
 #[test]
 fn test_load_from_file() {
     let acl = AccessControlList::default();
-
     assert!(acl.load_from_file("tests/fixtures/acl.txt").is_ok());
-    assert_eq!(acl.count(), 1);
+    assert_eq!(acl.count(), 3);
+}
+
+#[test]
+fn test_to_pac() {
+    let acl = AccessControlList::default();
+    assert!(acl.load_from_file("tests/fixtures/acl.txt").is_ok());
+    assert_eq!(acl.to_pac("127.0.0.1:1080"), include_str!("fixtures/acl.pac"));
 }
 
 #[test]

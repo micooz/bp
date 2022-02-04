@@ -14,7 +14,7 @@ impl Cli {
         match &self.command {
             Command::Client(opts) => Options::Client(opts.clone()),
             Command::Server(opts) => Options::Server(opts.clone()),
-            Command::Generate(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 }

@@ -26,6 +26,9 @@ OPTIONS:
     -p, --protocol <PROTOCOL>
             Protocol for Application Layer, e.g, "plain" or "erp" [default: erp]
 
+        --pac-bind <PAC_BIND>
+            Start a PAC server at the same time, requires --proxy-white-list [default: <empty>]
+
         --proxy-white-list <PROXY_WHITE_LIST>
             Check white list before proxy, pass a file path, [default: <empty>]
 

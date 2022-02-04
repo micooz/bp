@@ -18,7 +18,7 @@ use crate::{
     constants,
     event::*,
     net::{address::Address, socket::Socket},
-    proto::*,
+    protos::*,
     Options, ServiceType,
 };
 
