@@ -53,7 +53,7 @@ impl ToString for Host {
         match self {
             Host::Ip(ip) => match ip {
                 IpAddr::V4(v4) => v4.to_string(),
-                IpAddr::V6(v6) => format!("[{}]", v6.to_string()),
+                IpAddr::V6(v6) => format!("[{}]", v6),
             },
             Host::Name(name) => name.clone(),
         }
@@ -120,7 +120,7 @@ impl Address {
         let addr_str = self.as_string();
         addr_str
             .parse()
-            .expect(format!("cannot parse {} to SocketAddr", addr_str).as_str())
+            .unwrap_or_else(|_| panic!("cannot parse {} to SocketAddr", addr_str))
     }
 
     pub async fn from_socket(socket: &socket::Socket) -> Result<Self> {
