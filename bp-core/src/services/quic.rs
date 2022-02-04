@@ -7,19 +7,11 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{global, Socket};
 
-pub async fn start_quic_service(name: &'static str, addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
-    let (_endpoint, mut incoming) = Endpoint::server(global::get_quinn_server_config(), addr).map_err(|err| {
-        Error::msg(format!(
-            "[{}] quic service start failed from {} due to: {}",
-            name, addr, err
-        ))
-    })?;
+pub async fn start_quic_service(bind_addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+    let (_endpoint, mut incoming) = Endpoint::server(global::get_quinn_server_config(), bind_addr)
+        .map_err(|err| Error::msg(format!("quic service start failed from {} due to: {}", bind_addr, err)))?;
 
-    log::info!(
-        "[{}] service running at quic://{}, waiting for connection...",
-        name,
-        addr,
-    );
+    log::info!("service running at quic://{}, waiting for connection...", bind_addr);
 
     tokio::spawn(async move {
         loop {
@@ -31,7 +23,7 @@ pub async fn start_quic_service(name: &'static str, addr: SocketAddr, sender: Se
             let conn = incoming.next().await.unwrap().await;
 
             if let Err(err) = conn {
-                log::error!("[{}] cannot establish quic connection due to: {}", name, err);
+                log::error!("cannot establish quic connection due to: {}", err);
                 continue;
             }
 

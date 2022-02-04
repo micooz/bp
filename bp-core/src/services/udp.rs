@@ -6,19 +6,14 @@ use tokio::{net::UdpSocket, sync::mpsc::Sender};
 
 use crate::{constants, net::socket::Socket};
 
-pub async fn start_udp_service(name: &'static str, addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
-    let socket = Arc::new(UdpSocket::bind(addr).await.map_err(|err| {
-        Error::msg(format!(
-            "[{}] udp service start failed from {} due to: {}",
-            name, addr, err
-        ))
-    })?);
-
-    log::info!(
-        "[{}] service running at udp://{}, waiting for data packets...",
-        name,
-        addr,
+pub async fn start_udp_service(bind_addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+    let socket = Arc::new(
+        UdpSocket::bind(bind_addr)
+            .await
+            .map_err(|err| Error::msg(format!("udp service start failed from {} due to: {}", bind_addr, err)))?,
     );
+
+    log::info!("service running at udp://{}, waiting for data packets...", bind_addr);
 
     tokio::spawn(async move {
         loop {
@@ -39,7 +34,7 @@ pub async fn start_udp_service(name: &'static str, addr: SocketAddr, sender: Sen
                     }
                 }
                 Err(err) => {
-                    log::error!("[{}] encountered an error: {}", name, err);
+                    log::error!("encountered an error: {}", err);
                     sender.send(None).await.unwrap();
                     break;
                 }

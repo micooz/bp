@@ -11,18 +11,14 @@ use crate::global;
 
 const PAC_PATH: &str = "/proxy.pac";
 
-pub async fn start_pac_service(name: &'static str, addr: SocketAddr, proxy_addr: String) -> Result<()> {
-    let listener = TcpListener::bind(addr).await.map_err(|err| {
-        Error::msg(format!(
-            "[{}] pac service start failed from {} due to: {}",
-            name, addr, err
-        ))
-    })?;
+pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Result<()> {
+    let listener = TcpListener::bind(bind_addr)
+        .await
+        .map_err(|err| Error::msg(format!("pac service start failed from {} due to: {}", bind_addr, err)))?;
 
     log::info!(
-        "[{}] pac service running at http://{}{}, waiting for requests...",
-        name,
-        addr,
+        "pac service running at http://{}{}, waiting for requests...",
+        bind_addr,
         PAC_PATH,
     );
 
@@ -31,18 +27,18 @@ pub async fn start_pac_service(name: &'static str, addr: SocketAddr, proxy_addr:
             let accept = listener.accept().await;
 
             if let Err(err) = accept {
-                log::error!("[{}] encountered an error: {}", name, err);
+                log::error!("encountered an error: {}", err);
                 break;
             }
 
             let (stream, peer_addr) = accept.unwrap();
 
-            log::info!("[{}] [{}] requests pac file", name, peer_addr);
+            log::info!("[{}] requests pac file", peer_addr);
 
             let proxy_addr = proxy_addr.clone();
             tokio::spawn(async move {
                 if let Err(err) = handle_pac_request(stream, &proxy_addr).await {
-                    log::error!("[{}] fail to process request due to: {}", name, err);
+                    log::error!("fail to process request due to: {}", err);
                 }
             });
         }

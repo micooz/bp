@@ -68,30 +68,30 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         loop {
             // server side enable --tls, start TLS service
             if opts.tls() {
-                start_tls_service("main", bind_addr, sender.clone()).await?;
-                start_udp_service("main", bind_addr, sender.clone()).await?;
+                start_tls_service(bind_addr, sender.clone()).await?;
+                start_udp_service(bind_addr, sender.clone()).await?;
                 break;
             }
             // server side enable --quic, start QUIC service
             if opts.quic() {
-                start_quic_service("main", bind_addr, sender.clone()).await?;
+                start_quic_service(bind_addr, sender.clone()).await?;
                 break;
             }
-            start_tcp_service("main", bind_addr, sender.clone()).await?;
-            start_udp_service("main", bind_addr, sender.clone()).await?;
+            start_tcp_service(bind_addr, sender.clone()).await?;
+            start_udp_service(bind_addr, sender.clone()).await?;
             break;
         }
     }
 
     if opts.is_client() {
-        start_tcp_service("main", bind_addr, sender.clone()).await?;
-        start_udp_service("main", bind_addr, sender).await?;
+        start_tcp_service(bind_addr, sender.clone()).await?;
+        start_udp_service(bind_addr, sender).await?;
 
         // start pac service based on --proxy-white-list
         if opts.is_client() {
             if let Some(pac_bind) = opts.pac_bind() {
                 let pac_bind = pac_bind.resolve().await?;
-                start_pac_service("pac", pac_bind, opts.bind().as_string()).await?;
+                start_pac_service(pac_bind, opts.bind().as_string()).await?;
             }
         }
     }
