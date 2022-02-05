@@ -6,7 +6,6 @@ use bp_core::{
     init_tls_client_config, init_tls_server_config, start_pac_service, start_quic_service, start_tcp_service,
     start_tls_service, start_udp_service, Connection, Options, Socket, StartupInfo,
 };
-use parking_lot::Mutex;
 use tokio::{
     sync::{mpsc::channel, oneshot, oneshot::Sender},
     task::JoinHandle,
@@ -156,18 +155,19 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
 
     // consume sockets from receiver
     let handle = tokio::spawn(async move {
-        let mut total_cnt = 0usize;
-        let live_cnt = Arc::new(Mutex::new(Counter::default()));
+        let total_cnt = Arc::new(Counter::default());
+        let live_cnt = Arc::new(Counter::default());
 
         while let Some(socket) = receiver.recv().await {
             if socket.is_none() {
                 break;
             }
 
-            total_cnt += 1;
-
+            let total_cnt = total_cnt.clone();
             let live_cnt = live_cnt.clone();
-            live_cnt.lock().inc();
+
+            total_cnt.inc();
+            live_cnt.inc();
 
             let socket = socket.unwrap();
             let opts = opts.clone();
@@ -179,7 +179,7 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
                 log::info!(
                     "[{}] connected, {} live connections, {} in total",
                     peer_addr,
-                    live_cnt.lock(),
+                    live_cnt,
                     total_cnt
                 );
 
@@ -190,12 +190,12 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
                     let _ = conn.close().await;
                 }
 
-                live_cnt.lock().dec();
+                live_cnt.dec();
 
                 log::info!(
                     "[{}] closed, {} live connections, {} in total",
                     peer_addr,
-                    live_cnt.lock(),
+                    live_cnt,
                     total_cnt
                 );
             });
