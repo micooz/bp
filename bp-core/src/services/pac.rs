@@ -65,8 +65,8 @@ async fn handle_pac_request(mut stream: TcpStream, proxy_addr: &str) -> Result<(
 
         let path = req.path.unwrap();
 
-        // check request path
-        if path != PAC_PATH {
+        // check request
+        if req.method != Some("GET") || !path.starts_with(PAC_PATH) {
             break;
         }
 
