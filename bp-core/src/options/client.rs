@@ -58,7 +58,7 @@ pub struct ClientOptions {
     #[serde(default)]
     pub quic: bool,
 
-    /// The max number of QUIC connections, [default: 65535]
+    /// The max number of QUIC connections, [default: Infinite]
     #[clap(long)]
     #[serde(default)]
     pub quic_max_concurrency: Option<u16>,

@@ -236,7 +236,7 @@ impl Outbound {
 
                 if reuse {
                     log::info!(
-                        "[{}] [{}] reuse endpoint (local_port = {})",
+                        "[{}] [{}] reuse endpoint, local_port = {}",
                         peer_address,
                         socket_type,
                         endpoint.local_addr()?.port()
@@ -251,7 +251,7 @@ impl Outbound {
                 let peer_addr = conn.remote_address();
 
                 log::info!(
-                    "[{}] [{}] connection RTT = {}ms",
+                    "[{}] [{}] connection, RTT = {}ms",
                     peer_address,
                     socket_type,
                     conn.rtt().as_millis()

@@ -74,7 +74,7 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
 
     // init quic endpoint pool
     if opts.is_client() && opts.quic() {
-        let quic_max_concurrency = opts.quic_max_concurrency().unwrap_or(u16::MAX);
+        let quic_max_concurrency = opts.quic_max_concurrency();
         init_quic_endpoint_pool(quic_max_concurrency);
     }
 

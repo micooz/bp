@@ -29,44 +29,53 @@ pub fn init_quinn_client_config(cert_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn init_quic_endpoint_pool(max_concurrency: u16) {
+pub fn init_quic_endpoint_pool(max_concurrency: Option<u16>) {
     let mut pool = EndpointPool::default();
-    pool.set_size(max_concurrency);
+
+    if let Some(cap) = max_concurrency {
+        pool.set_capacity(cap);
+    }
 
     global::set_quic_endpoint_pool(pool);
 }
 
 #[derive(Default)]
 pub struct EndpointPool {
-    size: u16,
+    capacity: Option<u16>,
     data: Vec<Endpoint>,
 }
 
 impl EndpointPool {
-    pub fn set_size(&mut self, size: u16) {
-        self.size = size;
+    pub fn set_capacity(&mut self, capacity: u16) {
+        self.capacity = Some(capacity);
     }
 
     pub fn random_endpoint(&mut self) -> Result<RandomEndpoint> {
-        let mut reuse = true;
+        match self.capacity {
+            Some(capacity) => {
+                let mut reuse = true;
 
-        if self.data.len() < self.size as usize {
-            self.create()?;
-            reuse = false;
+                if self.data.len() < capacity as usize {
+                    let new_endpoint = Self::create()?;
+                    self.data.push(new_endpoint);
+                    reuse = false;
+                }
+
+                let endpoint = Crypto::random_choose(&self.data).unwrap().clone();
+
+                Ok(RandomEndpoint { inner: endpoint, reuse })
+            }
+            None => Ok(RandomEndpoint {
+                inner: Self::create()?,
+                reuse: false,
+            }),
         }
-
-        let endpoint = Crypto::random_choose(&self.data).unwrap().clone();
-
-        Ok(RandomEndpoint { inner: endpoint, reuse })
     }
 
-    fn create(&mut self) -> Result<()> {
+    fn create() -> Result<Endpoint> {
         let mut endpoint = Endpoint::client("0.0.0.0:0".parse().unwrap())?;
         endpoint.set_default_client_config(global::get_quinn_client_config());
-
-        self.data.push(endpoint);
-
-        Ok(())
+        Ok(endpoint)
     }
 }
 
