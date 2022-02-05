@@ -79,6 +79,8 @@ jobs:
             echo "> Extract $TAR_FILE"
             tar -xf $TAR_FILE -C ${{ env.DEPLOY_PATH }}
 
+            cd .bp/
+
             echo "Stop bp process"
             pm2 delete bp || true
 

@@ -24,7 +24,7 @@ async fn test_udp_over_tcp() {
 
 async fn run_test(udp_over_tcp: bool) {
     let server_opts = Options::Server(ServerOptions {
-        key: "key".to_string(),
+        key: Some("key".to_string()),
         ..Default::default()
     });
 

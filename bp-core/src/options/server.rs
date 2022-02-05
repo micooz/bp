@@ -14,9 +14,9 @@ pub struct ServerOptions {
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
     pub bind: Address,
 
-    /// Symmetric encryption key, required
+    /// Symmetric encryption key
     #[clap(short, long)]
-    pub key: String,
+    pub key: Option<String>,
 
     /// Data encryption method, e.g, "plain" or "erp"
     #[clap(short, long, default_value = "erp")]

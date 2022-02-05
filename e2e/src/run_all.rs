@@ -24,7 +24,7 @@ pub async fn run_all(
 
     let server = run_bp(
         Options::Server(ServerOptions {
-            key: key.clone().unwrap(),
+            key: key.clone(),
             ..server_opts_patch
         }),
         host,

@@ -70,7 +70,7 @@ impl Options {
     pub fn key(&self) -> String {
         match self {
             Self::Client(opts) => opts.key.clone().unwrap(),
-            Self::Server(opts) => opts.key.clone(),
+            Self::Server(opts) => opts.key.clone().unwrap(),
         }
     }
 
