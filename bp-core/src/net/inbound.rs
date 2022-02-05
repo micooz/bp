@@ -265,7 +265,7 @@ impl Inbound {
                 let resolved = proto.get_resolved_result().unwrap();
 
                 log::info!(
-                    "[{}] [{}] [{}] successfully resolved dest address {}",
+                    "[{}] [{}] [{}] successfully resolved {}",
                     peer_address,
                     socket_type,
                     &proto_name,
