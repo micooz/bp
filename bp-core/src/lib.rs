@@ -1,5 +1,3 @@
-#![feature(derive_default_enum)]
-
 mod acl;
 mod constants;
 mod event;

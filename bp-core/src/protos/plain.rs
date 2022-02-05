@@ -5,6 +5,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use crate::{
     net::{address::Address, socket},
     protos::{Protocol, ProtocolType, ResolvedResult},
+    Socket,
 };
 
 /// # Protocol
@@ -29,11 +30,11 @@ impl Protocol for Plain {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
-        self.resolved_result.as_ref()
+    fn get_resolved_result(&self) -> &ResolvedResult {
+        self.resolved_result.as_ref().unwrap()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &socket::Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<&ResolvedResult> {
         let address = Address::from_socket(socket).await?;
 
         self.set_resolved_result(ResolvedResult {
@@ -42,14 +43,14 @@ impl Protocol for Plain {
             pending_buf: None,
         });
 
-        Ok(())
+        Ok(self.get_resolved_result())
     }
 
     async fn client_encode(&mut self, socket: &socket::Socket) -> Result<Bytes> {
         let mut frame = BytesMut::new();
 
         if !self.header_sent {
-            let resolved = self.get_resolved_result().unwrap();
+            let resolved = self.get_resolved_result();
             frame.put(resolved.address.as_bytes());
             self.header_sent = true;
         }

@@ -28,11 +28,11 @@ impl Protocol for Http {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
-        self.resolved_result.as_ref()
+    fn get_resolved_result(&self) -> &ResolvedResult {
+        self.resolved_result.as_ref().unwrap()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<&ResolvedResult> {
         let mut buf = BytesMut::with_capacity(1024);
 
         loop {
@@ -64,7 +64,7 @@ impl Protocol for Http {
                     pending_buf: None,
                 });
 
-                return Ok(());
+                return Ok(self.get_resolved_result());
             } else {
                 // for direct HTTP requests
                 let addr = match Url::parse(path) {
@@ -100,7 +100,7 @@ impl Protocol for Http {
                     pending_buf: None,
                 });
 
-                return Ok(());
+                return Ok(self.get_resolved_result());
             }
         }
     }

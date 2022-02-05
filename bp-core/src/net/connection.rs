@@ -1,16 +1,15 @@
 use anyhow::Result;
 use tokio::{sync::mpsc::Receiver, time};
 
-use super::socket::SocketType;
 use crate::{
     constants,
     event::Event,
     global,
     net::{
         address::Address,
-        inbound::{Inbound, InboundResolveResult},
+        inbound::Inbound,
         outbound::Outbound,
-        socket::Socket,
+        socket::{Socket, SocketType},
     },
     protos::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
     Options,
@@ -18,13 +17,9 @@ use crate::{
 
 pub struct Connection {
     opts: Options,
-
     inbound: Inbound,
-
     outbound: Outbound,
-
     peer_addr: Address,
-
     dest_addr: Option<Address>,
 }
 
@@ -47,11 +42,10 @@ impl Connection {
         // NOTE: higher buffer size leads to higher memory & cpu usage
         let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
 
-        let InboundResolveResult { proto: in_proto } = self.inbound.resolve().await?;
+        let in_proto = self.inbound.resolve().await?;
+        let resolved = in_proto.get_resolved_result();
 
         self.inbound.set_protocol_name(in_proto.get_name());
-
-        let resolved = in_proto.get_resolved_result().unwrap();
 
         // check resolved target address
         self.check_resolved_result(resolved).await?;
@@ -68,10 +62,12 @@ impl Connection {
             Box::new(Direct::default())
         };
 
+        self.outbound.set_protocol_name(&out_proto.get_name());
+
         // sync resolve result to outbound protocol
         out_proto.set_resolved_result(resolved.clone());
 
-        // handle pending_buf at inbound
+        // handle pending_buf from inbound
         if let Some(buf) = resolved.pending_buf.as_ref() {
             self.inbound
                 .handle_pending_data(buf.clone(), &mut out_proto, tx.clone())
@@ -79,13 +75,16 @@ impl Connection {
         }
 
         // start receiving data from inbound
-        if matches!(self.inbound.socket_type(), SocketType::Tcp | SocketType::Quic) {
-            self.inbound
-                .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone());
+        match self.inbound.socket_type() {
+            SocketType::Tcp | SocketType::Tls | SocketType::Quic => {
+                self.inbound
+                    .handle_incoming_data(in_proto.clone(), out_proto.clone(), tx.clone());
+            }
+            SocketType::Udp => (),
         }
 
         // connect to remote from outbound
-        self.outbound.start_connect(&out_proto.get_name(), resolved).await?;
+        self.outbound.start_connect(resolved).await?;
 
         // start receiving data from outbound
         self.outbound.handle_incoming_data(in_proto, out_proto, tx);

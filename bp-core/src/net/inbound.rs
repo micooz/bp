@@ -22,10 +22,6 @@ use crate::{
     Options, ServiceType,
 };
 
-pub struct InboundResolveResult {
-    pub proto: DynProtocol,
-}
-
 pub struct Inbound {
     opts: Options,
 
@@ -56,13 +52,13 @@ impl Inbound {
         self.socket.socket_type()
     }
 
-    pub async fn resolve(&mut self) -> Result<InboundResolveResult> {
+    pub async fn resolve(&mut self) -> Result<DynProtocol> {
         let res = self.try_resolve().await?;
         self.socket.disable_restore();
         Ok(res)
     }
 
-    async fn try_resolve(&mut self) -> Result<InboundResolveResult> {
+    async fn try_resolve(&mut self) -> Result<DynProtocol> {
         fn direct(addr: &Address) -> DynProtocol {
             let mut direct = Box::new(Direct::default());
 
@@ -85,7 +81,7 @@ impl Inbound {
                     self.socket.socket_type(),
                     addr,
                 );
-                return Ok(InboundResolveResult { proto: direct(addr) });
+                return Ok(direct(addr));
             }
 
             // obtain iptables redirect dest address first
@@ -112,12 +108,12 @@ impl Inbound {
                     // because http/https sniffer return an inaccurate port number(80 or 443)
                     if let Some(addr) = redirect_dest_addr {
                         if addr.port() != self.opts.bind().port() {
-                            let mut resolved = proto.get_resolved_result().unwrap().clone();
+                            let mut resolved = proto.get_resolved_result().clone();
                             resolved.set_port(addr.port());
                             proto.set_resolved_result(resolved);
                         }
                     }
-                    return Ok(InboundResolveResult { proto });
+                    return Ok(proto);
                 }
             }
 
@@ -129,8 +125,7 @@ impl Inbound {
                     self.socket.socket_type(),
                     addr
                 );
-
-                return Ok(InboundResolveResult { proto: direct(addr) });
+                return Ok(direct(addr));
             }
         }
 
@@ -139,7 +134,7 @@ impl Inbound {
             let mut proto = init_protocol(self.opts.encryption(), self.opts.key(), self.opts.service_type());
             self.resolve_dest_addr(&mut proto, false).await?;
 
-            let resolved = proto.get_resolved_result().unwrap().clone();
+            let resolved = proto.get_resolved_result().clone();
 
             // check dns packet
             if let Some(buf) = resolved.pending_buf {
@@ -153,10 +148,10 @@ impl Inbound {
                 }
             }
 
-            return Ok(InboundResolveResult { proto });
+            return Ok(proto);
         }
 
-        Err(Error::msg("cannot detect a protocol from incoming data"))
+        Err(Error::msg("cannot find a protocol to parse incoming data"))
     }
 
     pub fn set_protocol_name(&mut self, name: String) {
@@ -258,12 +253,9 @@ impl Inbound {
             Duration::from_secs(constants::DEST_ADDR_RESOLVE_TIMEOUT_SECONDS),
             future,
         );
-        let result = result.await?;
 
-        match result {
-            Ok(_) => {
-                let resolved = proto.get_resolved_result().unwrap();
-
+        match result.await? {
+            Ok(resolved) => {
                 log::info!(
                     "[{}] [{}] [{}] successfully resolved {}",
                     peer_address,

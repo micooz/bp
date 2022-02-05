@@ -26,11 +26,11 @@ impl Protocol for Https {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
-        self.resolved_result.as_ref()
+    fn get_resolved_result(&self) -> &ResolvedResult {
+        self.resolved_result.as_ref().unwrap()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<&ResolvedResult> {
         let content_type = socket.read_exact(1).await?;
 
         if content_type[0] != 0x16 {
@@ -125,7 +125,7 @@ impl Protocol for Https {
                     pending_buf: None,
                 });
 
-                return Ok(());
+                return Ok(self.get_resolved_result());
             }
 
             // skip Type and Length

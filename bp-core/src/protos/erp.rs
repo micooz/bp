@@ -102,9 +102,7 @@ impl Erp {
 
     fn derive_key(raw_key: String, salt: Bytes) -> Bytes {
         let derived_key = Crypto::hkdf_sha256(raw_key.into(), salt, HKDF_INFO.as_bytes().into(), KEY_SIZE);
-        if log::log_enabled!(log::Level::Debug) {
-            log::debug!("encrypt/decrypt key = {}", utils::fmt::ToHex(derived_key.to_vec()));
-        }
+        log::debug!("encrypt/decrypt key = {}", utils::fmt::ToHex(derived_key.to_vec()));
         derived_key
     }
 
@@ -115,10 +113,8 @@ impl Erp {
         let nonce = utils::buffer::num_to_buf_le(self.encrypt_nonce, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
-        if log::log_enabled!(log::Level::Debug) {
-            log::debug!("encrypt nonce = {}", utils::fmt::ToHex(nonce.to_vec()));
-            log::debug!("encrypt plain_text = {}", utils::fmt::ToHex(plain_text.to_vec()));
-        }
+        log::debug!("encrypt nonce = {}", utils::fmt::ToHex(nonce.to_vec()));
+        log::debug!("encrypt plain_text = {}", utils::fmt::ToHex(plain_text.to_vec()));
 
         let plain_text = Payload::from(&plain_text[..]);
 
@@ -140,10 +136,8 @@ impl Erp {
         let nonce = utils::buffer::num_to_buf_le(self.decrypt_nonce, NONCE_SIZE);
         let nonce = Nonce::from_slice(&nonce);
 
-        if log::log_enabled!(log::Level::Debug) {
-            log::debug!("decrypt nonce = {}", utils::fmt::ToHex(nonce.to_vec()));
-            log::debug!("decrypt cipher_text = {}", utils::fmt::ToHex(cipher_text.to_vec()));
-        }
+        log::debug!("decrypt nonce = {}", utils::fmt::ToHex(nonce.to_vec()));
+        log::debug!("decrypt cipher_text = {}", utils::fmt::ToHex(cipher_text.to_vec()));
 
         let cipher_text = Payload::from(&cipher_text[..]);
 
@@ -237,11 +231,11 @@ impl Protocol for Erp {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
-        self.resolved_result.as_ref()
+    fn get_resolved_result(&self) -> &ResolvedResult {
+        self.resolved_result.as_ref().unwrap()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<&ResolvedResult> {
         let salt = socket.read_exact(SALT_SIZE).await?;
         self.derived_key = Some(Self::derive_key(self.raw_key.clone(), salt));
 
@@ -255,7 +249,7 @@ impl Protocol for Erp {
             pending_buf,
         });
 
-        Ok(())
+        Ok(self.get_resolved_result())
     }
 
     async fn client_encode(&mut self, socket: &Socket) -> Result<Bytes> {
@@ -264,7 +258,7 @@ impl Protocol for Erp {
 
         // attach header
         if !self.header_sent {
-            let resolved = self.get_resolved_result().unwrap();
+            let resolved = self.get_resolved_result();
             data.put(resolved.address.as_bytes());
         }
 

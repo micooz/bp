@@ -20,15 +20,10 @@ use crate::{
 pub struct Socket {
     #[cfg(not(target_os = "windows"))]
     fd: Option<RawFd>,
-
     socket_type: SocketType,
-
     reader: SocketReader,
-
     writer: SocketWriter,
-
     local_addr: Option<SocketAddr>,
-
     peer_addr: SocketAddr,
 }
 

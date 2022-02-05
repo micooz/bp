@@ -29,10 +29,8 @@ pub use socks::Socks;
 #[derive(Debug, Clone)]
 pub struct ResolvedResult {
     pub protocol: ProtocolType,
-
     pub address: Address,
-
-    pub pending_buf: Option<bytes::Bytes>,
+    pub pending_buf: Option<Bytes>,
 }
 
 impl ResolvedResult {
@@ -61,11 +59,11 @@ pub trait Protocol: dyn_clone::DynClone {
         unimplemented!();
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
+    fn get_resolved_result(&self) -> &ResolvedResult {
         unimplemented!();
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()>;
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<&ResolvedResult>;
 
     async fn client_encode(&mut self, socket: &Socket) -> Result<Bytes>;
 

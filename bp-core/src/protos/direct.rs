@@ -22,11 +22,11 @@ impl Protocol for Direct {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
-        self.resolved_result.as_ref()
+    fn get_resolved_result(&self) -> &ResolvedResult {
+        self.resolved_result.as_ref().unwrap()
     }
 
-    async fn resolve_dest_addr(&mut self, _socket: &Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, _socket: &Socket) -> Result<&ResolvedResult> {
         panic!("direct protocol cannot be used on inbound")
     }
 

@@ -6,6 +6,7 @@ use std::sync::{
 use anyhow::{Error, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use parking_lot;
+use quinn::RecvStream;
 use tokio::{
     io::{AsyncReadExt, ReadHalf},
     net::{TcpStream, UdpSocket},
@@ -21,7 +22,7 @@ enum ReaderType {
     Tcp(ReadHalf<TcpStream>),
     Tls(ReadHalf<TlsStream<TcpStream>>),
     Udp(Arc<UdpSocket>),
-    Quic(quinn::RecvStream),
+    Quic(RecvStream),
 }
 
 impl Default for ReaderType {
@@ -61,7 +62,7 @@ impl SocketReader {
         }
     }
 
-    pub fn from_quic(recv_stream: quinn::RecvStream) -> Self {
+    pub fn from_quic(recv_stream: RecvStream) -> Self {
         Self {
             reader: Mutex::new(ReaderType::Quic(recv_stream)),
             ..Self::default()

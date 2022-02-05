@@ -1,5 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use quinn::SendStream;
 use tokio::{
     io::{AsyncWriteExt, WriteHalf},
     net::{TcpStream, UdpSocket},
@@ -13,7 +14,7 @@ enum WriterType {
     Tcp(WriteHalf<TcpStream>),
     Tls(WriteHalf<TlsStream<TcpStream>>),
     Udp(Arc<UdpSocket>),
-    Quic(quinn::SendStream),
+    Quic(SendStream),
 }
 
 impl Default for WriterType {
@@ -47,7 +48,7 @@ impl SocketWriter {
         }
     }
 
-    pub fn from_quic(send_stream: quinn::SendStream) -> Self {
+    pub fn from_quic(send_stream: SendStream) -> Self {
         Self {
             inner: Mutex::new(WriterType::Quic(send_stream)),
         }

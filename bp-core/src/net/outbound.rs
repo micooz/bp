@@ -62,12 +62,17 @@ impl Outbound {
         self.socket_type = Some(socket_type);
     }
 
+    pub fn set_protocol_name(&mut self, protocol_name: &str) {
+        self.protocol_name = Some(protocol_name.to_string());
+    }
+
     pub fn set_allow_proxy(&mut self, allow: bool) {
         self.is_allow_proxy = allow;
     }
 
-    pub async fn start_connect(&mut self, protocol_name: &str, resolved: &ResolvedResult) -> Result<()> {
+    pub async fn start_connect(&mut self, resolved: &ResolvedResult) -> Result<()> {
         let socket_type = self.socket_type.as_ref().unwrap();
+        let protocol_name = self.protocol_name.as_ref().unwrap();
         let peer_address = self.peer_address;
 
         log::info!(
@@ -77,7 +82,7 @@ impl Outbound {
             protocol_name
         );
 
-        let remote_addr = self.get_remote_addr(resolved);
+        let remote_addr = self.get_actual_remote_addr(resolved);
 
         self.protocol_name = Some(protocol_name.to_string());
         self.remote_addr = Some(remote_addr.clone());
@@ -181,7 +186,7 @@ impl Outbound {
         Ok(())
     }
 
-    fn get_remote_addr(&self, resolved: &ResolvedResult) -> Address {
+    fn get_actual_remote_addr(&self, resolved: &ResolvedResult) -> Address {
         if self.opts.is_server() || self.opts.server_bind().is_none() || !self.is_allow_proxy {
             resolved.address.clone()
         } else {

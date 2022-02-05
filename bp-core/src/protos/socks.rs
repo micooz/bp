@@ -60,11 +60,11 @@ impl Protocol for Socks {
         self.resolved_result = Some(res);
     }
 
-    fn get_resolved_result(&self) -> Option<&ResolvedResult> {
-        self.resolved_result.as_ref()
+    fn get_resolved_result(&self) -> &ResolvedResult {
+        self.resolved_result.as_ref().unwrap()
     }
 
-    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<()> {
+    async fn resolve_dest_addr(&mut self, socket: &Socket) -> Result<&ResolvedResult> {
         if socket.is_udp() {
             // Socks5 UDP Request/Response
             // +----+------+------+----------+----------+----------+
@@ -83,7 +83,7 @@ impl Protocol for Socks {
                 pending_buf,
             });
 
-            return Ok(());
+            return Ok(self.get_resolved_result());
         }
 
         // 1. Parse Socks5 Identifier Message
@@ -201,7 +201,7 @@ impl Protocol for Socks {
             pending_buf: None,
         });
 
-        Ok(())
+        Ok(self.get_resolved_result())
     }
 
     async fn client_encode(&mut self, _socket: &Socket) -> Result<Bytes> {
