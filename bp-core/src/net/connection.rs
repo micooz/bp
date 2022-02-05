@@ -180,7 +180,7 @@ impl Connection {
     fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
         // bp client should always use bp transport connect to bp server
         if self.opts.is_client() && self.opts.server_bind().is_some() {
-            return init_protocol(self.opts.protocol(), self.opts.key(), self.opts.service_type());
+            return init_protocol(self.opts.encryption(), self.opts.key(), self.opts.service_type());
         }
 
         // server dns outbound

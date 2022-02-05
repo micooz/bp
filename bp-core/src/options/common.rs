@@ -1,10 +1,6 @@
 use anyhow::Result;
 
-use crate::{constants, options_from_file, Address, ApplicationProtocol, ClientOptions, ServerOptions};
-
-pub trait OptionsChecker {
-    fn check(&self) -> Result<()>;
-}
+use crate::{constants, options_from_file, Address, ClientOptions, EncryptionMethod, ServerOptions};
 
 #[derive(Clone, Copy)]
 pub enum ServiceType {
@@ -149,10 +145,10 @@ impl Options {
         unreachable!()
     }
 
-    pub fn protocol(&self) -> ApplicationProtocol {
+    pub fn encryption(&self) -> EncryptionMethod {
         match self {
-            Self::Client(opts) => opts.protocol,
-            Self::Server(opts) => opts.protocol,
+            Self::Client(opts) => opts.encryption,
+            Self::Server(opts) => opts.encryption,
         }
     }
 

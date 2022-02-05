@@ -136,7 +136,7 @@ impl Inbound {
 
         // server side resolve
         if self.opts.is_server() {
-            let mut proto = init_protocol(self.opts.protocol(), self.opts.key(), self.opts.service_type());
+            let mut proto = init_protocol(self.opts.encryption(), self.opts.key(), self.opts.service_type());
             self.resolve_dest_addr(&mut proto, false).await?;
 
             let resolved = proto.get_resolved_result().unwrap().clone();

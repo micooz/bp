@@ -3,7 +3,7 @@ use std::str::{self, FromStr};
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
-use serde::{de::Visitor, Deserialize, Deserializer};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize};
 
 use crate::{
     net::{address::Address, socket::Socket},
@@ -81,33 +81,51 @@ dyn_clone::clone_trait_object!(Protocol);
 pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ApplicationProtocol {
+pub enum EncryptionMethod {
     Plain,
     EncryptRandomPadding,
 }
 
-impl str::FromStr for ApplicationProtocol {
+impl str::FromStr for EncryptionMethod {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "plain" => Ok(Self::Plain),
             "~" | "" | "erp" => Ok(Self::EncryptRandomPadding),
-            _ => Err(format!("{} is not supported, available protocols are: plain, erp", s)),
+            _ => Err(format!("{} is not supported, available methods are: plain, erp", s)),
         }
     }
 }
 
-impl Default for ApplicationProtocol {
+impl Default for EncryptionMethod {
     fn default() -> Self {
         Self::EncryptRandomPadding
     }
 }
 
-struct ApplicationProtocolVisitor;
+impl ToString for EncryptionMethod {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Plain => "plain".to_string(),
+            Self::EncryptRandomPadding => "erp".to_string(),
+        }
+    }
+}
 
-impl<'de> Visitor<'de> for ApplicationProtocolVisitor {
-    type Value = ApplicationProtocol;
+impl Serialize for EncryptionMethod {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+struct EncryptionMethodVisitor;
+
+impl<'de> Visitor<'de> for EncryptionMethodVisitor {
+    type Value = EncryptionMethod;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("plain/erp")
@@ -117,22 +135,22 @@ impl<'de> Visitor<'de> for ApplicationProtocolVisitor {
     where
         E: serde::de::Error,
     {
-        ApplicationProtocol::from_str(v).map_err(serde::de::Error::custom)
+        EncryptionMethod::from_str(v).map_err(serde::de::Error::custom)
     }
 }
 
-impl<'de> Deserialize<'de> for ApplicationProtocol {
+impl<'de> Deserialize<'de> for EncryptionMethod {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_string(ApplicationProtocolVisitor)
+        deserializer.deserialize_string(EncryptionMethodVisitor)
     }
 }
 
-pub fn init_protocol(protocol: ApplicationProtocol, key: String, service_type: ServiceType) -> DynProtocol {
-    match protocol {
-        ApplicationProtocol::Plain => Box::new(Plain::default()),
-        ApplicationProtocol::EncryptRandomPadding => Box::new(Erp::new(key, service_type)),
+pub fn init_protocol(encryption: EncryptionMethod, key: String, service_type: ServiceType) -> DynProtocol {
+    match encryption {
+        EncryptionMethod::Plain => Box::new(Plain::default()),
+        EncryptionMethod::EncryptRandomPadding => Box::new(Erp::new(key, service_type)),
     }
 }

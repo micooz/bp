@@ -1,6 +1,6 @@
 use std::sync::Once;
 
-use bp_core::{utils::tls::TLS, ClientOptions, ServerOptions};
+use bp_core::{utils::tls, ClientOptions, ServerOptions};
 use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
 
@@ -12,7 +12,7 @@ const KEY_PATH: &str = "tests/tmp/key.der";
 
 pub fn initialize() {
     INIT.call_once(|| {
-        TLS::generate_cert_and_key(vec![HOSTNAME.to_string()], &CERT_PATH, &KEY_PATH).unwrap();
+        tls::generate_cert_and_key(vec![HOSTNAME.to_string()], &CERT_PATH, &KEY_PATH).unwrap();
     });
 }
 

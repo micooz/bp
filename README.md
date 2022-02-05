@@ -20,12 +20,13 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 - [x] Refine CLI to multiple subcommands
 - [x] TLS transport layer
 - [x] PAC Service based on proxy white list
+- [x] Configuration generators
 - [ ] Improve performance of I/O reader
 - [ ] HTTP Client Proxy Authorization
 - [ ] HTTPS Client Proxy with Authorization
 - [ ] Tracer & Monitor Service
 - [ ] Web GUI
-- [ ] iOS GUI
+- [ ] Run service on iOS
 
 ## Basic Usages
 
@@ -35,16 +36,29 @@ Please check -h/--help first, or see [USAGE](usage).
 $ bp -h
 ```
 
+### Generate Configuration
+
+> It's easier for newcomers to use configuration file.
+
+Run the following commands to create bp configurations automatically, you can generate **YAML** or **JSON** file by changing the file extension.
+
+```
+$ bp generate --config client.json --config-type client
+$ bp generate --config server.json --config-type server
+```
+
+Modify configuration items as needed.
+
 ### Run as Client
 
 ```
-$ bp client --key key --server-bind <host:port>
+$ bp client --config client.json
 ```
 
 ### Run as Server
 
 ```
-$ bp server --bind 127.0.0.1:9000 --key key
+$ bp server --config server.json
 ```
 
 ### Curl Test
@@ -59,6 +73,8 @@ $ curl -x 127.0.0.1:1080 cn.bing.com
 ```
 
 ## Advanced Usages
+
+> The following guides use CLI options instead of configuration file.
 
 ### Relay Directly
 

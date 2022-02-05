@@ -4,12 +4,12 @@ use rustls::RootCertStore;
 
 use crate::{
     global,
-    utils::{crypto::Crypto, tls::TLS},
+    utils::{crypto::Crypto, tls},
 };
 
 pub fn init_quinn_server_config(cert_path: &str, key_path: &str) -> Result<()> {
-    let cert = TLS::read_cert_from_file(cert_path)?;
-    let key = TLS::read_key_from_file(key_path)?;
+    let cert = tls::read_cert_from_file(cert_path)?;
+    let key = tls::read_key_from_file(key_path)?;
 
     let config = ServerConfig::with_single_cert(vec![cert], key)?;
     global::set_quinn_server_config(config);
@@ -18,7 +18,7 @@ pub fn init_quinn_server_config(cert_path: &str, key_path: &str) -> Result<()> {
 }
 
 pub fn init_quinn_client_config(cert_path: &str) -> Result<()> {
-    let cert = TLS::read_cert_from_file(cert_path)?;
+    let cert = tls::read_cert_from_file(cert_path)?;
 
     let mut certs = RootCertStore::empty();
     certs.add(&cert)?;

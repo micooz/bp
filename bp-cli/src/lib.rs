@@ -1,12 +1,11 @@
 #![feature(path_try_exists)]
 
-pub mod bootstrap;
+mod utils;
 
-#[cfg(target_family = "unix")]
-mod daemonize;
-
+pub mod commands;
 pub mod dirs;
 pub mod logging;
+pub mod options;
 
 #[cfg(feature = "profile")]
 pub mod profile;

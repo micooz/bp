@@ -1,11 +1,11 @@
 use std::{str::FromStr, sync::Mutex};
 
-use bp_cli::bootstrap::bootstrap;
+use bp_cli::commands::client_server::bootstrap;
 use bp_core::{Address, Options, StartupInfo};
 use tokio::sync::oneshot;
 
 lazy_static::lazy_static! {
-    static ref INCREMENTAL_PORT_NUM :Mutex<u16> = Mutex::new(1080);
+    static ref INCREMENTAL_PORT_NUM :Mutex<u16> = Mutex::new(2080);
 }
 
 pub async fn run_bp(mut opts: Options, host: Option<&str>) -> StartupInfo {

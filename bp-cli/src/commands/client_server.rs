@@ -1,4 +1,4 @@
-use std::{env, fmt::Display, sync::Arc};
+use std::{env, process, sync::Arc};
 
 use anyhow::{Error, Result};
 use bp_core::{
@@ -8,13 +8,45 @@ use bp_core::{
 };
 use parking_lot::Mutex;
 use tokio::{
-    sync::{mpsc::channel, oneshot::Sender},
+    sync::{mpsc::channel, oneshot, oneshot::Sender},
     task::JoinHandle,
 };
 
 #[cfg(target_family = "unix")]
-use crate::daemonize::daemonize;
-use crate::dirs::Dirs;
+use crate::utils::daemonize::daemonize;
+use crate::{
+    dirs::Dirs,
+    utils::{
+        counter::Counter,
+        exit::{exit, ExitError},
+    },
+};
+
+pub async fn run(mut opts: Options) {
+    // try load bp service options from --config
+    if let Some(config) = opts.config() {
+        if let Err(err) = opts.try_load_from_file(&config) {
+            log::error!("unrecognized format of --config: {}", err);
+            exit(ExitError::ArgumentsError);
+        }
+    }
+
+    // check options
+    if let Err(err) = opts.check() {
+        log::error!("{}", err);
+        exit(ExitError::ArgumentsError);
+    }
+
+    // bootstrap bp service
+    let (tx, _rx) = oneshot::channel::<StartupInfo>();
+
+    if let Err(err) = bootstrap(opts, tx).await {
+        log::error!("{}", err);
+        exit(ExitError::BootstrapError);
+    }
+
+    log::info!("[{}] process exit with code 0", process::id());
+}
 
 #[allow(dead_code)]
 const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
@@ -242,24 +274,4 @@ fn daemonize_self() -> Result<()> {
     command.spawn()?;
 
     Ok(())
-}
-
-#[derive(Default)]
-struct Counter {
-    inner: usize,
-}
-
-impl Counter {
-    pub fn inc(&mut self) {
-        self.inner += 1;
-    }
-    pub fn dec(&mut self) {
-        self.inner -= 1;
-    }
-}
-
-impl Display for Counter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner)
-    }
 }

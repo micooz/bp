@@ -1,6 +1,5 @@
+use bp_core::{ClientOptions, GenerateOptions, Options, ServerOptions};
 use clap::{Parser, Subcommand};
-
-use super::{client::ClientOptions, common::Options, generate::GenerateOptions, server::ServerOptions};
 
 #[derive(Parser)]
 #[clap(name = "bp", version, about)]

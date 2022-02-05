@@ -32,7 +32,7 @@ mod test_common {
 
 #[cfg(test)]
 mod test_client {
-    use bp_core::{ClientOptions, OptionsChecker};
+    use bp_core::ClientOptions;
 
     #[test]
     fn test_checker() {
@@ -74,7 +74,7 @@ mod test_client {
 
 #[cfg(test)]
 mod test_server {
-    use bp_core::{OptionsChecker, ServerOptions};
+    use bp_core::ServerOptions;
 
     #[test]
     fn test_checker() {

@@ -331,7 +331,7 @@ checksum = "5988cb1d626264ac94100be357308f29ff7cbdd3b36bda27f450a4ee3f713426"
 
 [[package]]
 name = "bp"
-version = "2.0.0-alpha.0"
+version = "2.0.0-alpha.1"
 dependencies = [
  "bp-cli",
  "bp-core",
@@ -342,10 +342,11 @@ dependencies = [
 
 [[package]]
 name = "bp-cli"
-version = "2.0.0-alpha.0"
+version = "2.0.0-alpha.1"
 dependencies = [
  "anyhow",
  "bp-core",
+ "clap",
  "daemonize",
  "dhat",
  "dirs",
@@ -353,13 +354,15 @@ dependencies = [
  "log",
  "log4rs",
  "parking_lot",
+ "serde_json",
+ "serde_yaml",
  "signal-hook",
  "tokio",
 ]
 
 [[package]]
 name = "bp-core"
-version = "2.0.0-alpha.0"
+version = "2.0.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -371,6 +374,7 @@ dependencies = [
  "futures-util",
  "hkdf",
  "httparse",
+ "insta",
  "lazy_static",
  "libc",
  "log",
@@ -393,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "bp-monitor"
-version = "2.0.0-alpha.0"
+version = "2.0.0-alpha.1"
 dependencies = [
  "bincode",
  "bp-core",
@@ -555,6 +559,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30ed07550be01594c6026cff2a1d7fe9c8f683caa798e12b68694ac9e88286a3"
 dependencies = [
  "cache-padded",
+]
+
+[[package]]
+name = "console"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a28b32d32ca44b70c3e4acd7db1babf555fa026e385fb95f18028f88848b3c31"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "terminal_size",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -774,12 +791,13 @@ checksum = "ee2626afccd7561a06cf1367e2950c4718ea04565e20fb5029b6c7d8ad09abcf"
 
 [[package]]
 name = "e2e"
-version = "2.0.0-alpha.0"
+version = "2.0.0-alpha.1"
 dependencies = [
  "bp-cli",
  "bp-core",
  "cmd_lib",
  "httpmock",
+ "insta",
  "lazy_static",
  "tokio",
 ]
@@ -798,6 +816,12 @@ checksum = "d7402b94a93c24e742487327a7cd839dc9d36fec9de9fb25b09f2dae459f36c3"
 dependencies = [
  "log",
 ]
+
+[[package]]
+name = "encode_unicode"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encoding_rs"
@@ -1235,6 +1259,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "insta"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4c0c443f6dceb3a1cb7607c87501aa91e4b9c976044f725c2a74ca2152c91a4"
+dependencies = [
+ "console",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "similar",
 ]
 
 [[package]]
@@ -2412,6 +2450,16 @@ checksum = "c59df8ac95d96ff9bede18eb7300b0fda5e5d8d90960e76f8e14ae765eedbf1f"
 dependencies = [
  "dirs-next",
  "rustversion",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "terminal_size"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "633c1a546cee861a1a6d0dc69ebeca693bf4296661ba7852b9d21d159e0506df"
+dependencies = [
+ "libc",
  "winapi 0.3.9",
 ]
 

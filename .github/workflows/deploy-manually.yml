@@ -18,7 +18,7 @@ on:
         required: true
       version:
         description: 'Asset version to deploy'
-        default: 'v2.0.0-alpha.0'
+        default: 'v2.0.0-alpha.1'
         required: true
       arch:
         description: 'Asset binary architecture (Rust format)'

@@ -13,7 +13,7 @@ fn test_load_from_file() {
 fn test_to_pac() {
     let acl = AccessControlList::default();
     assert!(acl.load_from_file("tests/fixtures/acl.txt").is_ok());
-    assert_eq!(acl.to_pac("127.0.0.1:1080"), include_str!("fixtures/acl.pac"));
+    insta::assert_debug_snapshot!(acl.to_pac("127.0.0.1:1080"));
 }
 
 #[test]

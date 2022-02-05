@@ -1,9 +1,9 @@
 use anyhow::{Error, Result};
+use serde::{Deserialize, Serialize};
 
-use super::common::OptionsChecker;
-use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::ApplicationProtocol};
+use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::EncryptionMethod};
 
-#[derive(clap::Args, serde::Deserialize, Default, Clone)]
+#[derive(clap::Args, Deserialize, Serialize, Default, Clone)]
 pub struct ClientOptions {
     /// Configuration file in YAML/JSON format, [default: <empty>]
     #[clap(long)]
@@ -26,10 +26,10 @@ pub struct ClientOptions {
     #[clap(short, long)]
     pub key: Option<String>,
 
-    /// Protocol for Application Layer, e.g, "plain" or "erp"
+    /// Data encryption method, e.g, "plain" or "erp"
     #[clap(short, long, default_value = "erp")]
     #[serde(default)]
-    pub protocol: ApplicationProtocol,
+    pub encryption: EncryptionMethod,
 
     /// Check white list before proxy, pass a file path, [default: <empty>]
     #[clap(long)]
@@ -68,8 +68,8 @@ pub struct ClientOptions {
     pub tls_cert: Option<String>,
 }
 
-impl OptionsChecker for ClientOptions {
-    fn check(&self) -> Result<()> {
+impl ClientOptions {
+    pub fn check(&self) -> Result<()> {
         if self.server_bind.is_none() {
             log::warn!("--server-bind is not set, bp will relay directly.");
         }

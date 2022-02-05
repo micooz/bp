@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Error, Result};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use serde::{de::Visitor, Deserialize, Deserializer};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize};
 
 use super::dns::dns_resolve;
 use crate::net::socket;
@@ -42,7 +42,7 @@ impl TryInto<AddressType> for u8 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Host {
     Ip(IpAddr),
     Name(String),
@@ -289,6 +289,15 @@ impl Default for Address {
             host: Host::Ip(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             port: Default::default(),
         }
+    }
+}
+
+impl Serialize for Address {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }
 

@@ -8,10 +8,9 @@ OPTIONS:
     -b, --bind <BIND>                Local service bind address [default: 127.0.0.1:1080]
         --config <CONFIG>            Configuration file in YAML/JSON format, [default: <empty>]
         --dns-server <DNS_SERVER>    DNS server address [default: 8.8.8.8:53]
+    -e, --encryption <ENCRYPTION>    Data encryption method, e.g, "plain" or "erp" [default: erp]
     -h, --help                       Print help information
     -k, --key <KEY>                  Symmetric encryption key, required
-    -p, --protocol <PROTOCOL>        Protocol for Application Layer, e.g, "plain" or "erp" [default:
-                                     erp]
         --quic                       Enable QUIC for Transport Layer, [default: false]
         --tls                        Enable TLS for Transport Layer, [default: false]
         --tls-cert <TLS_CERT>        Certificate file for QUIC or TLS, [default: <empty>]

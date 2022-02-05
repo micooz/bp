@@ -1,11 +1,11 @@
 use anyhow::Result;
 use rustls::{ClientConfig, RootCertStore, ServerConfig};
 
-use crate::{global, utils::tls::TLS};
+use crate::{global, utils::tls};
 
 pub fn init_tls_server_config(cert_path: &str, key_path: &str) -> Result<()> {
-    let cert = TLS::read_cert_from_file(cert_path)?;
-    let key = TLS::read_key_from_file(key_path)?;
+    let cert = tls::read_cert_from_file(cert_path)?;
+    let key = tls::read_key_from_file(key_path)?;
 
     let config = ServerConfig::builder()
         .with_safe_defaults()
@@ -18,7 +18,7 @@ pub fn init_tls_server_config(cert_path: &str, key_path: &str) -> Result<()> {
 }
 
 pub fn init_tls_client_config(cert_path: &str) -> Result<()> {
-    let cert = TLS::read_cert_from_file(cert_path)?;
+    let cert = tls::read_cert_from_file(cert_path)?;
 
     let mut certs = RootCertStore::empty();
     certs.add(&cert)?;

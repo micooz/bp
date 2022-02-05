@@ -1,9 +1,9 @@
 use anyhow::{Error, Result};
+use serde::{Deserialize, Serialize};
 
-use super::common::OptionsChecker;
-use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::ApplicationProtocol};
+use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::EncryptionMethod};
 
-#[derive(clap::Args, serde::Deserialize, Default, Clone)]
+#[derive(clap::Args, Deserialize, Serialize, Default, Clone)]
 pub struct ServerOptions {
     /// Configuration file in YAML/JSON format, [default: <empty>]
     #[clap(long)]
@@ -18,10 +18,10 @@ pub struct ServerOptions {
     #[clap(short, long)]
     pub key: String,
 
-    /// Protocol for Application Layer, e.g, "plain" or "erp"
+    /// Data encryption method, e.g, "plain" or "erp"
     #[clap(short, long, default_value = "erp")]
     #[serde(default)]
-    pub protocol: ApplicationProtocol,
+    pub encryption: EncryptionMethod,
 
     /// DNS server address [default: 8.8.8.8:53]
     #[clap(long)]
@@ -46,8 +46,8 @@ pub struct ServerOptions {
     pub tls_key: Option<String>,
 }
 
-impl OptionsChecker for ServerOptions {
-    fn check(&self) -> Result<()> {
+impl ServerOptions {
+    pub fn check(&self) -> Result<()> {
         if self.tls && self.quic {
             return Err(Error::msg("--tls and --quic can only set one."));
         }

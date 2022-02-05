@@ -1,4 +1,4 @@
-use bp_core::{ApplicationProtocol, ClientOptions, ServerOptions};
+use bp_core::{ClientOptions, EncryptionMethod, ServerOptions};
 use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
 
@@ -6,11 +6,11 @@ use e2e::run_all::{run_all, TestResponse};
 async fn test_plain() {
     let resp = run_all(
         ClientOptions {
-            protocol: ApplicationProtocol::Plain,
+            encryption: EncryptionMethod::Plain,
             ..Default::default()
         },
         ServerOptions {
-            protocol: ApplicationProtocol::Plain,
+            encryption: EncryptionMethod::Plain,
             ..Default::default()
         },
         None,
@@ -33,11 +33,11 @@ async fn test_plain() {
 async fn test_erp() {
     let resp = run_all(
         ClientOptions {
-            protocol: ApplicationProtocol::EncryptRandomPadding,
+            encryption: EncryptionMethod::EncryptRandomPadding,
             ..Default::default()
         },
         ServerOptions {
-            protocol: ApplicationProtocol::EncryptRandomPadding,
+            encryption: EncryptionMethod::EncryptRandomPadding,
             ..Default::default()
         },
         None,

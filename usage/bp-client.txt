@@ -14,6 +14,9 @@ OPTIONS:
         --dns-server <DNS_SERVER>
             DNS server address, [default: 8.8.8.8:53]
 
+    -e, --encryption <ENCRYPTION>
+            Data encryption method, e.g, "plain" or "erp" [default: erp]
+
         --force-dest-addr <FORCE_DEST_ADDR>
             Redirect all incoming data to this destination, for testing, [default: <empty>]
 
@@ -22,9 +25,6 @@ OPTIONS:
 
     -k, --key <KEY>
             Symmetric encryption key, required if --server-bind is set, [default: <empty>]
-
-    -p, --protocol <PROTOCOL>
-            Protocol for Application Layer, e.g, "plain" or "erp" [default: erp]
 
         --pac-bind <PAC_BIND>
             Start a PAC server at the same time, requires --proxy-white-list [default: <empty>]

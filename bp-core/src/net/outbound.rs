@@ -246,8 +246,16 @@ impl Outbound {
                 let future = endpoint.connect(ip_addr, &addr.host())?;
                 let conn = timeout(Duration::from_secs(constants::QUIC_CONNECT_TIMEOUT_SECONDS), future).await??;
 
-                let stream = conn.connection.open_bi().await.unwrap();
-                let peer_addr = conn.connection.remote_address();
+                let conn = conn.connection;
+                let stream = conn.open_bi().await.unwrap();
+                let peer_addr = conn.remote_address();
+
+                log::info!(
+                    "[{}] [{}] connection RTT = {}ms",
+                    peer_address,
+                    socket_type,
+                    conn.rtt().as_millis()
+                );
 
                 Arc::new(Socket::from_quic(peer_addr, stream))
             }

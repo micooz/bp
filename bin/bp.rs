@@ -1,9 +1,9 @@
-use std::process;
-
-use bp_cli::{bootstrap::bootstrap, logging};
-use bp_core::{utils::tls::TLS, Cli, Command, StartupInfo};
+use bp_cli::{
+    commands::{client_server, generate},
+    logging,
+    options::cli::{Cli, Command},
+};
 use clap::StructOpt;
-use tokio::sync::oneshot;
 
 #[tokio::main]
 async fn main() {
@@ -18,67 +18,17 @@ async fn main() {
     #[cfg(feature = "logging")]
     logging::init();
 
-    let cli: Cli = Cli::parse();
+    let cli = Cli::parse();
 
-    // generate TLS certificate and private key
-    if let Command::Generate(opts) = cli.command {
-        if opts.hostname.is_none() {
-            log::error!("should set --hostname when --certificate is set");
-            exit(ExitError::ArgumentsError);
+    match cli.command {
+        // $ bp generate [OPTIONS]
+        Command::Generate(opts) => {
+            generate::run(opts).await;
         }
-
-        let hostname = opts.hostname.unwrap();
-        let res = TLS::generate_cert_and_key(vec![hostname], "cert.der", "key.der");
-
-        if let Err(err) = res {
-            log::error!("failed to generate TLS certificate due to: {}", err);
-            exit(ExitError::ArgumentsError);
-        }
-
-        return;
-    }
-
-    let mut opts = cli.service_options();
-
-    // try load bp service options from --config
-    if let Some(config) = opts.config() {
-        if let Err(err) = opts.try_load_from_file(&config) {
-            log::error!("Unrecognized format of --config: {}", err);
-            exit(ExitError::ArgumentsError);
-        }
-    }
-
-    // check options
-    if let Err(err) = opts.check() {
-        log::error!("{}", err);
-        exit(ExitError::ArgumentsError);
-    }
-
-    // bootstrap bp service
-    let (tx, _rx) = oneshot::channel::<StartupInfo>();
-
-    if let Err(err) = bootstrap(opts, tx).await {
-        log::error!("{}", err);
-        exit(ExitError::BootstrapError);
-    }
-
-    log::info!("[{}] process exit with code 0", process::id());
-}
-
-fn exit(err: ExitError) -> ! {
-    process::exit(err.into());
-}
-
-enum ExitError {
-    ArgumentsError,
-    BootstrapError,
-}
-
-impl From<ExitError> for i32 {
-    fn from(v: ExitError) -> Self {
-        match v {
-            ExitError::ArgumentsError => 100,
-            ExitError::BootstrapError => 200,
+        // $ bp client/server [OPTIONS]
+        Command::Client(_) | Command::Server(_) => {
+            let opts = cli.service_options();
+            client_server::run(opts).await;
         }
     }
 }
