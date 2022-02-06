@@ -38,7 +38,7 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Res
             let proxy_addr = proxy_addr.clone();
             tokio::spawn(async move {
                 if let Err(err) = handle_pac_request(stream, &proxy_addr).await {
-                    log::error!("fail to process request due to: {}", err);
+                    log::error!("[{}] fail to process request due to: {:?}", peer_addr, err);
                 }
             });
         }
@@ -48,18 +48,19 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Res
 }
 
 async fn handle_pac_request(mut stream: TcpStream, proxy_addr: &str) -> Result<()> {
+    let mut buf = BytesMut::with_capacity(1024);
+
     loop {
-        let mut buf = BytesMut::with_capacity(1024);
-        stream.read_buf(&mut buf).await.unwrap();
+        stream.read_buf(&mut buf).await?;
 
         let mut headers = [httparse::EMPTY_HEADER; 16];
         let mut req = httparse::Request::new(&mut headers);
 
-        let bytes = String::from_utf8(buf.to_vec())?;
-        let status = req.parse(bytes.as_bytes())?;
+        let buf = buf.to_vec();
+        let status = req.parse(&buf);
 
         // waiting request frame complete
-        if !status.is_complete() {
+        if status.is_err() || !status.unwrap().is_complete() {
             continue;
         }
 
@@ -67,7 +68,10 @@ async fn handle_pac_request(mut stream: TcpStream, proxy_addr: &str) -> Result<(
 
         // check request
         if req.method != Some("GET") || !path.starts_with(PAC_PATH) {
-            break;
+            return Err(Error::msg(format!(
+                "invalid method = {:?} or path = {}",
+                req.method, path
+            )));
         }
 
         // response pac content

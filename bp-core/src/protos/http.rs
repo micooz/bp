@@ -41,10 +41,11 @@ impl Protocol for Http {
             let mut headers = [httparse::EMPTY_HEADER; 16];
             let mut req = httparse::Request::new(&mut headers);
 
-            let bytes = String::from_utf8(buf.to_vec())?;
-            let status = req.parse(bytes.as_bytes())?;
+            let buf = buf.to_vec();
+            let status = req.parse(&buf);
 
-            if !status.is_complete() {
+            // waiting request frame complete
+            if status.is_err() || !status.unwrap().is_complete() {
                 continue;
             }
 
