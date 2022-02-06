@@ -38,6 +38,7 @@ sha2 = "0.9.5"
 log = "0.4.0"
 
 ### others
+base64 = "0.13.0"
 clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
 notify = "4.0.0"
 serde_yaml = "0.8.21"

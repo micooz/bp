@@ -137,18 +137,20 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         if let Some(ref path) = opts_for_acl.proxy_white_list() {
             let acl = get_acl();
 
-            if let Err(err) = acl.load_from_file(path) {
-                log::error!("[acl] load white list failed due to: {}", err);
-                return;
-            }
+            match acl.load_from_file(path) {
+                Ok(_) => {
+                    #[cfg(not(debug_assertions))]
+                    {
+                        let path = path.clone();
 
-            #[cfg(not(debug_assertions))]
-            {
-                let path = path.clone();
-
-                tokio::spawn(async move {
-                    acl.watch(&path).unwrap();
-                });
+                        tokio::spawn(async move {
+                            acl.watch(&path).unwrap();
+                        });
+                    }
+                }
+                Err(err) => {
+                    log::error!("[acl] load white list failed due to: {}", err);
+                }
             }
         }
     });

@@ -33,11 +33,10 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Res
 
             let (stream, peer_addr) = accept.unwrap();
 
-            log::info!("[{}] requests pac file", peer_addr);
-
             let proxy_addr = proxy_addr.clone();
+
             tokio::spawn(async move {
-                if let Err(err) = handle_pac_request(stream, &proxy_addr).await {
+                if let Err(err) = handle_pac_request(stream, peer_addr, &proxy_addr).await {
                     log::error!("[{}] fail to process request due to: {:?}", peer_addr, err);
                 }
             });
@@ -47,7 +46,7 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Res
     Ok(())
 }
 
-async fn handle_pac_request(mut stream: TcpStream, proxy_addr: &str) -> Result<()> {
+async fn handle_pac_request(mut stream: TcpStream, peer_addr: SocketAddr, proxy_addr: &str) -> Result<()> {
     let mut buf = BytesMut::with_capacity(1024);
 
     loop {
@@ -56,13 +55,22 @@ async fn handle_pac_request(mut stream: TcpStream, proxy_addr: &str) -> Result<(
         let mut headers = [httparse::EMPTY_HEADER; 16];
         let mut req = httparse::Request::new(&mut headers);
 
-        let buf = buf.to_vec();
-        let status = req.parse(&buf);
+        let buf = &buf[0..buf.len()];
+
+        // via https
+        if buf[0] == 0x16 {
+            return Err(Error::msg("https request is not currently supported"));
+        }
+
+        let status = req.parse(buf)?;
 
         // waiting request frame complete
-        if status.is_err() || !status.unwrap().is_complete() {
+        if !status.is_complete() {
+            log::debug!("[{}] request is not complete", peer_addr);
             continue;
         }
+
+        log::info!("[{}] {:?}", peer_addr, String::from_utf8(buf.into()));
 
         let path = req.path.unwrap();
 

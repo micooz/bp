@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{constants, options_from_file, Address, ClientOptions, EncryptionMethod, ServerOptions};
+use crate::{constants, options_from_file, Address, ClientOptions, EncryptionMethod, HttpBasicAuth, ServerOptions};
 
 #[derive(Clone, Copy)]
 pub enum ServiceType {
@@ -129,6 +129,13 @@ impl Options {
             Self::Client(opts) => opts.bind.clone(),
             Self::Server(opts) => opts.bind.clone(),
         }
+    }
+
+    pub fn with_basic_auth(&self) -> Option<HttpBasicAuth> {
+        if let Self::Client(opts) = self {
+            return opts.with_basic_auth.clone();
+        }
+        unreachable!()
     }
 
     pub fn pac_bind(&self) -> Option<Address> {

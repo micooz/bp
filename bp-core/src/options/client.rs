@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::EncryptionMethod};
+use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::EncryptionMethod, HttpBasicAuth};
 
 #[derive(clap::Args, Deserialize, Serialize, Default, Clone)]
 pub struct ClientOptions {
@@ -13,6 +13,10 @@ pub struct ClientOptions {
     /// Local service bind address
     #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
     pub bind: Address,
+
+    /// Basic authorization required for HTTP Proxy, e,g. "user:password" [default: <empty>]
+    #[clap(long)]
+    pub with_basic_auth: Option<HttpBasicAuth>,
 
     /// Server bind address. If not set, bp will relay directly, [default: <empty>]
     #[clap(long)]

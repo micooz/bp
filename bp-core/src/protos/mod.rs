@@ -21,7 +21,7 @@ mod socks;
 pub use direct::Direct;
 pub use dns::Dns;
 pub use erp::Erp;
-pub use http::Http;
+pub use http::{Http, HttpBasicAuth};
 pub use https::Https;
 pub use plain::Plain;
 pub use socks::Socks;

@@ -93,7 +93,7 @@ impl Inbound {
 
             let mut try_list: Vec<DynProtocol> = vec![
                 Box::new(Socks::new(Some(self.opts.bind()))),
-                Box::new(Http::default()),
+                Box::new(Http::new(self.opts.with_basic_auth())),
                 Box::new(Https::default()),
             ];
 

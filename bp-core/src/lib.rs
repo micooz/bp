@@ -26,7 +26,7 @@ pub use options::{
     server::ServerOptions,
     utils::options_from_file,
 };
-pub use protos::EncryptionMethod;
+pub use protos::{EncryptionMethod, HttpBasicAuth};
 pub use services::{
     pac::start_pac_service, quic::start_quic_service, tcp::start_tcp_service, tls::start_tls_service,
     udp::start_udp_service, StartupInfo,

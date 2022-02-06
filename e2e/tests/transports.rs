@@ -12,7 +12,7 @@ const KEY_PATH: &str = "tests/tmp/key.der";
 
 pub fn initialize() {
     INIT.call_once(|| {
-        tls::generate_cert_and_key(vec![HOSTNAME.to_string()], &CERT_PATH, &KEY_PATH).unwrap();
+        tls::generate_cert_and_key(vec![HOSTNAME.to_string()], CERT_PATH, KEY_PATH).unwrap();
     });
 }
 

@@ -45,3 +45,21 @@ async fn test_http() {
 
     assert_eq!(run_fun!(curl -x $bind_addr $http_addr).unwrap(), http_resp);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_http_with_auth() {
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
+
+    let auth = "user:pass";
+
+    let opts = Options::Client(ClientOptions {
+        with_basic_auth: Some(auth.parse().unwrap()),
+        ..Default::default()
+    });
+
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
+    let bind_addr = bind_addr.to_string();
+
+    assert_eq!(run_fun!(curl -x $bind_addr $http_addr).unwrap(), "");
+    assert_eq!(run_fun!(curl -u $auth -x $bind_addr $http_addr).unwrap(), http_resp);
+}

@@ -314,7 +314,7 @@ impl<'de> Visitor<'de> for AddressVisitor {
     where
         E: serde::de::Error,
     {
-        Address::from_str(v).map_err(serde::de::Error::custom)
+        Self::Value::from_str(v).map_err(serde::de::Error::custom)
     }
 }
 

@@ -21,8 +21,8 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 - [x] TLS transport layer
 - [x] PAC Service based on proxy white list
 - [x] Configuration generators
+- [x] HTTP Proxy Basic Authorization
 - [ ] Improve performance of I/O reader
-- [ ] HTTP Client Proxy Authorization
 - [ ] HTTPS Client Proxy with Authorization
 - [ ] Tracer & Monitor Service
 - [ ] Web GUI

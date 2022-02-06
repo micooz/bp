@@ -36,7 +36,7 @@ OPTIONS:
             Enable QUIC for Transport Layer, [default: false]
 
         --quic-max-concurrency <QUIC_MAX_CONCURRENCY>
-            The max number of QUIC connections, [default: 65535]
+            The max number of QUIC connections, [default: Infinite]
 
         --server-bind <SERVER_BIND>
             Server bind address. If not set, bp will relay directly, [default: <empty>]
@@ -49,3 +49,6 @@ OPTIONS:
 
         --udp-over-tcp
             Convert udp to tcp requires --server-bind to be set if true [default: false]
+
+        --with-basic-auth <WITH_BASIC_AUTH>
+            Basic authorization required for HTTP Proxy, e,g. "user:password" [default: <empty>]
