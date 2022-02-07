@@ -8,7 +8,7 @@ use e2e::{
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_socks5() {
-    let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server();
 
     let opts = Options::Client(ClientOptions::default());
 
@@ -36,7 +36,7 @@ async fn test_socks5_udp() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_http() {
-    let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server();
 
     let opts = Options::Client(ClientOptions::default());
 
@@ -48,7 +48,7 @@ async fn test_http() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_http_with_auth() {
-    let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server();
 
     let auth = "user:pass";
 

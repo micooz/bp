@@ -18,7 +18,7 @@ pub async fn run_all(
     server_opts_patch: ServerOptions,
     host: Option<&str>,
 ) -> TestResponse {
-    let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server();
 
     let key = Some("key".to_string());
 

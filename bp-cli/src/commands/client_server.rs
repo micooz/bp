@@ -7,7 +7,7 @@ use bp_core::{
     start_tls_service, start_udp_service, Connection, Options, Socket, StartupInfo,
 };
 use tokio::{
-    sync::{mpsc::channel, oneshot, oneshot::Sender},
+    sync::{mpsc::channel, oneshot::Sender},
     task::JoinHandle,
 };
 
@@ -21,9 +21,10 @@ use crate::{
     },
 };
 
-pub async fn run(mut opts: Options) {
+pub async fn run(mut opts: Options, sender_ready: Sender<StartupInfo>) {
     // try load bp service options from --config
     if let Some(config) = opts.config() {
+        log::info!("loading configuration from {}", config);
         if let Err(err) = opts.try_load_from_file(&config) {
             log::error!("unrecognized format of --config: {}", err);
             exit(ExitError::ArgumentsError);
@@ -37,9 +38,7 @@ pub async fn run(mut opts: Options) {
     }
 
     // bootstrap bp service
-    let (tx, _rx) = oneshot::channel::<StartupInfo>();
-
-    if let Err(err) = bootstrap(opts, tx).await {
+    if let Err(err) = bootstrap(opts, sender_ready).await {
         log::error!("{}", err);
         exit(ExitError::BootstrapError);
     }

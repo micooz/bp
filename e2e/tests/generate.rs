@@ -1,5 +1,7 @@
-use bp_cli::commands::generate;
-use bp_core::{ConfigType, GenerateOptions};
+use bp_cli::{
+    commands::generate,
+    options::generate::{ConfigType, GenerateOptions},
+};
 use e2e::fs;
 
 #[tokio::test(flavor = "multi_thread")]

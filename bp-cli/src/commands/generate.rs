@@ -1,10 +1,13 @@
 use std::path::Path;
 
 use anyhow::{Error, Result};
-use bp_core::{utils::tls, ClientOptions, ConfigType, GenerateOptions, ServerOptions};
+use bp_core::{utils::tls, ClientOptions, ServerOptions};
 use tokio::fs;
 
-use crate::utils::exit::{exit, ExitError};
+use crate::{
+    options::generate::{ConfigType, GenerateOptions},
+    utils::exit::{exit, ExitError},
+};
 
 pub async fn run(opts: GenerateOptions) {
     if let Err(err) = opts.check() {

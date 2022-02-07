@@ -22,7 +22,6 @@ pub use net::{
 pub use options::{
     client::ClientOptions,
     common::{Options, ServiceType},
-    generate::{ConfigType, GenerateOptions},
     server::ServerOptions,
     utils::options_from_file,
 };

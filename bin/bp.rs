@@ -1,9 +1,10 @@
 use bp_cli::{
-    commands::{client_server, generate},
+    commands::{client_server, generate, test},
     logging,
     options::cli::{Cli, Command},
 };
 use clap::StructOpt;
+use tokio::sync::oneshot;
 
 #[tokio::main]
 async fn main() {
@@ -27,8 +28,13 @@ async fn main() {
         }
         // $ bp client/server [OPTIONS]
         Command::Client(_) | Command::Server(_) => {
+            let (tx, _rx) = oneshot::channel();
             let opts = cli.service_options();
-            client_server::run(opts).await;
+            client_server::run(opts, tx).await;
+        }
+        // $ bp test [OPTIONS]
+        Command::Test(opts) => {
+            test::run(opts).await;
         }
     }
 }

@@ -9,13 +9,9 @@ pub struct HttpServerContext {
     pub http_resp: &'static str,
 }
 
-pub fn run_http_mock_server(addr: Option<&str>) -> HttpServerContext {
+pub fn run_http_mock_server() -> HttpServerContext {
     // Start a lightweight mock server.
-    let server = if let Some(addr) = addr {
-        MockServer::connect(addr)
-    } else {
-        MockServer::start()
-    };
+    let server = MockServer::start();
 
     // Create a mock on the server.
     server.mock(|when, then| {

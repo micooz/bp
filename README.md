@@ -61,7 +61,15 @@ $ bp client --config client.json
 $ bp server --config server.json
 ```
 
-### Curl Test
+### Test with bp-test
+
+You can use bp-test to check if your configuration is correct.
+
+```
+$ bp test --config client.json --http www.google.com:80
+```
+
+### Test with Curl
 
 > Both Socks5 and HTTP Proxy requests are acceptable by bp client on the same port.
 

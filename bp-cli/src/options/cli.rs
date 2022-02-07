@@ -1,5 +1,7 @@
-use bp_core::{ClientOptions, GenerateOptions, Options, ServerOptions};
+use bp_core::{ClientOptions, Options, ServerOptions};
 use clap::{Parser, Subcommand};
+
+use super::{generate::GenerateOptions, test::TestOptions};
 
 #[derive(Parser)]
 #[clap(name = "bp", version, about)]
@@ -28,4 +30,7 @@ pub enum Command {
 
     /// Run file generator
     Generate(GenerateOptions),
+
+    /// Run testing utils
+    Test(TestOptions),
 }

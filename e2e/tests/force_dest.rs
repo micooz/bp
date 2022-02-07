@@ -7,7 +7,7 @@ use e2e::{
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_force_dest() {
-    let HttpServerContext { http_addr, http_resp } = run_http_mock_server(None);
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server();
 
     let opts = Options::Client(ClientOptions {
         force_dest_addr: Some(http_addr.into()),
