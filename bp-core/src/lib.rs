@@ -1,5 +1,3 @@
-mod acl;
-mod constants;
 mod event;
 mod global;
 mod io;
@@ -8,9 +6,10 @@ mod options;
 mod protos;
 mod services;
 
+pub mod acl;
+pub mod constants;
 pub mod utils;
 
-pub use acl::{get_acl, AccessControlList, DomainItem, DomainRule};
 pub use net::{
     address::Address,
     connection::Connection,

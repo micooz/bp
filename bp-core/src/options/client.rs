@@ -1,24 +1,44 @@
 use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::DEFAULT_SERVICE_ADDRESS, net::address::Address, protos::EncryptionMethod, HttpBasicAuth};
+use crate::{
+    constants::{DEFAULT_DNS_SERVER_ADDRESS, DEFAULT_CLIENT_SERVICE_ADDRESS},
+    net::address::Address,
+    protos::EncryptionMethod,
+    HttpBasicAuth,
+};
 
-#[derive(clap::Args, Deserialize, Serialize, Default, Clone)]
+// The following getters are for serde deserializing
+
+fn get_default_bind() -> Address {
+    DEFAULT_CLIENT_SERVICE_ADDRESS.parse().unwrap()
+}
+
+fn get_default_encryption() -> EncryptionMethod {
+    EncryptionMethod::EncryptRandomPadding
+}
+
+fn get_default_dns_server() -> Address {
+    DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap()
+}
+
+#[derive(clap::Args, Deserialize, Serialize, Default, Debug, Clone)]
 pub struct ClientOptions {
-    /// Configuration file in YAML/JSON format, [default: <empty>]
+    /// Configuration file in YAML/JSON format [default: <empty>]
     #[clap(long)]
     #[serde(skip)]
     pub config: Option<String>,
 
     /// Local service bind address
-    #[clap(short, long, default_value = DEFAULT_SERVICE_ADDRESS)]
+    #[clap(short, long, default_value = DEFAULT_CLIENT_SERVICE_ADDRESS)]
+    #[serde(default = "get_default_bind")]
     pub bind: Address,
 
     /// Basic authorization required for HTTP Proxy, e,g. "user:password" [default: <empty>]
     #[clap(long)]
     pub with_basic_auth: Option<HttpBasicAuth>,
 
-    /// Server bind address. If not set, bp will relay directly, [default: <empty>]
+    /// Server bind address. If not set, bp will relay directly [default: <empty>]
     #[clap(long)]
     pub server_bind: Option<Address>,
 
@@ -26,48 +46,48 @@ pub struct ClientOptions {
     #[clap(long)]
     pub pac_bind: Option<Address>,
 
-    /// Symmetric encryption key, required if --server-bind is set, [default: <empty>]
+    /// Symmetric encryption key, required if --server-bind is set [default: <empty>]
     #[clap(short, long)]
     pub key: Option<String>,
 
     /// Data encryption method, e.g, "plain" or "erp"
     #[clap(short, long, default_value = "erp")]
-    #[serde(default)]
+    #[serde(default = "get_default_encryption")]
     pub encryption: EncryptionMethod,
 
-    /// Check white list before proxy, pass a file path, [default: <empty>]
+    /// Check white list before proxy, pass a file path [default: <empty>]
     #[clap(long)]
     pub proxy_white_list: Option<String>,
 
-    /// Redirect all incoming data to this destination, for testing, [default: <empty>]
+    /// Redirect all incoming data to this destination, for testing [default: <empty>]
     #[clap(long)]
-    pub force_dest_addr: Option<Address>,
+    pub pin_dest_addr: Option<Address>,
 
     /// Convert udp to tcp requires --server-bind to be set if true [default: false]
     #[clap(long)]
     #[serde(default)]
     pub udp_over_tcp: bool,
 
-    /// DNS server address, [default: 8.8.8.8:53]
-    #[clap(long)]
-    pub dns_server: Option<Address>,
+    /// DNS server address
+    #[clap(long, default_value = DEFAULT_DNS_SERVER_ADDRESS)]
+    #[serde(default = "get_default_dns_server")]
+    pub dns_server: Address,
 
-    /// Enable TLS for Transport Layer, [default: false]
+    /// Enable TLS for Transport Layer [default: false]
     #[clap(long)]
     #[serde(default)]
     pub tls: bool,
 
-    /// Enable QUIC for Transport Layer, [default: false]
+    /// Enable QUIC for Transport Layer [default: false]
     #[clap(long)]
     #[serde(default)]
     pub quic: bool,
 
-    /// The max number of QUIC connections, [default: Infinite]
+    /// The max number of QUIC connections [default: Infinite]
     #[clap(long)]
-    #[serde(default)]
     pub quic_max_concurrency: Option<u16>,
 
-    /// Certificate for QUIC or TLS, [default: <empty>]
+    /// Certificate for QUIC or TLS [default: <empty>]
     #[clap(long)]
     pub tls_cert: Option<String>,
 }

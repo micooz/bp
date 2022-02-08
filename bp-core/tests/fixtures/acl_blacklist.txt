@@ -1,0 +1,5 @@
+[Allow]
+*:*
+
+[Deny]
+example.com

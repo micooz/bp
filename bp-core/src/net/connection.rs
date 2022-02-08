@@ -109,7 +109,7 @@ impl Connection {
         }
 
         if self.opts.is_client() {
-            if matches!(self.inbound.socket_type(), SocketType::Udp) && !self.opts.udp_over_tcp() {
+            if matches!(self.inbound.socket_type(), SocketType::Udp) && !self.opts.client_opts().udp_over_tcp {
                 // inbound is UDP, but not enable --udp-over-tcp, outbound should be UDP as well
                 return SocketType::Udp;
             }
@@ -152,7 +152,7 @@ impl Connection {
         let dest_addr_host = dest_addr.host();
 
         // white list
-        if self.opts.is_client() && self.opts.proxy_white_list().is_some() {
+        if self.opts.is_client() && self.opts.client_opts().proxy_white_list.is_some() {
             let acl = global::get_acl();
 
             if !acl.is_host_hit(&dest_addr_host) {
@@ -178,7 +178,7 @@ impl Connection {
 
     fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {
         // bp client should always use bp transport connect to bp server
-        if self.opts.is_client() && self.opts.server_bind().is_some() {
+        if self.opts.is_client() && self.opts.client_opts().server_bind.is_some() {
             return init_protocol(self.opts.encryption(), self.opts.key(), self.opts.service_type());
         }
 

@@ -191,7 +191,7 @@ impl Protocol for Http {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HttpBasicAuth {
     user: String,
     password: String,

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{constants, options_from_file, Address, ClientOptions, EncryptionMethod, HttpBasicAuth, ServerOptions};
+use crate::{options_from_file, Address, ClientOptions, EncryptionMethod, ServerOptions};
 
 #[derive(Clone, Copy)]
 pub enum ServiceType {
@@ -8,7 +8,7 @@ pub enum ServiceType {
     Server,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Options {
     Client(ClientOptions),
     Server(ServerOptions),
@@ -16,12 +16,12 @@ pub enum Options {
 
 impl Options {
     pub fn try_load_from_file(&mut self, config: &str) -> Result<()> {
-        match self.service_type() {
-            ServiceType::Client => {
+        match self {
+            Self::Client(_) => {
                 let file_opts = options_from_file::<ClientOptions>(config)?;
                 *self = Self::Client(file_opts);
             }
-            ServiceType::Server => {
+            Self::Server(_) => {
                 let file_opts = options_from_file::<ServerOptions>(config)?;
                 *self = Self::Server(file_opts);
             }
@@ -42,9 +42,7 @@ impl Options {
             Self::Server(opts) => opts.bind = bind,
         }
     }
-}
 
-impl Options {
     pub fn is_client(&self) -> bool {
         matches!(self, Self::Client { .. })
     }
@@ -53,17 +51,34 @@ impl Options {
         matches!(self, Self::Server { .. })
     }
 
-    pub fn config(&self) -> Option<String> {
-        match self {
-            Self::Client(opts) => opts.config.clone(),
-            Self::Server(opts) => opts.config.clone(),
-        }
-    }
-
     pub fn service_type(&self) -> ServiceType {
         match self {
             Self::Client(_) => ServiceType::Client,
             Self::Server(_) => ServiceType::Server,
+        }
+    }
+
+    pub fn client_opts(&self) -> ClientOptions {
+        if let Self::Client(opts) = self {
+            return opts.clone();
+        }
+        unreachable!()
+    }
+
+    pub fn server_opts(&self) -> ServerOptions {
+        if let Self::Server(opts) = self {
+            return opts.clone();
+        }
+        unreachable!()
+    }
+}
+
+// aggregate common options
+impl Options {
+    pub fn config(&self) -> Option<String> {
+        match self {
+            Self::Client(opts) => opts.config.clone(),
+            Self::Server(opts) => opts.config.clone(),
         }
     }
 
@@ -75,32 +90,10 @@ impl Options {
     }
 
     pub fn dns_server(&self) -> Address {
-        let server = match self {
+        match self {
             Self::Client(opts) => opts.dns_server.clone(),
             Self::Server(opts) => opts.dns_server.clone(),
-        };
-        server.unwrap_or_else(|| constants::DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap())
-    }
-
-    pub fn udp_over_tcp(&self) -> bool {
-        if let Self::Client(opts) = self {
-            return opts.udp_over_tcp;
         }
-        unreachable!()
-    }
-
-    pub fn proxy_white_list(&self) -> Option<String> {
-        if let Self::Client(opts) = self {
-            return opts.proxy_white_list.clone();
-        }
-        unreachable!()
-    }
-
-    pub fn force_dest_addr(&self) -> Option<Address> {
-        if let Self::Client(opts) = self {
-            return opts.force_dest_addr.clone();
-        }
-        unreachable!()
     }
 
     pub fn quic(&self) -> bool {
@@ -117,39 +110,11 @@ impl Options {
         }
     }
 
-    pub fn quic_max_concurrency(&self) -> Option<u16> {
-        if let Self::Client(opts) = self {
-            return opts.quic_max_concurrency;
-        }
-        unreachable!()
-    }
-
     pub fn bind(&self) -> Address {
         match self {
             Self::Client(opts) => opts.bind.clone(),
             Self::Server(opts) => opts.bind.clone(),
         }
-    }
-
-    pub fn with_basic_auth(&self) -> Option<HttpBasicAuth> {
-        if let Self::Client(opts) = self {
-            return opts.with_basic_auth.clone();
-        }
-        unreachable!()
-    }
-
-    pub fn pac_bind(&self) -> Option<Address> {
-        if let Self::Client(opts) = self {
-            return opts.pac_bind.clone();
-        }
-        unreachable!()
-    }
-
-    pub fn server_bind(&self) -> Option<Address> {
-        if let Self::Client(opts) = self {
-            return opts.server_bind.clone();
-        }
-        unreachable!()
     }
 
     pub fn encryption(&self) -> EncryptionMethod {
@@ -164,12 +129,5 @@ impl Options {
             Self::Client(opts) => opts.tls_cert.clone(),
             Self::Server(opts) => opts.tls_cert.clone(),
         }
-    }
-
-    pub fn tls_key(&self) -> Option<String> {
-        if let Self::Server(opts) = self {
-            return opts.tls_key.clone();
-        }
-        unreachable!()
     }
 }

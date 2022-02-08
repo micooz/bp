@@ -187,10 +187,10 @@ impl Outbound {
     }
 
     fn get_actual_remote_addr(&self, resolved: &ResolvedResult) -> Address {
-        if self.opts.is_server() || self.opts.server_bind().is_none() || !self.is_allow_proxy {
+        if self.opts.is_server() || self.opts.client_opts().server_bind.is_none() || !self.is_allow_proxy {
             resolved.address.clone()
         } else {
-            self.opts.server_bind().unwrap()
+            self.opts.client_opts().server_bind.unwrap()
         }
     }
 

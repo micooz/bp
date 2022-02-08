@@ -2,7 +2,7 @@ use bp_core::{ClientOptions, Options, StartupInfo};
 use cmd_lib::run_fun;
 use e2e::{
     http_server::{run_http_mock_server, HttpServerContext},
-    oneshot::udp_oneshot,
+    oneshot::{tcp_oneshot, udp_oneshot},
     run_bp::run_bp,
 };
 
@@ -62,4 +62,21 @@ async fn test_http_with_auth() {
 
     assert_eq!(run_fun!(curl -x $bind_addr $http_addr).unwrap(), "");
     assert_eq!(run_fun!(curl -u $auth -x $bind_addr $http_addr).unwrap(), http_resp);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pin_dest_addr() {
+    let HttpServerContext { http_addr, http_resp } = run_http_mock_server();
+
+    let opts = Options::Client(ClientOptions {
+        pin_dest_addr: Some(http_addr.into()),
+        ..Default::default()
+    });
+
+    let StartupInfo { bind_addr, .. } = run_bp(opts, None).await;
+
+    let buf = tcp_oneshot(bind_addr, include_bytes!("fixtures/http_req_mock.bin")).await;
+    let resp = String::from_utf8(buf).unwrap();
+
+    assert!(resp.contains(http_resp));
 }

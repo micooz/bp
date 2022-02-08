@@ -1,0 +1,8 @@
+foo.com 
+bar.com #inline_comment
+#full_line_comment
+  #empty rule
+~baz.com 
+apple.com:80
+*:443
+example.net:*

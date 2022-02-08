@@ -1,5 +1,6 @@
-/// The default local service address
-pub const DEFAULT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
+/// The default local service addresses
+pub const DEFAULT_CLIENT_SERVICE_ADDRESS: &str = "127.0.0.1:1080";
+pub const DEFAULT_SERVER_SERVICE_ADDRESS: &str = "127.0.0.1:3000";
 
 /// The default dns server address
 pub const DEFAULT_DNS_SERVER_ADDRESS: &str = "8.8.8.8:53";

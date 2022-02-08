@@ -5,7 +5,7 @@ USAGE:
     bp server [OPTIONS]
 
 OPTIONS:
-    -b, --bind <BIND>                Local service bind address [default: 127.0.0.1:1080]
+    -b, --bind <BIND>                Local service bind address [default: 127.0.0.1:3000]
         --config <CONFIG>            Configuration file in YAML/JSON format, [default: <empty>]
         --dns-server <DNS_SERVER>    DNS server address [default: 8.8.8.8:53]
     -e, --encryption <ENCRYPTION>    Data encryption method, e.g, "plain" or "erp" [default: erp]

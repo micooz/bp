@@ -3,6 +3,6 @@ bind: 127.0.0.1:1080
 key: key
 protocol:
 proxy_white_list:
-force_dest_addr:
+pin_dest_addr:
 udp_over_tcp: false
 dns_server:

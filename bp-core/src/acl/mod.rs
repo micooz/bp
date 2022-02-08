@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     fs,
-    io::{Read, Write},
+    io::Write,
     path::PathBuf,
     sync::{self, Arc},
     time,
@@ -21,7 +21,7 @@ pub fn get_acl() -> Arc<AccessControlList> {
 
 #[derive(Default, Debug)]
 pub struct AccessControlList {
-    domain_white_list: Mutex<Vec<DomainItem>>,
+    rules: Mutex<Vec<Rule>>,
 }
 
 impl AccessControlList {
@@ -32,18 +32,11 @@ impl AccessControlList {
 
         log::info!("loading white list from {}", path);
 
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&path)
-            .unwrap();
-
         let mut content = String::new();
-        file.read_to_string(&mut content).unwrap();
+        fs::read_to_string(&mut content).unwrap();
 
         self.clear();
-        self.parse(&content);
+        self.deserialize(&content);
 
         log::info!("loaded {} valid rules", self.count());
 
@@ -53,7 +46,7 @@ impl AccessControlList {
     pub fn save_to_file(&self, path: PathBuf) -> Result<()> {
         let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
 
-        let buf = self.stringify();
+        let buf = self.serialize();
 
         file.write_all(buf.as_bytes())?;
         file.flush()?;
@@ -61,19 +54,26 @@ impl AccessControlList {
         Ok(())
     }
 
-    pub fn push(&self, host: &str, rule: DomainRule) {
-        self.domain_white_list.lock().insert(
+    pub fn push<V>(&self, prefix: RulePrefix, value: V)
+    where
+        V: Into<RuleValue> + Display,
+    {
+        self.rules.lock().insert(
             0,
-            DomainItem {
-                raw: format!("{}{}", rule, host),
-                rule,
-                value: host.to_string(),
+            Rule {
+                raw: format!("{}{}", prefix, value),
+                prefix,
+                value: value.into(),
             },
         );
     }
 
+    pub fn match_one(&self, host: &str, port: u16) -> Rule {
+        //
+    }
+
     pub fn is_host_hit(&self, host: &str) -> bool {
-        let domain_white_list = self.domain_white_list.lock();
+        let domain_white_list = self.rules.lock();
 
         for item in domain_white_list.iter() {
             match item.rule {
@@ -123,17 +123,17 @@ impl AccessControlList {
     }
 
     pub fn count(&self) -> usize {
-        self.domain_white_list
+        self.rules
             .lock()
             .iter()
-            .filter(|&x| x.rule != DomainRule::Ignore)
+            .filter(|&x| x.prefix != RulePrefix::Ignore)
             .count()
     }
 
     pub fn to_pac(&self, proxy_addr: &str) -> String {
         let mut if_statements: Vec<String> = vec![];
 
-        for item in self.domain_white_list.lock().iter() {
+        for item in self.rules.lock().iter() {
             let rule = match item.rule {
                 DomainRule::ExactMatch => {
                     format!(
@@ -167,27 +167,22 @@ impl AccessControlList {
     }
 
     fn clear(&self) {
-        self.domain_white_list.lock().clear();
+        self.rules.lock().clear();
     }
 
-    fn parse(&self, content: &str) {
-        let mut domain_white_list = self.domain_white_list.lock();
+    fn deserialize(&self, content: &str) {
+        let mut rules = self.rules.lock();
 
         for line in content.lines() {
             let line = line.trim();
 
-            let found = domain_white_list.iter().enumerate().find_map(
-                |(index, v)| {
-                    if v.raw == line {
-                        Some(index)
-                    } else {
-                        None
-                    }
-                },
-            );
+            let found = rules
+                .iter()
+                .enumerate()
+                .find_map(|(index, v)| if v.raw == line { Some(index) } else { None });
 
             if let Some(index) = found {
-                domain_white_list.remove(index);
+                rules.remove(index);
             }
 
             let mut chars = line.trim().chars();
@@ -212,59 +207,65 @@ impl AccessControlList {
                 value.insert(0, ch);
             }
 
-            domain_white_list.push(DomainItem {
+            rules.push(DomainItem {
                 raw: line.to_string(),
                 rule,
                 value,
             });
         }
 
-        domain_white_list.reverse();
+        rules.reverse();
     }
 
-    fn stringify(&self) -> String {
-        self.domain_white_list
+    fn serialize(&self) -> String {
+        self.rules
             .lock()
             .iter()
             .rev()
-            .map(|x| format!("{}{}", x.rule, x.value))
+            .map(|x| x.raw)
             .collect::<Vec<String>>()
             .join("\n")
     }
 }
 
-// DomainItem
+// Rule
 
 #[derive(Default, Debug, PartialEq, Eq)]
-pub struct DomainItem {
+pub struct Rule {
     raw: String,
-    rule: DomainRule,
-    value: String,
+    prefix: RulePrefix,
+    value: RuleValue,
 }
 
-// DomainRule
+// RuleValue
+
+#[derive(Default, Debug, PartialEq, Eq)]
+pub struct RuleValue {
+    host: String,
+    port: u16,
+}
+
+// RulePrefix
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum DomainRule {
-    ExactMatch,
-    NotExtractMatch,
-    FuzzyMatch,
+pub enum RulePrefix {
+    Exact,
+    Fuzzy,
     Ignore,
 }
 
-impl Display for DomainRule {
+impl Display for RulePrefix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let v = match self {
-            DomainRule::ExactMatch => "",
-            DomainRule::NotExtractMatch => "!",
-            DomainRule::FuzzyMatch => "~",
-            DomainRule::Ignore => "#",
+            Self::Exact => "",
+            Self::Fuzzy => "~",
+            Self::Ignore => "#",
         };
         write!(f, "{}", v)
     }
 }
 
-impl Default for DomainRule {
+impl Default for RulePrefix {
     fn default() -> Self {
         Self::Ignore
     }

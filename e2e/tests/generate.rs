@@ -5,9 +5,7 @@ use bp_cli::{
 use e2e::fs;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_generate_config() {
-    // client config.json
-
+async fn test_generate_client_config() {
     let config_path = "tests/tmp/client.config.json";
 
     generate::run(GenerateOptions {
@@ -17,9 +15,10 @@ async fn test_generate_config() {
     .await;
 
     insta::assert_debug_snapshot!(fs::read_file(config_path).await);
+}
 
-    // server config.yaml
-
+#[tokio::test(flavor = "multi_thread")]
+async fn test_generate_server_config() {
     let config_path = "tests/tmp/server.config.yaml";
 
     generate::run(GenerateOptions {

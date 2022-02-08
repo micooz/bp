@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Error, Result};
-use bp_core::{utils::tls, ClientOptions, ServerOptions};
+use bp_core::{constants::DEFAULT_DNS_SERVER_ADDRESS, utils::tls, ClientOptions, ServerOptions};
 use tokio::fs;
 
 use crate::{
@@ -33,9 +33,11 @@ async fn handle(opts: GenerateOptions) -> Result<()> {
         client_opts.bind = "127.0.0.1:1080".parse().unwrap();
         client_opts.key = Some("__some_key__".to_string());
         client_opts.server_bind = Some("__some_where__:3000".parse().unwrap());
+        client_opts.dns_server = DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap();
 
-        client_opts.bind = "0.0.0.0:3000".parse().unwrap();
+        server_opts.bind = "__some_where__:3000".parse().unwrap();
         server_opts.key = Some("__some_key__".to_string());
+        server_opts.dns_server = DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap();
 
         let content = match ext {
             "yml" | "yaml" => match opts.config_type {

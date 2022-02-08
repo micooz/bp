@@ -6,7 +6,7 @@ pub struct TestOptions {
     #[clap(long, default_value = "config.json")]
     pub config: String,
 
-    /// Fire a HTTP GET request to this address, [default: <empty>]
+    /// Fire a HTTP GET request to this address [default: <empty>]
     #[clap(long)]
     pub http: Option<Address>,
 }

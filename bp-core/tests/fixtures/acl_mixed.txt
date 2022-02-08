@@ -1,0 +1,12 @@
+[Allow]
+foo.com
+
+[Deny]
+bar.com
+
+[alLow]
+bar.com
+*:443
+
+[dEny]
+baz.com:443

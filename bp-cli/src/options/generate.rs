@@ -4,7 +4,7 @@ use anyhow::{Error, Result};
 
 #[derive(clap::Args, Default)]
 pub struct GenerateOptions {
-    /// Generate bp configuration file, [default: <empty>]
+    /// Generate bp configuration file [default: <empty>]
     #[clap(long)]
     pub config: Option<String>,
 
@@ -12,11 +12,11 @@ pub struct GenerateOptions {
     #[clap(long, default_value = "client")]
     pub config_type: ConfigType,
 
-    /// Generate self-signed TLS certificates(in DER format) to CWD, [default: false]
+    /// Generate self-signed TLS certificates(in DER format) to CWD [default: false]
     #[clap(long)]
     pub certificate: bool,
 
-    /// Hostname for generating TLS certificates, [default: <empty>]
+    /// Hostname for generating TLS certificates [default: <empty>]
     #[clap(long)]
     pub hostname: Option<String>,
 }

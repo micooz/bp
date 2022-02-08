@@ -12,21 +12,25 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 * Support Socks5/HTTP/HTTPS Proxy Protocols.
 * Support proxy non-proxy protocols, for example: HTTP/HTTPS/DNS.
 * Support multiple transport protocols, for example: TLS/QUIC.
-* Support custom proxy whitelist and PAC service.
+* Support ACL(Access Control List) and PAC(Proxy Auto Config) service.
 * Work with Linux Firewall(via iptables).
 
 ## 2.0 Roadmap
 
 - [x] Refine CLI to multiple subcommands
 - [x] TLS transport layer
-- [x] PAC Service based on proxy white list
 - [x] Configuration generators
 - [x] HTTP Proxy Basic Authorization
+- [ ] PAC Service based on access control list
+- [ ] Enhance acl, support for bp server
 - [ ] Improve performance of I/O reader
-- [ ] HTTPS Client Proxy with Authorization
 - [ ] Tracer & Monitor Service
 - [ ] Web GUI
-- [ ] Run service on iOS
+
+## Planned Features
+
+- [ ] HTTPS Client Proxy with Authorization
+- [ ] Deploy to iOS/Android
 
 ## Basic Usages
 
@@ -84,7 +88,7 @@ $ curl -x 127.0.0.1:1080 cn.bing.com
 
 > The following guides use CLI options instead of configuration file.
 
-### Relay Directly
+### No Proxy
 
 If not set `--server-bind`, bp will relay directly.
 
@@ -92,10 +96,92 @@ If not set `--server-bind`, bp will relay directly.
 $ bp client
 ```
 
-### UDP over TCP
+### Encryption Method
 
 ```
-$ bp client --key key --udp-over-tcp --server-bind <host:port>
+$ bp client --bind 127.0.0.1:9000 --key test --encryption <method>
+```
+
+`<method>` can be:
+
+* `plain`: without encryption.
+* `erp`: AEAD encryption with random padding. (default)
+
+### Access Control
+
+Access Control works for both client and server side.
+
+```
+$ bp client --acl /path/to/acl.txt
+$ bp server --acl /path/to/acl.txt
+```
+
+**White List Example**
+
+> Note that the default strategy is **White List**.
+
+```
+example.com
+example1.com
+```
+
+Or add `[Deny]` and `[Allow]` pair:
+
+```
+[Deny]
+*:*
+
+[Allow]
+example.com
+```
+
+**Black List Example**
+
+```
+[Allow]
+*:*
+
+[Deny]
+example.com
+```
+
+**Mixed Example**
+
+You can mix use `[Allow]` and `[Deny]`.
+
+```
+[Allow]
+example.com
+
+[Deny]
+example1.com
+
+[Allow]
+example1.com # example1.com is allowed again
+```
+
+The format of each rule is `[<hostname>]:[<port>]`, for example:
+
+```
+*:*
+example.com
+example.com:*
+example.com:80
+```
+
+Each rule can add a prefix to change match behavior:
+
+* `~`: fuzzy match, e,g. `~example.com:443` will match `*example.com*:443`
+* `#`: comment string, skip matching, e,g. `#example.com`
+
+> Note that higher priority for later rules
+
+### PAC Service
+
+By adding `--pac-bind`, you can start a PAC service at specified address while bp client started. The content of `proxy.pac` is based on your `--proxy-white-list`, you must prepare this file first.
+
+```
+$ bp client --proxy-white-list /path/to/list.txt --pac-bind <host:port>
 ```
 
 ### Enable TLS
@@ -109,68 +195,32 @@ $ bp generate --certificate --hostname localhost
 Then, provide bp server with Certificate and Private Key:
 
 ```
-$ bp server --tls --tls-cert <cert_path> --tls-key <key_path> <other_options>
+$ bp server --tls --tls-cert <cert_path> --tls-key <key_path>
 ```
 
 Finally, provide bp client with Certificate only:
 
 ```
-$ bp client --tls --tls-cert <cert_path> <other_options>
+$ bp client --tls --tls-cert <cert_path>
 ```
 
 ### Enable QUIC
 
 [QUIC](https://quicwg.github.io/) is a transport protocol based on UDP and TLS, it force use TLS, so we should first generate TLS Certificate and Private Key. The steps are almost the same as **Enable TLS**, just need replace `--tls` to `--quic`.
 
+
+### UDP over TCP
+
+```
+$ bp client --key key --udp-over-tcp --server-bind <host:port>
+```
+
 ### Pin Destination Address
 
 > NOTE: this is usually for testing via **iperf**
 
 ```
-$ bp client --force-dest-addr <host:port>
-```
-
-### Change Protocol
-
-The protocol can be switched between bp client and bp server, available protocols are:
-
-* `plain`: without encryption.
-* `erp`: with AEAD encryption as well as random padding. (default)
-
-```
-$ bp client --bind 127.0.0.1:9000 --key test --protocol plain
-```
-
-### Proxy White List
-
-```
-$ bp client --proxy-white-list /path/to/list.txt
-```
-
-Assume that the white list file contains the following rules:
-
-```
-example.com
-~example.com
-!example.com
-#example.com
-```
-
-The prefixes means:
-
-* `<no prefix>`: exactly match, matched domain name will be proxy
-* `~`: fuzzy match, matched domain name will be proxy
-* `!`: not match, matched domain name will NOT be proxy
-* `#`: comment string, will skip matching
-
-> Higher priority for later rules
-
-### PAC Service
-
-By adding `--pac-bind`, you can start a PAC service at specified address while bp client started. The content of `proxy.pac` is based on your `--proxy-white-list`, you must prepare this file first.
-
-```
-$ bp client --proxy-white-list /path/to/list.txt --pac-bind <host:port>
+$ bp client --pin-dest-addr <host:port>
 ```
 
 ### Linux Router

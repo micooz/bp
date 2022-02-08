@@ -2,7 +2,7 @@ use std::{env, process, sync::Arc};
 
 use anyhow::{Error, Result};
 use bp_core::{
-    get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
+    acl::get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
     init_tls_client_config, init_tls_server_config, start_pac_service, start_quic_service, start_tcp_service,
     start_tls_service, start_udp_service, Connection, Options, Socket, StartupInfo,
 };
@@ -73,7 +73,7 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
 
     // init quic endpoint pool
     if opts.is_client() && opts.quic() {
-        let quic_max_concurrency = opts.quic_max_concurrency();
+        let quic_max_concurrency = opts.client_opts().quic_max_concurrency;
         init_quic_endpoint_pool(quic_max_concurrency);
     }
 
@@ -119,7 +119,7 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
 
         // start pac service based on --proxy-white-list
         if opts.is_client() {
-            if let Some(pac_bind) = opts.pac_bind() {
+            if let Some(pac_bind) = opts.client_opts().pac_bind {
                 let pac_bind = pac_bind.resolve().await?;
                 start_pac_service(pac_bind, opts.bind().as_string()).await?;
             }
@@ -133,7 +133,7 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         if !opts_for_acl.is_client() {
             return;
         }
-        if let Some(ref path) = opts_for_acl.proxy_white_list() {
+        if let Some(ref path) = opts_for_acl.client_opts().proxy_white_list {
             let acl = get_acl();
 
             match acl.load_from_file(path) {
@@ -217,7 +217,7 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
 
 fn init_tls_configs(opts: &Options) -> Result<()> {
     if opts.is_server() {
-        if let (Some(cert), Some(key)) = (opts.tls_cert().as_ref(), opts.tls_key().as_ref()) {
+        if let (Some(cert), Some(key)) = (opts.tls_cert().as_ref(), opts.server_opts().tls_key.as_ref()) {
             log::info!("loading TLS certificate from {}", cert);
             log::info!("loading TLS private key from {}", key);
 

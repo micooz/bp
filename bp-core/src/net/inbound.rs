@@ -73,10 +73,10 @@ impl Inbound {
 
         // client side resolve
         if self.opts.is_client() {
-            // check --force-dest-addr flag
-            if let Some(addr) = &self.opts.force_dest_addr() {
+            // check --pin-dest-addr flag
+            if let Some(addr) = &self.opts.client_opts().pin_dest_addr {
                 log::warn!(
-                    "[{}] [{}] --force-dest-addr set, will relay to the fixed dest address {}",
+                    "[{}] [{}] --pin-dest-addr set, will relay to the fixed dest address {}",
                     self.peer_address,
                     self.socket.socket_type(),
                     addr,
@@ -93,7 +93,7 @@ impl Inbound {
 
             let mut try_list: Vec<DynProtocol> = vec![
                 Box::new(Socks::new(Some(self.opts.bind()))),
-                Box::new(Http::new(self.opts.with_basic_auth())),
+                Box::new(Http::new(self.opts.client_opts().with_basic_auth)),
                 Box::new(Https::default()),
             ];
 

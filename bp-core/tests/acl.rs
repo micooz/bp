@@ -1,18 +1,18 @@
-use std::{fs::read_to_string, path::PathBuf};
+use std::fs::read_to_string;
 
-use bp_core::*;
+use bp_core::acl::{AccessControlList, DomainRule};
 
 #[test]
 fn test_load_from_file() {
     let acl = AccessControlList::default();
-    assert!(acl.load_from_file("tests/fixtures/acl.txt").is_ok());
-    assert_eq!(acl.count(), 3);
+    assert!(acl.load_from_file("tests/fixtures/acl_simple.txt").is_ok());
+    assert_eq!(acl.count(), 6);
 }
 
 #[test]
 fn test_to_pac() {
     let acl = AccessControlList::default();
-    assert!(acl.load_from_file("tests/fixtures/acl.txt").is_ok());
+    assert!(acl.load_from_file("tests/fixtures/acl_simple.txt").is_ok());
     insta::assert_debug_snapshot!(acl.to_pac("127.0.0.1:1080"));
 }
 
@@ -24,16 +24,10 @@ fn test_save_to_file() {
     acl.push("baz.com", DomainRule::FuzzyMatch);
     acl.push("bad.com", DomainRule::Ignore);
 
-    let mut tmp_path = PathBuf::new();
-    tmp_path.push("tests");
-    tmp_path.push("tmp");
-    tmp_path.push("acl.txt");
+    let tmp_path = "tests/tmp/acl.txt";
 
-    assert!(acl.save_to_file(tmp_path.clone()).is_ok());
-    assert_eq!(
-        read_to_string(tmp_path).unwrap(),
-        "foo.com\n!bar.com\n~baz.com\n#bad.com"
-    );
+    assert!(acl.save_to_file(tmp_path.into()).is_ok());
+    insta::assert_debug_snapshot!(read_to_string(tmp_path).unwrap());
 }
 
 #[test]
