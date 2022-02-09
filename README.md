@@ -118,8 +118,6 @@ $ bp server --acl /path/to/acl.txt
 
 **White List Example**
 
-> Note that the default strategy is **White List**.
-
 ```
 example.com
 example1.com
@@ -174,7 +172,9 @@ Each rule can add a prefix to change match behavior:
 * `~`: fuzzy match, e,g. `~example.com:443` will match `*example.com*:443`
 * `#`: comment string, skip matching, e,g. `#example.com`
 
-> Note that higher priority for later rules
+> Note that:
+> 1. The default strategy is **Black List**
+> 2. Higher priority for later rules
 
 ### PAC Service
 

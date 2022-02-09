@@ -1,3 +1,5 @@
+deny.com
+
 [Allow]
 foo.com
 

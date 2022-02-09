@@ -5,10 +5,10 @@ USAGE:
     bp generate [OPTIONS]
 
 OPTIONS:
-        --certificate                  Generate self-signed TLS certificates(in DER format) to CWD,
+        --certificate                  Generate self-signed TLS certificates(in DER format) to CWD
                                        [default: false]
-        --config <CONFIG>              Generate bp configuration file, [default: <empty>]
+        --config <CONFIG>              Generate bp configuration file [default: <empty>]
         --config-type <CONFIG_TYPE>    Configuration type for --config, e,g. "client" or "server"
                                        [default: client]
     -h, --help                         Print help information
-        --hostname <HOSTNAME>          Hostname for generating TLS certificates, [default: <empty>]
+        --hostname <HOSTNAME>          Hostname for generating TLS certificates [default: <empty>]

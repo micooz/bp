@@ -84,7 +84,7 @@ async fn handle_pac_request(mut stream: TcpStream, peer_addr: SocketAddr, proxy_
 
         // response pac content
         let acl = global::get_acl();
-        let acl_content = acl.to_pac(proxy_addr);
+        let acl_content = acl.to_pac(proxy_addr)?;
 
         let headers = b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ns-proxy-autoconfig\r\n\r\n";
         stream.write(headers).await?;

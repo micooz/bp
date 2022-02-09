@@ -8,7 +8,7 @@ async fn test_pac() {
 
     let opts = Options::Client(ClientOptions {
         pac_bind: Some(pac_bind.clone()),
-        proxy_white_list: Some("tests/fixtures/proxy_white_list.txt".to_string()),
+        acl: Some("tests/fixtures/acl.txt".to_string()),
         ..Default::default()
     });
 

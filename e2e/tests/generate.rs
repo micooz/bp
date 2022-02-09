@@ -14,7 +14,7 @@ async fn test_generate_client_config() {
     })
     .await;
 
-    insta::assert_debug_snapshot!(fs::read_file(config_path).await);
+    insta::assert_json_snapshot!(fs::read_file(config_path).await);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -28,5 +28,5 @@ async fn test_generate_server_config() {
     })
     .await;
 
-    insta::assert_debug_snapshot!(fs::read_file(config_path).await);
+    insta::assert_yaml_snapshot!(fs::read_file(config_path).await);
 }

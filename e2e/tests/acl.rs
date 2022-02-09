@@ -3,10 +3,10 @@ use cmd_lib::run_fun;
 use e2e::run_all::{run_all, TestResponse};
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_proxy_white_list() {
+async fn test_acl() {
     let resp = run_all(
         ClientOptions {
-            proxy_white_list: Some("tests/fixtures/proxy_white_list.txt".to_string()),
+            acl: Some("tests/fixtures/acl.txt".to_string()),
             ..Default::default()
         },
         ServerOptions::default(),
@@ -18,5 +18,4 @@ async fn test_proxy_white_list() {
 
     assert!(run_fun!(curl --socks5 $bind_addr cn.bing.com).is_ok());
     assert!(run_fun!(curl --socks5 $bind_addr www.baidu.com).is_ok());
-    assert!(run_fun!(curl --socks5 $bind_addr example.com).is_ok());
 }

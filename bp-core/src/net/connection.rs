@@ -12,7 +12,7 @@ use crate::{
         socket::{Socket, SocketType},
     },
     protos::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
-    Options,
+    Options, ServiceType,
 };
 
 pub struct Connection {
@@ -20,7 +20,6 @@ pub struct Connection {
     inbound: Inbound,
     outbound: Outbound,
     peer_addr: Address,
-    dest_addr: Option<Address>,
 }
 
 impl Connection {
@@ -33,7 +32,6 @@ impl Connection {
             inbound,
             outbound,
             peer_addr: peer_addr.into(),
-            dest_addr: None,
             opts,
         }
     }
@@ -50,17 +48,32 @@ impl Connection {
         // check resolved target address
         self.check_resolved_result(resolved).await?;
 
-        self.dest_addr = Some(resolved.address.clone());
+        let mut out_proto: DynProtocol;
 
-        // check proxy rules then create outbound protocol
-        let mut out_proto = if self.check_proxy_rules() {
+        // check acl
+        if self.check_acl(&resolved.address) {
             self.outbound.set_socket_type(self.get_outbound_socket_type(resolved));
-            self.create_outbound_protocol(resolved)
+            out_proto = self.create_outbound_protocol(resolved);
         } else {
-            self.outbound.set_socket_type(SocketType::Tcp);
-            self.outbound.set_allow_proxy(false);
-            Box::new(Direct::default())
-        };
+            log::warn!(
+                "[{}] [{}] [{}] is DENY in acl",
+                self.peer_addr,
+                self.inbound.socket_type(),
+                resolved.address,
+            );
+            match self.opts.service_type() {
+                ServiceType::Client => {
+                    // change outbound protocol to TCP
+                    self.outbound.set_socket_type(SocketType::Tcp);
+                    self.outbound.set_allow_proxy(false);
+                    out_proto = Box::new(Direct::default());
+                }
+                ServiceType::Server => {
+                    // close connection
+                    return Ok(());
+                }
+            }
+        }
 
         self.outbound.set_protocol_name(&out_proto.get_name());
 
@@ -147,33 +160,20 @@ impl Connection {
         Ok(())
     }
 
-    fn check_proxy_rules(&self) -> bool {
-        let dest_addr = self.dest_addr.as_ref().unwrap();
-        let dest_addr_host = dest_addr.host();
-
-        // white list
-        if self.opts.is_client() && self.opts.client_opts().proxy_white_list.is_some() {
-            let acl = global::get_acl();
-
-            if !acl.is_host_hit(&dest_addr_host) {
-                log::warn!(
-                    "[{}] [{}] [{}] is NOT matched in white list",
-                    self.peer_addr,
-                    self.inbound.socket_type(),
-                    dest_addr_host,
-                );
-                return false;
-            }
-
-            log::info!(
-                "[{}] [{}] [{}] is matched in white list",
-                self.peer_addr,
-                self.inbound.socket_type(),
-                dest_addr_host,
-            );
+    fn check_acl(&self, addr: &Address) -> bool {
+        if self.opts.client_opts().acl.is_none() {
+            return true;
         }
 
-        true
+        let acl = global::get_acl();
+        let rule = acl.try_match(&addr.host(), Some(addr.port()));
+
+        if rule.is_none() {
+            return true;
+        }
+
+        let rule = rule.unwrap();
+        rule.is_allow()
     }
 
     fn create_outbound_protocol(&self, resolved: &ResolvedResult) -> DynProtocol {

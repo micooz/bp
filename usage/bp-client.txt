@@ -5,47 +5,47 @@ USAGE:
     bp client [OPTIONS]
 
 OPTIONS:
+        --acl <ACL>
+            Check access control list before proxy, pass a file path [default: <empty>]
+
     -b, --bind <BIND>
             Local service bind address [default: 127.0.0.1:1080]
 
         --config <CONFIG>
-            Configuration file in YAML/JSON format, [default: <empty>]
+            Configuration file in YAML/JSON format [default: <empty>]
 
         --dns-server <DNS_SERVER>
-            DNS server address, [default: 8.8.8.8:53]
+            DNS server address [default: 8.8.8.8:53]
 
     -e, --encryption <ENCRYPTION>
             Data encryption method, e.g, "plain" or "erp" [default: erp]
-
-        --force-dest-addr <FORCE_DEST_ADDR>
-            Redirect all incoming data to this destination, for testing, [default: <empty>]
 
     -h, --help
             Print help information
 
     -k, --key <KEY>
-            Symmetric encryption key, required if --server-bind is set, [default: <empty>]
+            Symmetric encryption key, required if --server-bind is set [default: <empty>]
 
         --pac-bind <PAC_BIND>
             Start a PAC server at the same time, requires --proxy-white-list [default: <empty>]
 
-        --proxy-white-list <PROXY_WHITE_LIST>
-            Check white list before proxy, pass a file path, [default: <empty>]
+        --pin-dest-addr <PIN_DEST_ADDR>
+            Redirect all incoming data to this destination, for testing [default: <empty>]
 
         --quic
-            Enable QUIC for Transport Layer, [default: false]
+            Enable QUIC for Transport Layer [default: false]
 
         --quic-max-concurrency <QUIC_MAX_CONCURRENCY>
-            The max number of QUIC connections, [default: Infinite]
+            The max number of QUIC connections [default: Infinite]
 
         --server-bind <SERVER_BIND>
-            Server bind address. If not set, bp will relay directly, [default: <empty>]
+            Server bind address. If not set, bp will relay directly [default: <empty>]
 
         --tls
-            Enable TLS for Transport Layer, [default: false]
+            Enable TLS for Transport Layer [default: false]
 
         --tls-cert <TLS_CERT>
-            Certificate for QUIC or TLS, [default: <empty>]
+            Certificate for QUIC or TLS [default: <empty>]
 
         --udp-over-tcp
             Convert udp to tcp requires --server-bind to be set if true [default: false]

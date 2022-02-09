@@ -2,7 +2,7 @@ use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{DEFAULT_DNS_SERVER_ADDRESS, DEFAULT_CLIENT_SERVICE_ADDRESS},
+    constants::{DEFAULT_CLIENT_SERVICE_ADDRESS, DEFAULT_DNS_SERVER_ADDRESS},
     net::address::Address,
     protos::EncryptionMethod,
     HttpBasicAuth,
@@ -55,9 +55,9 @@ pub struct ClientOptions {
     #[serde(default = "get_default_encryption")]
     pub encryption: EncryptionMethod,
 
-    /// Check white list before proxy, pass a file path [default: <empty>]
+    /// Check access control list before proxy, pass a file path [default: <empty>]
     #[clap(long)]
-    pub proxy_white_list: Option<String>,
+    pub acl: Option<String>,
 
     /// Redirect all incoming data to this destination, for testing [default: <empty>]
     #[clap(long)]
@@ -102,8 +102,8 @@ impl ClientOptions {
             return Err(Error::msg("-k or --key must be set."));
         }
 
-        if self.pac_bind.is_some() && self.proxy_white_list.is_none() {
-            return Err(Error::msg("--pac-bind requires --proxy-white-list to be set."));
+        if self.pac_bind.is_some() && self.acl.is_none() {
+            return Err(Error::msg("--pac-bind requires --acl to be set."));
         }
 
         if self.udp_over_tcp && self.server_bind.is_none() {

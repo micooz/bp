@@ -1,0 +1,25 @@
+---
+source: bp-core/tests/acl.rs
+assertion_line: 40
+expression: read_to_string(tmp_path).unwrap()
+
+---
+[Allow]
+*:*
+*:*
+*:*
+*:*
+~*:*
+~*:*
+
+[Deny]
+bar1.com:*
+~bar2.com:80
+#bar3.com:443
+
+[Allow]
+foo1.com:*
+~foo2.com:80
+#foo3.com:443
+
+

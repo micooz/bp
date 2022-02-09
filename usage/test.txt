@@ -7,4 +7,4 @@ USAGE:
 OPTIONS:
         --config <CONFIG>    Client configuration file path [default: config.json]
     -h, --help               Print help information
-        --http <HTTP>        Fire a HTTP GET request to this address, [default: <empty>]
+        --http <HTTP>        Fire a HTTP GET request to this address [default: <empty>]

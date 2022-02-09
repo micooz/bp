@@ -78,10 +78,14 @@ mod test_server {
 
     #[test]
     fn test_checker() {
-        let opts = ServerOptions::default();
+        let opts = ServerOptions {
+            key: Some("key".to_string()),
+            ..Default::default()
+        };
         assert!(opts.check().is_ok());
 
         let opts = ServerOptions {
+            key: Some("key".to_string()),
             tls: true,
             quic: true,
             ..Default::default()
@@ -89,6 +93,7 @@ mod test_server {
         assert!(opts.check().is_err());
 
         let mut opts = ServerOptions {
+            key: Some("key".to_string()),
             quic: true,
             ..Default::default()
         };

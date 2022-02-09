@@ -117,7 +117,7 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         start_tcp_service(bind_addr, sender.clone()).await?;
         start_udp_service(bind_addr, sender).await?;
 
-        // start pac service based on --proxy-white-list
+        // start pac service
         if opts.is_client() {
             if let Some(pac_bind) = opts.client_opts().pac_bind {
                 let pac_bind = pac_bind.resolve().await?;
@@ -133,7 +133,7 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         if !opts_for_acl.is_client() {
             return;
         }
-        if let Some(ref path) = opts_for_acl.client_opts().proxy_white_list {
+        if let Some(ref path) = opts_for_acl.client_opts().acl {
             let acl = get_acl();
 
             match acl.load_from_file(path) {
