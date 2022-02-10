@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Error, Result};
-use bp_core::{constants::DEFAULT_DNS_SERVER_ADDRESS, utils::tls, ClientOptions, ServerOptions};
+use bp_core::{utils::tls, ClientOptions, ServerOptions};
 use tokio::fs;
 
 use crate::{
@@ -14,58 +14,61 @@ pub async fn run(opts: GenerateOptions) {
         log::error!("{}", err);
         exit(ExitError::ArgumentsError);
     }
-    if let Err(err) = handle(opts).await {
+
+    let mut res = Result::Ok(());
+
+    // generate bp configuration
+    if let Some(config) = &opts.config {
+        res = generate_config(config, opts.config_type).await;
+    }
+    // generate tls certificate and private key
+    if opts.certificate {
+        res = generate_certificate(&opts.hostname.unwrap()).await;
+    }
+
+    if let Err(err) = res {
         log::error!("{}", err);
     }
 }
 
-async fn handle(opts: GenerateOptions) -> Result<()> {
-    // generate bp configuration
-    if let Some(config) = &opts.config {
-        let ext = Path::new(config)
-            .extension()
-            .map(|v| v.to_str().unwrap())
-            .unwrap_or("json");
+async fn generate_config(config: &str, config_type: ConfigType) -> Result<()> {
+    let ext = Path::new(config)
+        .extension()
+        .map(|v| v.to_str().unwrap())
+        .unwrap_or("json");
 
-        let mut client_opts = ClientOptions::default();
-        let mut server_opts = ServerOptions::default();
+    let mut client_opts = ClientOptions::default();
+    let mut server_opts = ServerOptions::default();
 
-        client_opts.bind = "127.0.0.1:1080".parse().unwrap();
-        client_opts.key = Some("__some_key__".to_string());
-        client_opts.server_bind = Some("__some_where__:3000".parse().unwrap());
-        client_opts.dns_server = DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap();
+    client_opts.key = Some("__some_key__".to_string());
+    client_opts.server_bind = Some("__some_where__:3000".parse().unwrap());
 
-        server_opts.bind = "__some_where__:3000".parse().unwrap();
-        server_opts.key = Some("__some_key__".to_string());
-        server_opts.dns_server = DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap();
+    server_opts.bind = "__some_where__:3000".parse().unwrap();
+    server_opts.key = Some("__some_key__".to_string());
 
-        let content = match ext {
-            "yml" | "yaml" => match opts.config_type {
-                ConfigType::Client => serde_yaml::to_string(&client_opts)?,
-                ConfigType::Server => serde_yaml::to_string(&server_opts)?,
-            },
-            "json" => match opts.config_type {
-                ConfigType::Client => serde_json::to_string_pretty(&client_opts)?,
-                ConfigType::Server => serde_json::to_string_pretty(&server_opts)?,
-            },
-            _ => {
-                return Err(Error::msg(format!(
-                    "unknown file extension: {}, only support \"json\", \"yaml\" or \"yml\"",
-                    ext
-                )));
-            }
-        };
+    let content = match ext {
+        "yml" | "yaml" => match config_type {
+            ConfigType::Client => serde_yaml::to_string(&client_opts)?,
+            ConfigType::Server => serde_yaml::to_string(&server_opts)?,
+        },
+        "json" => match config_type {
+            ConfigType::Client => serde_json::to_string_pretty(&client_opts)?,
+            ConfigType::Server => serde_json::to_string_pretty(&server_opts)?,
+        },
+        _ => {
+            return Err(Error::msg(format!(
+                "unknown file extension: {}, only support \"json\", \"yaml\" or \"yml\"",
+                ext
+            )));
+        }
+    };
 
-        fs::write(config, content).await?;
+    fs::write(config, content).await?;
 
-        return Ok(());
-    }
+    Ok(())
+}
 
-    // generate tls certificate and private key
-    if opts.certificate {
-        let hostname = opts.hostname.unwrap();
-        tls::generate_cert_and_key(vec![hostname], "cert.der", "key.der")?;
-    }
-
+async fn generate_certificate(hostname: &str) -> Result<()> {
+    tls::generate_cert_and_key(vec![hostname.to_string()], "cert.der", "key.der")?;
     Ok(())
 }

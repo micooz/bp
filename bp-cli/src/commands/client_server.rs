@@ -6,10 +6,7 @@ use bp_core::{
     init_tls_client_config, init_tls_server_config, start_pac_service, start_quic_service, start_tcp_service,
     start_tls_service, start_udp_service, Connection, Options, Socket, StartupInfo,
 };
-use tokio::{
-    sync::{mpsc::channel, oneshot::Sender},
-    task::JoinHandle,
-};
+use tokio::sync::{mpsc::channel, oneshot::Sender};
 
 #[cfg(target_family = "unix")]
 use crate::utils::daemonize::daemonize;
@@ -78,14 +75,12 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
     }
 
     // start services
-    let handle = start_services(opts.clone(), sender_ready).await?;
-
-    handle.await.unwrap();
+    start_services(opts.clone(), sender_ready).await?;
 
     Ok(())
 }
 
-async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<JoinHandle<()>> {
+async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<()> {
     let (sender, mut receiver) = channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
 
     let bind_addr = opts.bind().resolve().await?;
@@ -126,33 +121,28 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         }
     }
 
-    let opts_for_acl = opts.clone();
-
     // load acl
-    tokio::spawn(async move {
-        if !opts_for_acl.is_client() {
-            return;
-        }
-        if let Some(ref path) = opts_for_acl.client_opts().acl {
-            let acl = get_acl();
+    if let Some(ref path) = opts.acl() {
+        let acl = get_acl();
 
-            match acl.load_from_file(path) {
-                Ok(_) => {
-                    #[cfg(not(debug_assertions))]
-                    {
-                        let path = path.clone();
+        log::info!("[acl] loading acl from {}", path);
 
-                        tokio::spawn(async move {
-                            acl.watch(&path).unwrap();
-                        });
-                    }
-                }
-                Err(err) => {
-                    log::error!("[acl] load white list failed due to: {}", err);
-                }
-            }
+        acl.load_from_file(path).map_err(|err| {
+            let msg = format!("[acl] cannot load acl from file due to: {}", err);
+            Error::msg(msg)
+        })?;
+
+        log::info!("[acl] loaded {} valid rules", acl.count());
+
+        #[cfg(not(debug_assertions))]
+        {
+            let path = path.clone();
+
+            tokio::spawn(async move {
+                acl.watch(&path).unwrap();
+            });
         }
-    });
+    }
 
     // consume sockets from receiver
     let handle = tokio::spawn(async move {
@@ -212,7 +202,9 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         })
         .unwrap();
 
-    Ok(handle)
+    handle.await.unwrap();
+
+    Ok(())
 }
 
 fn init_tls_configs(opts: &Options) -> Result<()> {

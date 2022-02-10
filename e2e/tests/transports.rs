@@ -2,7 +2,7 @@ use std::sync::Once;
 
 use bp_core::{utils::tls, ClientOptions, ServerOptions};
 use cmd_lib::run_fun;
-use e2e::run_all::{run_all, TestResponse};
+use e2e::runner::{run_all, TestResponse};
 
 static INIT: Once = Once::new();
 

@@ -1,5 +1,6 @@
 #![feature(slice_group_by)]
 
+mod constants;
 mod event;
 mod global;
 mod io;
@@ -9,7 +10,6 @@ mod protos;
 mod services;
 
 pub mod acl;
-pub mod constants;
 pub mod utils;
 
 pub use net::{

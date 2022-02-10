@@ -1,6 +1,6 @@
 use bp_core::{ClientOptions, EncryptionMethod, ServerOptions};
 use cmd_lib::run_fun;
-use e2e::run_all::{run_all, TestResponse};
+use e2e::runner::{run_all, TestResponse};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_plain() {

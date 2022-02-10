@@ -1,42 +1,31 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use serde::Serialize;
-use tokio::{net::UdpSocket, sync::Mutex};
 
-use crate::events::Event;
+use crate::{events::Event, sender::SenderType};
 
 #[derive(Default)]
 pub struct Tracer {
-    subscribers: Arc<Mutex<Vec<SocketAddr>>>,
-    sender: Option<Arc<UdpSocket>>,
+    senders: Vec<Arc<SenderType>>,
 }
 
 impl Tracer {
-    pub async fn init(&mut self) {
-        let addr = format!("{}:{}", "0.0.0.0", "8080");
-        let addr = addr.parse::<SocketAddr>().unwrap();
-        let socket = UdpSocket::bind(addr).await.unwrap();
-
-        self.sender = Some(Arc::new(socket));
-    }
-
-    pub async fn add_subscriber(&mut self, peer_addr: SocketAddr) {
-        let mut subscribers = self.subscribers.lock().await;
-        subscribers.push(peer_addr);
+    pub async fn add_sender(&mut self, mut sender: SenderType) {
+        sender.init().await;
+        self.senders.push(Arc::new(sender));
     }
 
     pub fn log<T: Serialize + Event>(&self, event: T) {
         let data = bincode::serialize(&event).unwrap();
 
-        let sender = self.sender.clone().unwrap();
-        let subscribers = self.subscribers.clone();
+        // dispatch data to all senders
+        for sender in &self.senders {
+            let sender = sender.clone();
+            let data = data.clone();
 
-        tokio::spawn(async move {
-            let subscribers = subscribers.lock().await;
-
-            for sub in subscribers.iter() {
-                sender.send_to(&data, sub).await.unwrap();
-            }
-        });
+            tokio::spawn(async move {
+                sender.send(&data).await.unwrap();
+            });
+        }
     }
 }

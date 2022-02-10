@@ -6,7 +6,7 @@ USAGE:
 
 OPTIONS:
         --acl <ACL>
-            Check access control list before proxy, pass a file path [default: <empty>]
+            Check ACL before proxy, pass a file path [default: <empty>]
 
     -b, --bind <BIND>
             Local service bind address [default: 127.0.0.1:1080]
@@ -27,7 +27,7 @@ OPTIONS:
             Symmetric encryption key, required if --server-bind is set [default: <empty>]
 
         --pac-bind <PAC_BIND>
-            Start a PAC server at the same time, requires --proxy-white-list [default: <empty>]
+            Start a PAC server at the same time, requires --acl [default: <empty>]
 
         --pin-dest-addr <PIN_DEST_ADDR>
             Redirect all incoming data to this destination, for testing [default: <empty>]

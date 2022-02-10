@@ -21,7 +21,7 @@ fn get_default_dns_server() -> Address {
     DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap()
 }
 
-#[derive(clap::Args, Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(clap::Args, Deserialize, Serialize, Debug, Clone)]
 pub struct ServerOptions {
     /// Configuration file in YAML/JSON format [default: <empty>]
     #[clap(long)]
@@ -41,6 +41,10 @@ pub struct ServerOptions {
     #[clap(short, long, default_value = "erp")]
     #[serde(default = "get_default_encryption")]
     pub encryption: EncryptionMethod,
+
+    /// Check ACL before proxy, pass a file path [default: <empty>]
+    #[clap(long)]
+    pub acl: Option<String>,
 
     /// DNS server address
     #[clap(long, default_value = DEFAULT_DNS_SERVER_ADDRESS)]
@@ -64,6 +68,23 @@ pub struct ServerOptions {
     /// Private key file for QUIC or TLS [default: <empty>]
     #[clap(long)]
     pub tls_key: Option<String>,
+}
+
+impl Default for ServerOptions {
+    fn default() -> Self {
+        Self {
+            config: None,
+            bind: get_default_bind(),
+            key: None,
+            encryption: get_default_encryption(),
+            acl: None,
+            dns_server: get_default_dns_server(),
+            tls: false,
+            quic: false,
+            tls_cert: None,
+            tls_key: None,
+        }
+    }
 }
 
 impl ServerOptions {

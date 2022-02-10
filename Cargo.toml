@@ -9,34 +9,31 @@ keywords = ["bp", "proxy", "socks", "socks5", "firewall"]
 license = "MIT"
 edition = "2021"
 
+default-run = "bp"
+
 [[bin]]
 name = "bp"
 path = "bin/bp.rs"
 
-[features]
-logging = []
-profile = [
-  "bp-cli/profile"
-]
-
-default = [
-  "logging"
-]
+[[bin]]
+name = "bp-web"
+path = "bin/bp-web.rs"
 
 [workspace]
 members = [
     "bp-cli",
     "bp-core",
     "bp-monitor",
+    "bp-web",
     "e2e",
 ]
 
 [dependencies]
 bp-cli = { path = "./bp-cli" }
 bp-core = { path = "./bp-core" }
+bp-web = { path = "./bp-web" }
 clap = { version = "3.0.0-beta.5", default-features = false, features = ["std", "derive"] }
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
-log = "0.4.0"
 
 [profile.release]
 lto = "fat"

@@ -1,7 +1,0 @@
----
-source: e2e/tests/generate.rs
-assertion_line: 17
-expression: "fs::read_file(config_path).await"
-
----
-"{\n  \"bind\": \"127.0.0.1:1080\",\n  \"with_basic_auth\": null,\n  \"server_bind\": \"__some_where__:3000\",\n  \"pac_bind\": null,\n  \"key\": \"__some_key__\",\n  \"encryption\": \"erp\",\n  \"proxy_white_list\": null,\n  \"pin_dest_addr\": null,\n  \"udp_over_tcp\": false,\n  \"dns_server\": \"8.8.8.8:53\",\n  \"tls\": false,\n  \"quic\": false,\n  \"quic_max_concurrency\": null,\n  \"tls_cert\": null\n}"

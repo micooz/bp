@@ -1,11 +1,11 @@
 use bp_core::{ClientOptions, Options, ServerOptions};
-use e2e::{oneshot::udp_oneshot, run_bp::run_bp};
+use e2e::{oneshot::udp_oneshot, runner::run_bp};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_udp_relay_without_server() {
     let client_opts = Options::Client(ClientOptions::default());
 
-    let client = run_bp(client_opts, None).await;
+    let client = run_bp(client_opts).await;
 
     let buf = udp_oneshot(client.bind_addr, include_bytes!("fixtures/normal_dns_query.bin")).await;
 
@@ -28,7 +28,7 @@ async fn run_test(udp_over_tcp: bool) {
         ..Default::default()
     });
 
-    let server = run_bp(server_opts, None).await;
+    let server = run_bp(server_opts).await;
 
     let client_opts = Options::Client(ClientOptions {
         key: Some("key".to_string()),
@@ -37,7 +37,7 @@ async fn run_test(udp_over_tcp: bool) {
         ..Default::default()
     });
 
-    let client = run_bp(client_opts, None).await;
+    let client = run_bp(client_opts).await;
 
     let buf = udp_oneshot(client.bind_addr, include_bytes!("fixtures/normal_dns_query.bin")).await;
 

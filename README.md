@@ -21,8 +21,8 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 - [x] TLS transport layer
 - [x] Configuration generators
 - [x] HTTP Proxy Basic Authorization
-- [ ] PAC Service based on access control list
-- [ ] Enhance acl, support for bp server
+- [x] PAC Service based on access control list
+- [x] Enhance acl, support for bp server
 - [ ] Improve performance of I/O reader
 - [ ] Tracer & Monitor Service
 - [ ] Web GUI
@@ -34,7 +34,7 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 
 ## Basic Usages
 
-Please check -h/--help first, or see [USAGE](usage).
+Please check -h/--help first, or see [USAGE](usages).
 
 ```
 $ bp -h
@@ -178,10 +178,10 @@ Each rule can add a prefix to change match behavior:
 
 ### PAC Service
 
-By adding `--pac-bind`, you can start a PAC service at specified address while bp client started. The content of `proxy.pac` is based on your `--proxy-white-list`, you must prepare this file first.
+By adding `--pac-bind`, you can start a PAC service at specified address while bp client started. The content of `proxy.pac` is generate from your `--acl`, you must prepare this file first.
 
 ```
-$ bp client --proxy-white-list /path/to/list.txt --pac-bind <host:port>
+$ bp client --acl /path/to/acl.txt --pac-bind <host:port>
 ```
 
 ### Enable TLS

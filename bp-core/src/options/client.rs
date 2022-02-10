@@ -22,7 +22,7 @@ fn get_default_dns_server() -> Address {
     DEFAULT_DNS_SERVER_ADDRESS.parse().unwrap()
 }
 
-#[derive(clap::Args, Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(clap::Args, Deserialize, Serialize, Debug, Clone)]
 pub struct ClientOptions {
     /// Configuration file in YAML/JSON format [default: <empty>]
     #[clap(long)]
@@ -42,7 +42,7 @@ pub struct ClientOptions {
     #[clap(long)]
     pub server_bind: Option<Address>,
 
-    /// Start a PAC server at the same time, requires --proxy-white-list [default: <empty>]
+    /// Start a PAC server at the same time, requires --acl [default: <empty>]
     #[clap(long)]
     pub pac_bind: Option<Address>,
 
@@ -55,7 +55,7 @@ pub struct ClientOptions {
     #[serde(default = "get_default_encryption")]
     pub encryption: EncryptionMethod,
 
-    /// Check access control list before proxy, pass a file path [default: <empty>]
+    /// Check ACL before proxy, pass a file path [default: <empty>]
     #[clap(long)]
     pub acl: Option<String>,
 
@@ -90,6 +90,28 @@ pub struct ClientOptions {
     /// Certificate for QUIC or TLS [default: <empty>]
     #[clap(long)]
     pub tls_cert: Option<String>,
+}
+
+impl Default for ClientOptions {
+    fn default() -> Self {
+        Self {
+            config: None,
+            bind: get_default_bind(),
+            with_basic_auth: None,
+            server_bind: None,
+            pac_bind: None,
+            key: None,
+            encryption: get_default_encryption(),
+            acl: None,
+            pin_dest_addr: None,
+            udp_over_tcp: false,
+            dns_server: get_default_dns_server(),
+            tls: false,
+            quic: false,
+            quic_max_concurrency: None,
+            tls_cert: None,
+        }
+    }
 }
 
 impl ClientOptions {

@@ -45,7 +45,7 @@ impl RuleValue {
         if port.is_some() && self.port == port.unwrap().to_string() {
             return true;
         }
-        return false;
+        false
     }
 }
 
@@ -62,7 +62,7 @@ impl Display for RuleValue {
 
 impl From<&str> for RuleValue {
     fn from(s: &str) -> Self {
-        let mut split = s.split(":");
+        let mut split = s.split(':');
         let host = split.next().unwrap_or("*");
         let port = split.next().unwrap_or("*");
 

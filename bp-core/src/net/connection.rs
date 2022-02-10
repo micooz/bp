@@ -55,15 +55,23 @@ impl Connection {
             self.outbound.set_socket_type(self.get_outbound_socket_type(resolved));
             out_proto = self.create_outbound_protocol(resolved);
         } else {
+            let will = match self.opts.service_type() {
+                ServiceType::Client => "not proxy to bp server",
+                ServiceType::Server => "close this connection",
+            };
+
             log::warn!(
-                "[{}] [{}] [{}] is DENY in acl",
+                "[{}] [{}] {} is DENY by acl, will {}",
                 self.peer_addr,
                 self.inbound.socket_type(),
                 resolved.address,
+                will,
             );
+
             match self.opts.service_type() {
                 ServiceType::Client => {
                     // change outbound protocol to TCP
+                    // TODO: close connection on client side?
                     self.outbound.set_socket_type(SocketType::Tcp);
                     self.outbound.set_allow_proxy(false);
                     out_proto = Box::new(Direct::default());
@@ -161,7 +169,7 @@ impl Connection {
     }
 
     fn check_acl(&self, addr: &Address) -> bool {
-        if self.opts.client_opts().acl.is_none() {
+        if self.opts.acl().is_none() {
             return true;
         }
 

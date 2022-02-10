@@ -7,7 +7,7 @@ use std::{
     time,
 };
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -27,19 +27,9 @@ pub struct AccessControlList {
 
 impl AccessControlList {
     pub fn load_from_file(&self, path: &str) -> Result<()> {
-        if path.is_empty() {
-            return Err(Error::msg("empty string specified"));
-        }
-
-        log::info!("loading acl from {}", path);
-
-        let content = fs::read_to_string(path).unwrap();
-
+        let content = fs::read_to_string(path)?;
         self.clear();
         self.deserialize(&content);
-
-        log::info!("loaded {} valid rules", self.count());
-
         Ok(())
     }
 
@@ -47,7 +37,7 @@ impl AccessControlList {
         let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
         let content = self.serialize();
 
-            dbg!(&content);
+        dbg!(&content);
 
         file.write_all(content.as_bytes())?;
         file.flush()?;
@@ -210,7 +200,7 @@ impl AccessControlList {
             }
 
             // only keep the first part, for example: "keep_me ignore_me also_ignore" -> "keep_me"
-            let mut split = line.split(" ");
+            let mut split = line.split(' ');
             let item = split.next().unwrap();
 
             // determine to use which group
@@ -227,7 +217,7 @@ impl AccessControlList {
             }
 
             // obtain prefix
-            let prefix = match item.chars().nth(0).unwrap() {
+            let prefix = match item.chars().next().unwrap() {
                 '~' => RulePrefix::Fuzzy,
                 '#' => RulePrefix::Ignore,
                 _ => RulePrefix::Exact,

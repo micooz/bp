@@ -89,6 +89,13 @@ impl Options {
         }
     }
 
+    pub fn acl(&self) -> Option<String> {
+        match self {
+            Self::Client(opts) => opts.acl.clone(),
+            Self::Server(opts) => opts.acl.clone(),
+        }
+    }
+
     pub fn dns_server(&self) -> Address {
         match self {
             Self::Client(opts) => opts.dns_server.clone(),

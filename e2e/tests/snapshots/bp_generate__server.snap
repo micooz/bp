@@ -1,0 +1,17 @@
+---
+source: e2e/tests/bp_generate.rs
+assertion_line: 27
+expression: "fs::read_file(config_path_server).await"
+
+---
+{
+  "bind": "__some_where__:3000",
+  "key": "__some_key__",
+  "encryption": "erp",
+  "acl": null,
+  "dns_server": "8.8.8.8:53",
+  "tls": false,
+  "quic": false,
+  "tls_cert": null,
+  "tls_key": null
+}

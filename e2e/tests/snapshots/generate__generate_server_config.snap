@@ -1,7 +1,0 @@
----
-source: e2e/tests/generate.rs
-assertion_line: 31
-expression: "fs::read_file(config_path).await"
-
----
-"---\nbind: \"__some_where__:3000\"\nkey: __some_key__\nencryption: erp\ndns_server: \"8.8.8.8:53\"\ntls: false\nquic: false\ntls_cert: ~\ntls_key: ~\n"

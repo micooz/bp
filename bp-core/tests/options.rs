@@ -12,9 +12,6 @@ mod test_utils {
 }
 
 #[cfg(test)]
-mod test_cli {}
-
-#[cfg(test)]
 mod test_common {
     use bp_core::{ClientOptions, Options, ServerOptions, ServiceType};
 

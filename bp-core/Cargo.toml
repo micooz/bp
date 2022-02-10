@@ -4,6 +4,8 @@ version = "2.0.0-alpha.1"
 edition = "2021"
 
 [dependencies]
+bp-monitor = { path = "../bp-monitor" }
+
 ### framework
 async-trait = "0.1.50"
 anyhow = "1.0.44"

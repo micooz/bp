@@ -244,9 +244,9 @@ impl Address {
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (_, addr) = match &self.host {
-            Host::Ip(ip) => ("Ip", ip.to_string()),
-            Host::Name(name) => ("HostName", name.to_string()),
+        let addr = match &self.host {
+            Host::Ip(ip) => ip.to_string(),
+            Host::Name(name) => name.to_string(),
         };
         write!(f, "{}:{}", addr, self.port)
     }
