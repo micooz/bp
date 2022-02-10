@@ -30,7 +30,7 @@ impl Sender for UdpSender {
         for sub in &self.subscribers {
             let buf = buf.to_vec();
             let socket = socket.clone();
-            let target = sub.clone();
+            let target = *sub;
 
             tokio::spawn(async move {
                 socket.send_to(&buf, target).await.unwrap();

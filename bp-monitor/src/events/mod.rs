@@ -1,5 +1,5 @@
 pub trait Event {
-  fn name() -> String;
+    fn name() -> String;
 }
 
 mod new_connection;
