@@ -12,6 +12,7 @@ mod services;
 pub mod acl;
 pub mod utils;
 
+pub use global::{monitor_log, set_monitor};
 pub use net::{
     address::Address,
     connection::Connection,
@@ -28,6 +29,6 @@ pub use options::{
 };
 pub use protos::{EncryptionMethod, HttpBasicAuth};
 pub use services::{
-    pac::start_pac_service, quic::start_quic_service, tcp::start_tcp_service, tls::start_tls_service,
-    udp::start_udp_service, StartupInfo,
+    monitor::start_monitor_service, pac::start_pac_service, quic::start_quic_service, tcp::start_tcp_service,
+    tls::start_tls_service, udp::start_udp_service, StartupInfo,
 };

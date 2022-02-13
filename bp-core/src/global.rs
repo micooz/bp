@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use bp_monitor::{events::Event, Monitor, Subscriber};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use tokio::sync::RwLock;
+use serde::Serialize;
 use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{
@@ -11,9 +12,12 @@ use crate::{
     net::quic::{EndpointPool, RandomEndpoint},
 };
 
+type AsyncMutex<T> = tokio::sync::Mutex<T>;
+
 lazy_static! {
     static ref ACL: Arc<AccessControlList> = Default::default();
-    static ref DNS_RESOLVER: Arc<RwLock<Option<TokioAsyncResolver>>> = Default::default();
+    static ref DNS_RESOLVER: Arc<AsyncMutex<Option<TokioAsyncResolver>>> = Default::default();
+    static ref MONITOR: Mutex<Monitor> = Default::default();
     static ref TLS_SERVER_CONFIG: Mutex<Option<rustls::ServerConfig>> = Default::default();
     static ref TLS_CLIENT_CONFIG: Mutex<Option<rustls::ClientConfig>> = Default::default();
     static ref QUINN_SERVER_CONFIG: Mutex<Option<quinn::ServerConfig>> = Default::default();
@@ -29,13 +33,30 @@ pub fn get_acl() -> Arc<AccessControlList> {
 
 // dns_resolver
 
-pub fn get_dns_resolver() -> Arc<RwLock<Option<TokioAsyncResolver>>> {
+pub fn get_dns_resolver() -> Arc<AsyncMutex<Option<TokioAsyncResolver>>> {
     DNS_RESOLVER.clone()
 }
 
 pub async fn set_dns_resolver(resolver: TokioAsyncResolver) {
-    let mut inner = DNS_RESOLVER.write().await;
-    *inner = Some(resolver);
+    let mut dns_resolver = DNS_RESOLVER.lock().await;
+    *dns_resolver = Some(resolver);
+}
+
+// monitor
+
+pub fn set_monitor(m: Monitor) {
+    let mut monitor = MONITOR.lock();
+    *monitor = m;
+}
+
+pub fn monitor_add_subscriber(subscriber: Subscriber) -> Result<()> {
+    let mut monitor = MONITOR.lock();
+    monitor.add_subscriber(subscriber)
+}
+
+pub fn monitor_log<T: Serialize + Event>(event: T) {
+    let monitor = MONITOR.lock();
+    monitor.log(event);
 }
 
 // tls
@@ -87,7 +108,7 @@ pub fn set_quic_endpoint_pool(pool: EndpointPool) {
     *quic_endpoint_pool = pool;
 }
 
-pub fn get_random_endpoint() -> Result<RandomEndpoint> {
+pub fn get_quic_random_endpoint() -> Result<RandomEndpoint> {
     let mut quic_endpoint_pool = QUINN_ENDPOINT_POOL.lock();
     quic_endpoint_pool.random_endpoint()
 }

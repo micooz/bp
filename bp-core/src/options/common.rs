@@ -14,6 +14,7 @@ pub enum Options {
     Server(ServerOptions),
 }
 
+// implement helper functions
 impl Options {
     pub fn try_load_from_file(&mut self, config: &str) -> Result<()> {
         match self {
@@ -135,6 +136,13 @@ impl Options {
         match self {
             Self::Client(opts) => opts.tls_cert.clone(),
             Self::Server(opts) => opts.tls_cert.clone(),
+        }
+    }
+
+    pub fn monitor(&self) -> Option<Address> {
+        match self {
+            Self::Client(opts) => opts.monitor.clone(),
+            Self::Server(opts) => opts.monitor.clone(),
         }
     }
 }

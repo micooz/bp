@@ -11,7 +11,7 @@ pub async fn start_tls_service(bind_addr: SocketAddr, sender: Sender<Option<Sock
         .await
         .map_err(|err| Error::msg(format!(" tls service start failed from {} due to: {}", bind_addr, err)))?;
 
-    log::info!(" service running at tls://{}, waiting for connection...", bind_addr);
+    log::info!("service running at tls://{}, waiting for connection...", bind_addr);
 
     tokio::spawn(async move {
         let acceptor = TlsAcceptor::from(Arc::new(get_tls_server_config()));

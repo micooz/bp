@@ -9,7 +9,7 @@ pub const DEFAULT_DNS_SERVER_ADDRESS: &str = "8.8.8.8:53";
 pub const DEST_ADDR_RESOLVE_TIMEOUT_SECONDS: u64 = 10;
 
 /// The timeout for resolving ip address
-pub const DNS_RESOLVE_TIMEOUT_SECONDS: u64 = 10;
+pub const DNS_RESOLVE_TIMEOUT_SECONDS: u64 = 5;
 
 /// The timeout for TCP connect
 pub const TCP_CONNECT_TIMEOUT_SECONDS: u64 = 10;

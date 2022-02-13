@@ -90,6 +90,10 @@ pub struct ClientOptions {
     /// Certificate for QUIC or TLS [default: <empty>]
     #[clap(long)]
     pub tls_cert: Option<String>,
+
+    /// Enable monitor push service [default: <empty>]
+    #[clap(long)]
+    pub monitor: Option<Address>,
 }
 
 impl Default for ClientOptions {
@@ -110,6 +114,7 @@ impl Default for ClientOptions {
             quic: false,
             quic_max_concurrency: None,
             tls_cert: None,
+            monitor: None,
         }
     }
 }

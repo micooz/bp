@@ -68,6 +68,10 @@ pub struct ServerOptions {
     /// Private key file for QUIC or TLS [default: <empty>]
     #[clap(long)]
     pub tls_key: Option<String>,
+
+    /// Enable monitor push service [default: <empty>]
+    #[clap(long)]
+    pub monitor: Option<Address>,
 }
 
 impl Default for ServerOptions {
@@ -83,6 +87,7 @@ impl Default for ServerOptions {
             quic: false,
             tls_cert: None,
             tls_key: None,
+            monitor: None,
         }
     }
 }

@@ -4,6 +4,7 @@ version = "2.0.0-alpha.1"
 edition = "2021"
 
 [dependencies]
+bp-core = { path = "../bp-core" }
 tokio = { version = "1.8.2", features = ["net", "macros"] }
 serde = { version = "1.0.0", features = ["derive"] }
 tide = "0.16.0"

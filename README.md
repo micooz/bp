@@ -10,9 +10,9 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 
 * Cross-platform, of course. Linux/Windows/macOS and others.
 * Support Socks5/HTTP/HTTPS Proxy Protocols.
-* Support proxy non-proxy protocols, for example: HTTP/HTTPS/DNS.
-* Support multiple transport protocols, for example: TLS/QUIC.
-* Support ACL(Access Control List) and PAC(Proxy Auto Config) service.
+* Support proxy non-proxy protocols, e.g, HTTP/HTTPS/DNS.
+* Support multiple transport protocols, e.g, TLS/QUIC.
+* Support Access Control List (ACL) and Proxy Auto Config (PAC) service.
 * Work with Linux Firewall(via iptables).
 
 ## 2.0 Roadmap
@@ -23,9 +23,9 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 - [x] HTTP Proxy Basic Authorization
 - [x] PAC Service based on access control list
 - [x] Enhance acl, support for bp server
-- [ ] Improve performance of I/O reader
-- [ ] Tracer & Monitor Service
+- [ ] Monitor Service
 - [ ] Web GUI
+- [ ] Improve performance of I/O reader
 
 ## Planned Features
 
@@ -90,26 +90,53 @@ $ curl -x 127.0.0.1:1080 cn.bing.com
 
 ### No Proxy
 
+This feature is **Client Only**.
+
 If not set `--server-bind`, bp will relay directly.
 
 ```
 $ bp client
 ```
 
-### Encryption Method
+### Proxy Auto Config (PAC)
+
+This feature is **Client Only**.
 
 ```
-$ bp client --bind 127.0.0.1:9000 --key test --encryption <method>
+$ bp client --acl /path/to/acl.txt --pac-bind <host:port>
 ```
 
-`<method>` can be:
+**Caveats**
 
-* `plain`: without encryption.
-* `erp`: AEAD encryption with random padding. (default)
+* The PAC URL location is `http://<host:port>/proxy.pac`.
+* The content of `proxy.pac` is generate from your `--acl`, you must prepare ACL first.
 
-### Access Control
+### UDP over TCP
 
-Access Control works for both client and server side.
+This feature is **Client Only**.
+
+```
+$ bp client --key key --udp-over-tcp --server-bind <host:port>
+```
+
+### Pin Destination Address
+
+This feature is **Client Only**.
+
+> NOTE: this is usually for testing via **iperf**
+
+```
+$ bp client --pin-dest-addr <host:port>
+```
+
+### Access Control List (ACL)
+
+Access Control List works for both client and server side.
+
+**Caveats**
+
+* The default strategy is **Black List**.
+* Higher priority for later rules.
 
 ```
 $ bp client --acl /path/to/acl.txt
@@ -172,17 +199,16 @@ Each rule can add a prefix to change match behavior:
 * `~`: fuzzy match, e,g. `~example.com:443` will match `*example.com*:443`
 * `#`: comment string, skip matching, e,g. `#example.com`
 
-> Note that:
-> 1. The default strategy is **Black List**
-> 2. Higher priority for later rules
-
-### PAC Service
-
-By adding `--pac-bind`, you can start a PAC service at specified address while bp client started. The content of `proxy.pac` is generate from your `--acl`, you must prepare this file first.
+### Encryption Method
 
 ```
-$ bp client --acl /path/to/acl.txt --pac-bind <host:port>
+$ bp client --bind 127.0.0.1:9000 --key test --encryption <method>
 ```
+
+`<method>` can be:
+
+* `plain`: without encryption.
+* `erp`: AEAD encryption with random padding. (default)
 
 ### Enable TLS
 
@@ -208,20 +234,22 @@ $ bp client --tls --tls-cert <cert_path>
 
 [QUIC](https://quicwg.github.io/) is a transport protocol based on UDP and TLS, it force use TLS, so we should first generate TLS Certificate and Private Key. The steps are almost the same as **Enable TLS**, just need replace `--tls` to `--quic`.
 
+### Enable Monitor
 
-### UDP over TCP
-
-```
-$ bp client --key key --udp-over-tcp --server-bind <host:port>
-```
-
-### Pin Destination Address
-
-> NOTE: this is usually for testing via **iperf**
+First, start monitor service at `<host:port>`:
 
 ```
-$ bp client --pin-dest-addr <host:port>
+$ bp client --monitor <host:port>
 ```
+
+Then, connect to the port via UDP:
+
+```
+$ nc -u <host> <port>
+<enter>
+```
+
+Then you can keep receiving monitor messages. Each message is sent in **JSON format** within one UDP packet.
 
 ### Linux Router
 
@@ -237,3 +265,13 @@ iptables -t nat -A BP -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports
 iptables -t nat -A PREROUTING -p tcp -j BP
 iptables -t nat -A OUTPUT -p tcp -j BP
 ```
+
+## Web GUI
+
+First, start Web GUI via `bp-web`:
+
+```
+$ bp-web --config <bp_config>
+```
+
+Then, open the link displayed on the console.

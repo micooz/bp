@@ -4,4 +4,4 @@ pub trait Event {
 
 mod new_connection;
 
-pub use new_connection::NewIncomingConnectionEvent;
+pub use new_connection::NewConnectionEvent;

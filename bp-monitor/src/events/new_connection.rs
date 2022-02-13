@@ -1,14 +1,16 @@
+use std::net::SocketAddr;
+
 use serde::Serialize;
 
 use super::Event;
 
 #[derive(Serialize)]
-pub struct NewIncomingConnectionEvent {
-    pub inner: usize,
+pub struct NewConnectionEvent {
+    pub peer_addr: SocketAddr,
 }
 
-impl Event for NewIncomingConnectionEvent {
+impl Event for NewConnectionEvent {
     fn name() -> String {
-        "NewIncomingConnectionEvent".to_string()
+        "NewConnectionEvent".to_string()
     }
 }

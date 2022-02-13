@@ -237,7 +237,7 @@ impl Outbound {
                 Arc::new(socket)
             }
             SocketType::Quic => {
-                let RandomEndpoint { inner: endpoint, reuse } = global::get_random_endpoint()?;
+                let RandomEndpoint { inner: endpoint, reuse } = global::get_quic_random_endpoint()?;
 
                 if reuse {
                     log::info!(

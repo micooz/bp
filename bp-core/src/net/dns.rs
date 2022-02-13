@@ -35,7 +35,7 @@ pub async fn dns_resolve(addr: &Address) -> Result<SocketAddr> {
         let name = addr.host();
 
         let resolver = global::get_dns_resolver();
-        let resolver = resolver.read().await;
+        let resolver = resolver.lock().await;
         let resolver = resolver.as_ref().unwrap();
 
         // set a timeout

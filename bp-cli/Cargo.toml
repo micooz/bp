@@ -13,6 +13,7 @@ profile = [
 
 [dependencies]
 bp-core = { path = "../bp-core" }
+bp-monitor = { path = "../bp-monitor" }
 anyhow = "1.0.44"
 clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
 daemonize = "0.4.1"

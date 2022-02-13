@@ -3,9 +3,11 @@ use std::{env, process, sync::Arc};
 use anyhow::{Error, Result};
 use bp_core::{
     acl::get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
-    init_tls_client_config, init_tls_server_config, start_pac_service, start_quic_service, start_tcp_service,
-    start_tls_service, start_udp_service, Connection, Options, Socket, StartupInfo,
+    init_tls_client_config, init_tls_server_config, monitor_log, set_monitor, start_monitor_service, start_pac_service,
+    start_quic_service, start_tcp_service, start_tls_service, start_udp_service, Connection, Options, Socket,
+    StartupInfo,
 };
+use bp_monitor::{events, Monitor};
 use tokio::sync::{mpsc::channel, oneshot::Sender};
 
 #[cfg(target_family = "unix")]
@@ -121,6 +123,15 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         }
     }
 
+    // start monitor service
+    if let Some(addr) = opts.monitor() {
+        let monitor = Monitor::default();
+        set_monitor(monitor);
+
+        let bind_addr = addr.resolve().await?;
+        start_monitor_service(bind_addr).await?;
+    }
+
     // load acl
     if let Some(ref path) = opts.acl() {
         let acl = get_acl();
@@ -166,6 +177,8 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
             // put socket to new task to create a Connection
             tokio::spawn(async move {
                 let peer_addr = socket.peer_addr();
+
+                monitor_log(events::NewConnectionEvent { peer_addr });
 
                 log::info!(
                     "[{}] connected, {} live connections, {} in total",

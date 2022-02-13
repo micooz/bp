@@ -1,3 +1,6 @@
 pub mod events;
-pub mod sender;
-pub mod tracer;
+mod monitor;
+mod subscriber;
+
+pub use monitor::Monitor;
+pub use subscriber::Subscriber;
