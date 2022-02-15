@@ -1,0 +1,11 @@
+{
+  "source": "src/index.html",
+  "scripts": {
+    "start": "parcel",
+    "prebuild": "rm -rf dist",
+    "build": "parcel build"
+  },
+  "devDependencies": {
+    "parcel": "2.3.1"
+  }
+}

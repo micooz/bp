@@ -1,4 +1,5 @@
 #![feature(slice_group_by)]
+#![feature(path_try_exists)]
 
 mod constants;
 mod event;
@@ -10,6 +11,7 @@ mod protos;
 mod services;
 
 pub mod acl;
+pub mod logging;
 pub mod utils;
 
 pub use global::{monitor_log, set_monitor};

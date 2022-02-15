@@ -1,8 +1,8 @@
 use bp_cli::{
     commands::{client_server, generate, test},
-    logging,
     options::cli::{Cli, Command},
 };
+use bp_core::logging;
 use clap::StructOpt;
 use tokio::sync::oneshot;
 

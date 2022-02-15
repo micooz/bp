@@ -20,6 +20,9 @@ impl Monitor {
     }
 
     pub fn log<T: Serialize + Event>(&self, event: T) {
+        if self.subscribers.is_empty() {
+            return;
+        }
         // let data = bincode::serialize(&event).unwrap();
         let data = serde_json::to_string(&event).unwrap();
 

@@ -178,14 +178,19 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
             tokio::spawn(async move {
                 let peer_addr = socket.peer_addr();
 
-                monitor_log(events::NewConnectionEvent { peer_addr });
-
                 log::info!(
                     "[{}] connected, {} live connections, {} in total",
                     peer_addr,
                     live_cnt,
                     total_cnt
                 );
+
+                monitor_log(events::NewConnection {
+                    name: "NewConnection",
+                    peer_addr,
+                    live_cnt: live_cnt.value(),
+                    total_cnt: total_cnt.value(),
+                });
 
                 let mut conn = Connection::new(socket, opts);
 
@@ -202,6 +207,13 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
                     live_cnt,
                     total_cnt
                 );
+
+                monitor_log(events::ConnectionClose {
+                    name: "ConnectionClose",
+                    peer_addr,
+                    live_cnt: live_cnt.value(),
+                    total_cnt: total_cnt.value(),
+                });
             });
         }
     });

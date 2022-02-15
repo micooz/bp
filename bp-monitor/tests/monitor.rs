@@ -11,5 +11,10 @@ async fn test_monitor() {
 
     let mut monitor = Monitor::default();
     monitor.add_subscriber(subscriber).unwrap();
-    monitor.log(events::NewConnectionEvent { peer_addr });
+    monitor.log(events::NewConnection {
+        name: "NewConnection",
+        peer_addr,
+        total_cnt: 1,
+        live_cnt: 1,
+    });
 }

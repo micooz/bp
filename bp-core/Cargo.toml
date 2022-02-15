@@ -38,6 +38,7 @@ sha2 = "0.9.5"
 
 ### logging
 log = "0.4.0"
+log4rs = { version = "1.0.0", features = ["gzip"] }
 
 ### others
 base64 = "0.13.0"
