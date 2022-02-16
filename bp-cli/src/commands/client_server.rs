@@ -136,14 +136,10 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
     if let Some(ref path) = opts.acl() {
         let acl = get_acl();
 
-        log::info!("[acl] loading acl from {}", path);
-
         acl.load_from_file(path).map_err(|err| {
             let msg = format!("[acl] cannot load acl from file due to: {}", err);
             Error::msg(msg)
         })?;
-
-        log::info!("[acl] loaded {} valid rules", acl.count());
 
         #[cfg(not(debug_assertions))]
         {

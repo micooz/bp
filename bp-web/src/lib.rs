@@ -1,4 +1,5 @@
 mod options;
+mod routes;
 mod run;
 
 pub use options::Options;

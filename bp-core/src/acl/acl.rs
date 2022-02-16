@@ -27,9 +27,14 @@ pub struct AccessControlList {
 
 impl AccessControlList {
     pub fn load_from_file(&self, path: &str) -> Result<()> {
+        log::info!("loading acl from {}", path);
+
         let content = fs::read_to_string(path)?;
         self.clear();
         self.deserialize(&content);
+
+        log::info!("loaded {} valid rules", self.count());
+
         Ok(())
     }
 
