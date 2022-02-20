@@ -1,3 +1,4 @@
+mod controllers;
 mod options;
 mod routes;
 mod run;

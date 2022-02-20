@@ -12,11 +12,7 @@ async fn bootstrap(opts: Options) -> tide::Result<()> {
     let mut app = tide::new();
 
     // register routers
-    app.at("/").get(routes::assets);
-    app.at("/index.html").get(routes::assets);
-    app.at("/static").get(routes::assets);
-
-    app.at("/api/*").get(|_| async { Ok("Hello, world!") });
+    routes::register(&mut app);
 
     // start listening
     app.listen(bind_addr).await?;

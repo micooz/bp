@@ -31,7 +31,7 @@ pub async fn run(opts: GenerateOptions) {
     }
 }
 
-async fn generate_config(config: &str, config_type: ConfigType) -> Result<()> {
+pub async fn generate_config(config: &str, config_type: ConfigType) -> Result<()> {
     let ext = Path::new(config)
         .extension()
         .map(|v| v.to_str().unwrap())
@@ -68,7 +68,7 @@ async fn generate_config(config: &str, config_type: ConfigType) -> Result<()> {
     Ok(())
 }
 
-async fn generate_certificate(hostname: &str) -> Result<()> {
+pub async fn generate_certificate(hostname: &str) -> Result<()> {
     tls::generate_cert_and_key(vec![hostname.to_string()], "cert.der", "key.der")?;
     Ok(())
 }

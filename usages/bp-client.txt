@@ -26,6 +26,9 @@ OPTIONS:
     -k, --key <KEY>
             Symmetric encryption key, required if --server-bind is set [default: <empty>]
 
+        --monitor <MONITOR>
+            Enable monitor push service [default: <empty>]
+
         --pac-bind <PAC_BIND>
             Start a PAC server at the same time, requires --acl [default: <empty>]
 
