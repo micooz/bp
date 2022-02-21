@@ -1,3 +1,4 @@
-export { Button } from './button';
-export { Caption } from './caption';
-export { Link } from './link';
+export * from './button';
+export * from './caption';
+export * from './input-item';
+export * from './link';

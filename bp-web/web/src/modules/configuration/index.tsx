@@ -1,5 +1,5 @@
 import { useController } from 'bizify';
-import { Button, Caption } from '../../components';
+import { Button, Caption, InputItem } from '../../components';
 import { useMount } from '../../hooks';
 import { ConfigurationCtrl } from './ctrl';
 
@@ -27,8 +27,25 @@ export const Configuration: React.FC<{}> = () => {
 };
 
 function Content({ vm }: { vm: ConfigurationCtrl }) {
+  const config = vm.data.config!;
+
   return (
-    <div>render config here</div>
+    <div className="form pl-2">
+      <InputItem
+        name="bind"
+        placeholder="127.0.0.1:1080"
+        description="Local service bind address [default: 127.0.0.1:1080]"
+        value={config.bind}
+        onChange={(v) => { }}
+      />
+      <InputItem
+        name="with_basic_auth"
+        placeholder="user:pass"
+        value={config.with_basic_auth}
+        onChange={(v) => { }}
+      />
+      TODO
+    </div>
   );
 }
 

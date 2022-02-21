@@ -1,6 +1,6 @@
 interface ButtonProps {
   loading?: boolean;
-  onClick?: () => {};
+  onClick?: () => void;
 }
 
 export const Button: React.FC<ButtonProps> = (props) => {
