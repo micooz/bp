@@ -82,7 +82,7 @@ async fn run_single(opts: Options) -> ServiceInfo {
     let (startup_sender, mut startup_receiver) = mpsc::channel::<Startup>(1);
 
     tokio::spawn(async move {
-        service::run(opts, startup_sender, shutdown).await.unwrap();
+        let _ = service::run(opts, startup_sender, shutdown).await;
     });
 
     let startup = startup_receiver.recv().await.unwrap();

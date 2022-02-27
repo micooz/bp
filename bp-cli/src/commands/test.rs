@@ -28,7 +28,7 @@ pub async fn http_request_via_client(client_config: &str, remote_addr: Address) 
     log::info!("starting bp client at {}", opts.bind());
 
     tokio::spawn(async move {
-        service::run(opts, tx, async {}).await.unwrap();
+        let _ = service::run(opts, tx, tokio::signal::ctrl_c()).await;
     });
 
     let startup = rx.recv().await.unwrap();
