@@ -26,8 +26,8 @@ jobs:
 
       - name: Install dependencies for bp-web
         uses: bahmutov/npm-install@v1
-          with:
-            working-directory: bp-web/web
+        with:
+          working-directory: bp-web/web
 
       - name: Build bp-web
         run: |
