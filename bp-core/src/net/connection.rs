@@ -1,5 +1,8 @@
 use anyhow::Result;
-use tokio::{sync::mpsc::Receiver, time};
+use tokio::{
+    sync::mpsc::{channel, Receiver},
+    time,
+};
 
 use crate::{
     constants,
@@ -38,7 +41,7 @@ impl Connection {
 
     pub async fn handle(&mut self) -> Result<()> {
         // NOTE: higher buffer size leads to higher memory & cpu usage
-        let (tx, rx) = tokio::sync::mpsc::channel::<Event>(32);
+        let (tx, rx) = channel::<Event>(32);
 
         let in_proto = self.inbound.resolve().await?;
         let resolved = in_proto.get_resolved_result();

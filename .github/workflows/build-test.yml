@@ -24,6 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install dependencies for bp-web
+      - uses: bahmutov/npm-install@v1
+        with:
+          working-directory: bp-web/web
+
+      - name: Build bp-web
+        run: |
+          cd bp-web-web
+          npm run build
+
       - uses: actions/cache@v2
         with:
           path: |

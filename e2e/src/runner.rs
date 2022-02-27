@@ -1,8 +1,8 @@
 use std::{net::SocketAddr, str::FromStr, sync::Mutex};
 
-use bp_cli::commands::client_server::bootstrap;
-use bp_core::{Address, ClientOptions, Options, ServerOptions, StartupInfo};
-use tokio::sync::oneshot;
+use bp_cli::commands::service;
+use bp_core::{Address, ClientOptions, Options, ServerOptions, ServiceInfo, Startup};
+use tokio::sync::mpsc;
 
 use crate::http_server::{run_http_mock_server, HttpServerContext};
 
@@ -55,7 +55,7 @@ pub async fn run_all(
     }
 }
 
-pub async fn run_bp(mut opts: Options) -> StartupInfo {
+pub async fn run_bp(mut opts: Options) -> ServiceInfo {
     let host = "127.0.0.1";
     let port = get_auto_port();
 
@@ -63,7 +63,7 @@ pub async fn run_bp(mut opts: Options) -> StartupInfo {
     run_single(opts).await
 }
 
-pub async fn run_bp_custom(mut opts: Options, host: Option<&str>, port: Option<u16>) -> StartupInfo {
+pub async fn run_bp_custom(mut opts: Options, host: Option<&str>, port: Option<u16>) -> ServiceInfo {
     let host = host.unwrap_or("127.0.0.1");
     let port = port.unwrap_or_else(get_auto_port);
 
@@ -77,14 +77,14 @@ fn get_auto_port() -> u16 {
     *port
 }
 
-async fn run_single(opts: Options) -> StartupInfo {
-    opts.check().unwrap();
+async fn run_single(opts: Options) -> ServiceInfo {
+    let shutdown = tokio::signal::ctrl_c();
+    let (startup_sender, mut startup_receiver) = mpsc::channel::<Startup>(1);
 
-    let (tx, rx) = oneshot::channel::<StartupInfo>();
-
-    tokio::spawn(async {
-        bootstrap(opts, tx).await.unwrap();
+    tokio::spawn(async move {
+        service::run(opts, startup_sender, shutdown).await.unwrap();
     });
 
-    rx.await.unwrap()
+    let startup = startup_receiver.recv().await.unwrap();
+    startup.info()
 }

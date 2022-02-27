@@ -34,7 +34,7 @@ pub struct ClientOptions {
     #[serde(default = "get_default_bind")]
     pub bind: Address,
 
-    /// Basic authorization required for HTTP Proxy, e,g. "user:password" [default: <empty>]
+    /// Basic authorization required for HTTP Proxy, e,g. "user:pass" [default: <empty>]
     #[clap(long)]
     pub with_basic_auth: Option<HttpBasicAuth>,
 

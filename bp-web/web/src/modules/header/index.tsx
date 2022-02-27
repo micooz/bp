@@ -1,3 +1,4 @@
+import { RUN_TYPE, VERSION } from '../../common';
 import { Link } from '../../components';
 
 export const Header: React.FC<{}> = () => {
@@ -13,7 +14,7 @@ export const Header: React.FC<{}> = () => {
         <Link to="https://github.com/micooz/bp/issues">Issues</Link>
       </div>
       <div className="Header-item mr-0">
-        <span>{process.env.REACT_APP_VERSION}</span>
+        <span>{VERSION} ({RUN_TYPE})</span>
       </div>
     </div>
   );

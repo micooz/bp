@@ -1,0 +1,10 @@
+.Caption-heading {
+  position: relative;
+}
+
+.Caption-extra {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}

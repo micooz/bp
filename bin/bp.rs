@@ -1,10 +1,10 @@
 use bp_cli::{
-    commands::{client_server, generate, test},
+    commands::{generate, service, test},
     options::cli::{Cli, Command},
 };
-use bp_core::logging;
+use bp_core::{logging, Startup};
 use clap::StructOpt;
-use tokio::sync::oneshot;
+use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() {
@@ -27,9 +27,11 @@ async fn main() {
         }
         // $ bp client/server [OPTIONS]
         Command::Client(_) | Command::Server(_) => {
-            let (tx, _rx) = oneshot::channel();
             let opts = cli.service_options();
-            client_server::run(opts, tx).await;
+            let shutdown = tokio::signal::ctrl_c();
+            let (startup_sender, _startup_receiver) = mpsc::channel::<Startup>(1);
+
+            let _ = service::run(opts, startup_sender, shutdown).await;
         }
         // $ bp test [OPTIONS]
         Command::Test(opts) => {

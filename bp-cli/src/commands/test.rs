@@ -1,12 +1,12 @@
 use anyhow::Result;
-use bp_core::{Address, ClientOptions, Options, StartupInfo};
+use bp_core::{Address, ClientOptions, Options, Startup};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
-    sync::oneshot,
+    sync::mpsc,
 };
 
-use crate::{commands::client_server, options::test::TestOptions};
+use crate::{commands::service, options::test::TestOptions};
 
 pub async fn run(opts: TestOptions) {
     if let Some(remote_addr) = &opts.http {
@@ -23,16 +23,16 @@ pub async fn http_request_via_client(client_config: &str, remote_addr: Address) 
         ..Default::default()
     });
 
-    let (tx, rx) = oneshot::channel::<StartupInfo>();
+    let (tx, mut rx) = mpsc::channel::<Startup>(1);
 
     log::info!("starting bp client at {}", opts.bind());
 
     tokio::spawn(async move {
-        client_server::run(opts, tx).await;
+        service::run(opts, tx, async {}).await.unwrap();
     });
 
-    let info = rx.await?;
-    let proxy_addr = info.bind_addr;
+    let startup = rx.recv().await.unwrap();
+    let proxy_addr = startup.info().bind_addr;
     let remote_addr = remote_addr.clone();
 
     log::info!("making connection to bp client {}", proxy_addr);

@@ -1,5 +1,4 @@
 import { ServiceBase } from './base';
-import { Configuration } from '../typings';
 
 export class ConfigurationService extends ServiceBase {
   constructor() {
@@ -9,14 +8,16 @@ export class ConfigurationService extends ServiceBase {
   }
 
   async query() {
-    return this.get<Configuration>('/query');
+    return this.get('/query');
   }
 
   async create() {
-    return this.post<Configuration>('/create');
+    return this.post('/create');
   }
 
-  async modify() {
-    return this.post<Configuration>('/modify');
+  async modify(config: any) {
+    return this.post('/modify', { ...config });
   }
 }
+
+export const configurationService = new ConfigurationService();

@@ -1,50 +1,107 @@
 import { useController } from 'bizify';
-import { Button, Caption, InputItem } from '../../components';
+import { Button, Caption, ErrorBlock, FormBuilder } from '../../components';
 import { useMount } from '../../hooks';
-import { ConfigurationCtrl } from './ctrl';
+import { RUN_TYPE_SERVER } from '../../common';
+import { ConfigurationCtrl } from './model';
+import { formSchema } from './schema';
+import './index.css';
 
 export const Configuration: React.FC<{}> = () => {
   const vm = useController<ConfigurationCtrl>(ConfigurationCtrl);
-  const { data, services } = vm;
-  const { loaded, config } = data;
+  const { data: vmData } = vm;
 
   useMount(vm.init);
 
-  if (!loaded) {
+  if (!vmData.loaded) {
     return null;
   }
 
+  if (vmData.errorInfo.load) {
+    return <ErrorBlock errorInfo={vmData.errorInfo.load} />;
+  }
+
   return (
-    <div className="configuration">
-      <Caption
-        extra={!config && <Button loading={services.create.loading} onClick={vm.create}>Create</Button>}
-      >
+    <div className="Configuration">
+      <Caption extra={<Extra vm={vm} />} description={<ErrorBlock errorInfo={vmData.errorInfo.mutate} />}>
         Configuration
       </Caption>
-      {config ? <Content vm={vm} /> : <Empty />}
+      <Content vm={vm} />
     </div>
   );
 };
 
-function Content({ vm }: { vm: ConfigurationCtrl }) {
-  const config = vm.data.config!;
+function Extra({ vm }: { vm: ConfigurationCtrl }) {
+  const { data: vmData, services } = vm;
+
+  if (!vmData.config) {
+    return (
+      <Button
+        loading={services.createConfig.loading}
+        size="small"
+        type="primary"
+        onClick={vm.handleCreateConfig}
+      >
+        Create
+      </Button>
+    );
+  }
+
+  if (RUN_TYPE_SERVER && (!vmData.config.tls_cert || !vmData.config.tls_key)) {
+    return (
+      <Button
+        loading={services.createSecurityConfig.loading}
+        size="small"
+        type="primary"
+        onClick={vm.handleCreateCertKey}
+      >
+        Create TLS Files
+      </Button>
+    );
+  }
 
   return (
-    <div className="form pl-2">
-      <InputItem
-        name="bind"
-        placeholder="127.0.0.1:1080"
-        description="Local service bind address [default: 127.0.0.1:1080]"
-        value={config.bind}
-        onChange={(v) => { }}
-      />
-      <InputItem
-        name="with_basic_auth"
-        placeholder="user:pass"
-        value={config.with_basic_auth}
-        onChange={(v) => { }}
-      />
-      TODO
+    <Button
+      block
+      loading={services.modifyConfig.loading}
+      disabled={!vmData.isFormDirty}
+      size="small"
+      onClick={vm.handleSaveConfig}
+    >
+      {vmData.isSaveSuccess && !vmData.isFormDirty ? 'Saved!' : 'Save'}
+    </Button>
+  );
+}
+
+function Content({ vm }: { vm: ConfigurationCtrl }) {
+  const { data: vmData } = vm;
+
+  if (!vmData.config) {
+    return <Empty />;
+  }
+
+  return (
+    <div className="Configuration-form form">
+      <details className="details-overlay mb-2" open>
+        <summary aria-haspopup="true">
+          <strong>Basic</strong>
+        </summary>
+        <FormBuilder
+          schema={formSchema.basic}
+          data={vmData.config}
+          onChange={vm.handleItemChange}
+        />
+      </details>
+
+      <details className="details-overlay">
+        <summary aria-haspopup="true">
+          <strong>Advanced</strong>
+        </summary>
+        <FormBuilder
+          schema={formSchema.advanced}
+          data={vmData.config}
+          onChange={vm.handleItemChange}
+        />
+      </details>
     </div>
   );
 }

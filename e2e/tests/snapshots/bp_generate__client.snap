@@ -18,5 +18,6 @@ expression: "fs::read_file(config_path_client).await"
   "tls": false,
   "quic": false,
   "quic_max_concurrency": null,
-  "tls_cert": null
+  "tls_cert": null,
+  "monitor": null
 }

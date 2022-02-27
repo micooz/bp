@@ -4,7 +4,13 @@ export interface RequestOptions {
   data?: Record<string, any>;
 }
 
-export async function httpRequest<T>(opts: RequestOptions): Promise<T> {
+export interface Response<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+export async function httpRequest<T>(opts: RequestOptions): Promise<Response<T>> {
   let url = opts.url;
   let args: RequestInit = {};
 
@@ -15,7 +21,7 @@ export async function httpRequest<T>(opts: RequestOptions): Promise<T> {
     }
   } else if (opts.method === 'POST') {
     args = {
-      body: opts.data ? JSON.stringify(opts.data) : undefined,
+      body: opts.data ? JSON.stringify(opts.data, null, 2) : undefined,
       headers: {
         'content-type': 'application/json',
       },
@@ -28,12 +34,21 @@ export async function httpRequest<T>(opts: RequestOptions): Promise<T> {
     ...args,
   });
 
-  return promise
-    .then<any>(res => {
-      if (res.status !== 200) {
-        // eslint-disable-next-line no-throw-literal
-        throw { status: res.status, data: null };
-      }
-      return res.json();
-    });
+  const res = await promise;
+
+  if (!res.ok) {
+    const message = (await res.text()) || res.statusText;
+    // eslint-disable-next-line no-throw-literal
+    throw { success: false, message };
+  }
+
+  // treat as json format
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.warn(err);
+  }
+
+  return { success: true, data };
 }

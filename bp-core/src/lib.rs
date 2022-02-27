@@ -32,5 +32,5 @@ pub use options::{
 pub use protos::{EncryptionMethod, HttpBasicAuth};
 pub use services::{
     monitor::start_monitor_service, pac::start_pac_service, quic::start_quic_service, tcp::start_tcp_service,
-    tls::start_tls_service, udp::start_udp_service, StartupInfo,
+    tls::start_tls_service, udp::start_udp_service, ServiceInfo, Startup,
 };

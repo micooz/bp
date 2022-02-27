@@ -5,13 +5,17 @@ description = "bp-web is a web user interface for bp."
 edition = "2021"
 
 [dependencies]
-# bp-core = { path = "../bp-core" }
+bp-core = { path = "../bp-core" }
 bp-cli = { path = "../bp-cli" }
 anyhow = "1.0.44"
+lazy_static = "1.4.0"
+parking_lot = "0.11.2"
 clap = { version = "3.0.0-beta.2", default-features = false, features = ["std", "derive", "cargo"] }
 tokio = { version = "1.8.2", features = ["net", "macros"] }
 serde = { version = "1.0.0", features = ["derive"] }
+serde_json = "1.0.68"
 tide = "0.16.0"
 async-std = { version = "1.10.0", features = ["attributes", "tokio1"] }
 log = "0.4.0"
 include_dir = "0.7.2"
+sysinfo = "0.23.2"

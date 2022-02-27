@@ -1,11 +1,11 @@
-use bp_core::{ClientOptions, Options, StartupInfo};
+use bp_core::{ClientOptions, Options, ServiceInfo};
 use e2e::{oneshot::tcp_oneshot, runner::run_bp};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_http_sniff() {
     let opts = Options::Client(ClientOptions::default());
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let ServiceInfo { bind_addr, .. } = run_bp(opts).await;
 
     let buf = tcp_oneshot(bind_addr, include_bytes!("fixtures/http_req.bin")).await;
     let resp = String::from_utf8(buf).unwrap();
@@ -17,7 +17,7 @@ async fn test_http_sniff() {
 async fn test_https_sniff() {
     let opts = Options::Client(ClientOptions::default());
 
-    let StartupInfo { bind_addr, .. } = run_bp(opts).await;
+    let ServiceInfo { bind_addr, .. } = run_bp(opts).await;
 
     let buf = tcp_oneshot(bind_addr, include_bytes!("fixtures/https_client_hello.bin")).await;
 

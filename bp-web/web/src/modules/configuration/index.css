@@ -1,0 +1,7 @@
+.Configuration {
+
+}
+
+.Configuration-form .details-overlay[open]>summary::before {
+  content: none;
+}

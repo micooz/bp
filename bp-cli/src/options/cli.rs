@@ -18,6 +18,27 @@ impl Cli {
             _ => unreachable!(),
         }
     }
+
+    pub fn metadata() -> serde_json::Value {
+        // use std::any::{Any, TypeId};
+        // use clap::CommandFactory;
+        use serde_json::json;
+
+        // let mut meta = serde_json::json!({});
+
+        // // meta.as_object_mut()
+
+        // let mut s = Cli::command();
+        // s._build_all();
+
+        // for sub in s.get_subcommands() {
+        //     for arg in sub.get_arguments() {
+        //         arg.type_id() == TypeId::of::<String>();
+        //     }
+        // }
+
+        json!({})
+    }
 }
 
 #[derive(Subcommand)]

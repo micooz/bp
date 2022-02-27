@@ -12,7 +12,7 @@ pub struct Monitor {
 
 impl Monitor {
     pub fn add_subscriber(&mut self, subscriber: Subscriber) -> Result<()> {
-        if self.subscribers.iter().find(|&item| &**item == &subscriber).is_some() {
+        if self.subscribers.iter().any(|item| **item == subscriber) {
             return Err(Error::msg("the subscriber is already added"));
         }
         self.subscribers.push(Arc::new(subscriber));

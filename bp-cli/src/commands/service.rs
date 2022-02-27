@@ -1,55 +1,61 @@
-use std::{env, process, sync::Arc};
+use std::{env, future::Future, sync::Arc};
 
 use anyhow::{Error, Result};
 use bp_core::{
     acl::get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
     init_tls_client_config, init_tls_server_config, monitor_log, set_monitor, start_monitor_service, start_pac_service,
-    start_quic_service, start_tcp_service, start_tls_service, start_udp_service, Connection, Options, Socket,
-    StartupInfo,
+    start_quic_service, start_tcp_service, start_tls_service, start_udp_service, Connection, Options, ServiceInfo,
+    Socket, Startup,
 };
 use bp_monitor::{events, Monitor};
-use tokio::sync::{mpsc::channel, oneshot::Sender};
+use tokio::sync::{mpsc, mpsc::Sender};
 
 #[cfg(target_family = "unix")]
 use crate::utils::daemonize::daemonize;
-use crate::{
-    dirs::Dirs,
-    utils::{
-        counter::Counter,
-        exit::{exit, ExitError},
-    },
-};
+use crate::{dirs::Dirs, utils::counter::Counter};
 
-pub async fn run(mut opts: Options, sender_ready: Sender<StartupInfo>) {
+pub async fn run(mut opts: Options, startup: Sender<Startup>, shutdown: impl Future) -> Result<()> {
     // try load bp service options from --config
     if let Some(config) = opts.config() {
         log::info!("loading configuration from {}", config);
-        if let Err(err) = opts.try_load_from_file(&config) {
-            log::error!("unrecognized format of --config: {}", err);
-            exit(ExitError::ArgumentsError);
-        }
+
+        opts.try_load_from_file(&config)
+            .map_err(|err| Error::msg(format!("unrecognized format of --config: {}", err)))?;
     }
 
     // check options
-    if let Err(err) = opts.check() {
-        log::error!("{}", err);
-        exit(ExitError::ArgumentsError);
-    }
+    opts.check()?;
 
     // bootstrap bp service
-    if let Err(err) = bootstrap(opts, sender_ready).await {
-        log::error!("{}", err);
-        exit(ExitError::BootstrapError);
-    }
+    tokio::select! {
+        res = boot(opts, startup.clone()) => {
+            if let Err(err) = res {
+                log::error!("{}", err);
+                startup.send(Startup::Fail(err)).await.unwrap();
+            }
+        }
+        _ = shutdown => {
+            log::info!("shutting down...");
+        }
+    };
 
-    log::info!("[{}] process exit with code 0", process::id());
+    Ok(())
 }
 
 #[allow(dead_code)]
 const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
-pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<()> {
+async fn boot(opts: Options, startup: Sender<Startup>) -> Result<()> {
+    // pre boot
+    pre_boot(&opts).await?;
+    // start services
+    start_services(opts.clone(), startup).await?;
+
+    Ok(())
+}
+
+async fn pre_boot(opts: &Options) -> Result<()> {
     // dirs init
     Dirs::init()?;
 
@@ -67,23 +73,20 @@ pub async fn bootstrap(opts: Options, sender_ready: Sender<StartupInfo>) -> Resu
 
     // init tls configs
     if opts.tls() || opts.quic() {
-        init_tls_configs(&opts)?;
+        init_tls_configs(opts)?;
     }
 
     // init quic endpoint pool
     if opts.is_client() && opts.quic() {
         let quic_max_concurrency = opts.client_opts().quic_max_concurrency;
-        init_quic_endpoint_pool(quic_max_concurrency);
+        init_quic_endpoint_pool(quic_max_concurrency)?;
     }
-
-    // start services
-    start_services(opts.clone(), sender_ready).await?;
 
     Ok(())
 }
 
-async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Result<()> {
-    let (sender, mut receiver) = channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
+async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
+    let (sender, mut receiver) = mpsc::channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
 
     let bind_addr = opts.bind().resolve().await?;
     let bind_ip = bind_addr.ip().to_string();
@@ -214,13 +217,14 @@ async fn start_services(opts: Options, sender_ready: Sender<StartupInfo>) -> Res
         }
     });
 
-    sender_ready
-        .send(StartupInfo {
+    startup
+        .send(Startup::Success(ServiceInfo {
             bind_addr,
             bind_ip,
             bind_host,
             bind_port,
-        })
+        }))
+        .await
         .unwrap();
 
     handle.await.unwrap();

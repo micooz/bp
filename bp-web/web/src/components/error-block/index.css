@@ -1,0 +1,7 @@
+.ErrorBlock {
+  color: #fff;
+}
+
+.ErrorBlock span {
+  word-break: break-all;
+}

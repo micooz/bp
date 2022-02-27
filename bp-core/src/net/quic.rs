@@ -29,7 +29,7 @@ pub fn init_quinn_client_config(cert_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn init_quic_endpoint_pool(max_concurrency: Option<u16>) {
+pub fn init_quic_endpoint_pool(max_concurrency: Option<u16>) -> Result<()> {
     let mut pool = EndpointPool::default();
 
     if let Some(cap) = max_concurrency {
@@ -37,6 +37,8 @@ pub fn init_quic_endpoint_pool(max_concurrency: Option<u16>) {
     }
 
     global::set_quic_endpoint_pool(pool);
+
+    Ok(())
 }
 
 #[derive(Default)]
