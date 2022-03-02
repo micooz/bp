@@ -4,7 +4,7 @@ use clap::StructOpt;
 
 #[tokio::main]
 async fn main() {
-    logging::init();
+    logging::init().unwrap();
 
     let opts = Options::parse();
     run(opts).await;

@@ -7,11 +7,11 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::global;
+use crate::{global, Shutdown};
 
 const PAC_PATH: &str = "/proxy.pac";
 
-pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Result<()> {
+pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String, shutdown: Shutdown) -> Result<()> {
     let listener = TcpListener::bind(bind_addr)
         .await
         .map_err(|err| Error::msg(format!("pac service start failed from {} due to: {}", bind_addr, err)))?;
@@ -24,7 +24,13 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String) -> Res
 
     tokio::spawn(async move {
         loop {
-            let accept = listener.accept().await;
+            let accept = tokio::select! {
+                v = listener.accept() => v,
+                _ = shutdown.recv() => {
+                    // log::info!("pac shutting down");
+                    break;
+                }
+            };
 
             if let Err(err) = accept {
                 log::error!("encountered an error: {}", err);

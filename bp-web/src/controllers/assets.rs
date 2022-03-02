@@ -1,7 +1,7 @@
 use include_dir::{include_dir, Dir};
-use tide::http::mime;
+use tide::http::{headers, mime};
 
-use crate::state::State;
+use crate::{state::State, utils::compress};
 
 static WEB_BUILD_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/web/build");
 
@@ -19,7 +19,7 @@ impl AssetsController {
 
         Ok(tide::Response::builder(200)
             .body(index_html_content)
-            .header("Cache-Control", "no-cache")
+            .header(headers::CACHE_CONTROL, "no-store")
             .content_type(mime::HTML)
             .build())
     }
@@ -47,10 +47,12 @@ impl AssetsController {
 
         let static_file_content = static_file.contents_utf8().unwrap();
 
-        Ok(tide::Response::builder(200)
+        let res = tide::Response::builder(200)
             .body(static_file_content)
-            .header("Cache-Control", "max-age=31536000")
+            .header(headers::CACHE_CONTROL, "max-age=31536000")
             .content_type(content_type)
-            .build())
+            .build();
+
+        compress::gzip(&req, res)
     }
 }

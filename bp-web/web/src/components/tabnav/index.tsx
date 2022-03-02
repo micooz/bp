@@ -12,7 +12,7 @@ interface TabNavProps extends BaseProps {
   onChange: (item: string) => void;
 }
 
-export function TabNav(props: TabNavProps) {
+export const TabNav: React.FC<TabNavProps> = (props) => {
   const { className, items, current, onChange, children } = props;
   return (
     <React.Fragment>
@@ -34,10 +34,10 @@ export function TabNav(props: TabNavProps) {
       <div className="m-3 ">
         {React.Children.map(children, (child: any) => {
           // console.log({ child });
-          if (child.type.name !== 'Nav') {
-            console.warn('children of TabNav must be TabNav.Nav');
-            return null;
-          }
+          // if (child.type.name !== 'Nav') {
+          //   console.warn('children of TabNav must be TabNav.Nav');
+          //   return null;
+          // }
           if (child.props.name !== current) {
             return null;
           }
@@ -46,15 +46,13 @@ export function TabNav(props: TabNavProps) {
       </div>
     </React.Fragment>
   );
-}
+};
 
 interface NavProps {
   name: string;
 }
 
-const Nav: React.FC<NavProps> = (props) => {
+export const TabNavItem: React.FC<NavProps> = (props) => {
   const { children } = props;
   return <React.Fragment>{children}</React.Fragment>;
 };
-
-TabNav.Nav = Nav;

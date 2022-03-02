@@ -1,21 +1,19 @@
 use crate::{
-    controllers::{
-        AssetsController, ConfigurationController, SecurityController, ServiceController, SystemInfoController,
-    },
+    controllers::{AssetsController, ConfigController, LoggingController, ServiceController, SystemInfoController},
     state::State,
 };
 
 pub fn register(app: &mut tide::Server<State>) {
     // configuration
-    app.at("/api/configuration/query").get(ConfigurationController::query);
-    app.at("/api/configuration/create")
-        .post(ConfigurationController::create);
-    app.at("/api/configuration/modify")
-        .post(ConfigurationController::modify);
+    app.at("/api/config/query").get(ConfigController::query);
+    app.at("/api/config/query_acl").get(ConfigController::query_acl);
+    app.at("/api/config/create").post(ConfigController::create);
+    app.at("/api/config/create_tls_config")
+        .post(ConfigController::create_tls_config);
+    app.at("/api/config/modify").post(ConfigController::modify);
 
-    // security
-    app.at("/api/security/query").get(SecurityController::query);
-    app.at("/api/security/create").post(SecurityController::create);
+    // logging
+    app.at("/api/logging/tail").get(LoggingController::tail);
 
     // system
     app.at("/api/system/info").get(SystemInfoController::info);

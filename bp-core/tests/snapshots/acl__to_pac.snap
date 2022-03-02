@@ -11,7 +11,7 @@ function FindProxyForURL(url, host) {
   var port_match = url.match(/:(\d{0,5})/);
   var port = port_match[1] ? Number(port_match[1]) : null;
 
-  if (host === "allow.com" && port === 8080) return "PROXY 127.0.0.1:1080";
+  if (host === "allow.com" && port === 8080) return "PROXY 127.0.0.1:1080; DIRECT";
   if (host === "example.net") return "DIRECT";
   if (port === 443) return "DIRECT";
   if (host === "apple.com" && port === 80) return "DIRECT";

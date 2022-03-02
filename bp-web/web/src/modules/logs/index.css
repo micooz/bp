@@ -1,0 +1,7 @@
+.logs {}
+
+.logs-textarea {
+  height: 65vh;
+  width: 100%;
+  white-space: pre;
+}

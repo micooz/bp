@@ -1,10 +1,12 @@
 import { ControllerBaseProxy } from 'bizify';
 import { RUN_TYPE_CLIENT, RUN_TYPE_SERVER } from '../../common';
-import { configurationService } from '../../services/configuration.service';
-import { securityService } from '../../services/security.service';
-import { ErrorInfo, SecurityInfo } from '../../typings';
+import { configService } from '../../services/config.service';
+import { ErrorInfo } from '../../typings';
 
-type Configuration = { config: any; metadata: any };
+type Configuration = {
+  config: any;
+  metadata: any;
+};
 
 type Data = {
   loaded: boolean;
@@ -32,11 +34,10 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
   }
 
   services = {
-    querySecurityConfig: this.$buildService<SecurityInfo>(securityService.query.bind(securityService)),
-    createSecurityConfig: this.$buildService<SecurityInfo>(securityService.create.bind(securityService)),
-    queryConfig: this.$buildService<Configuration>(configurationService.query.bind(configurationService)),
-    createConfig: this.$buildService<Configuration>(configurationService.create.bind(configurationService)),
-    modifyConfig: this.$buildService<Configuration>(configurationService.modify.bind(configurationService)),
+    queryConfig: this.$buildService<Configuration>(configService.query.bind(configService)),
+    createConfig: this.$buildService<Configuration>(configService.create.bind(configService)),
+    createTLSConfig: this.$buildService<void>(configService.create_tls_config.bind(configService)),
+    modifyConfig: this.$buildService<void>(configService.modify.bind(configService)),
   };
 
   init = async () => {
@@ -48,10 +49,6 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
       }
 
       this.data.config = config;
-
-      const res = await this.services.querySecurityConfig.execute();
-      this.updateConfig(res);
-
     } catch (err: any) {
       this.data.errorInfo.load = { message: err.message };
     } finally {
@@ -60,21 +57,13 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
   }
 
   private isConfigValid = (config: any) => {
-    if (RUN_TYPE_CLIENT && config.tls_key) {
+    if (RUN_TYPE_CLIENT && config?.tls_key) {
       return false;
     }
-    if (RUN_TYPE_SERVER && config.with_basic_auth) {
+    if (RUN_TYPE_SERVER && config?.with_basic_auth) {
       return false;
     }
     return true;
-  };
-
-  private updateConfig = (securityConfig: SecurityInfo) => {
-    this.data.config.tls_cert = securityConfig?.certificate || null;
-
-    if (RUN_TYPE_SERVER) {
-      this.data.config.tls_key = securityConfig?.private_key || null;
-    }
   };
 
   handleItemChange = (key: string, value: any) => {
@@ -89,21 +78,21 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
   handleCreateConfig = async () => {
     try {
       this.data.errorInfo.mutate = null;
-      const res = await this.services.createConfig.execute();
-      this.data.config = res;
+      const { config } = await this.services.createConfig.execute();
+      this.data.config = config;
     } catch (err: any) {
       this.data.errorInfo.mutate = { message: err.message };
     }
   };
 
-  handleCreateCertKey = async () => {
+  handleCreateTLSConfig = async () => {
     try {
       this.data.errorInfo.mutate = null;
 
       const hostname = prompt('Please specify hostname:', 'localhost');
-      const res = await this.services.createSecurityConfig.execute(hostname);
+      await this.services.createTLSConfig.execute(hostname);
 
-      this.updateConfig(res);
+      this.init();
     } catch (err: any) {
       this.data.errorInfo.mutate = { message: err.message };
     }

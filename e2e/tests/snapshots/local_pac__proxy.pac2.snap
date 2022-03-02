@@ -11,9 +11,9 @@ function FindProxyForURL(url, host) {
   var port_match = url.match(/:(\d{0,5})/);
   var port = port_match[1] ? Number(port_match[1]) : null;
 
-  if (shExpMatch(host, "*baidu.com*")) return "PROXY 127.0.0.1:3000";
+  if (shExpMatch(host, "*baidu.com*")) return "PROXY 127.0.0.1:3000; DIRECT";
   // #baidu.com
-  if (host === "cn.bing.com") return "PROXY 127.0.0.1:3000";
+  if (host === "cn.bing.com") return "PROXY 127.0.0.1:3000; DIRECT";
 
   return "DIRECT";
 }

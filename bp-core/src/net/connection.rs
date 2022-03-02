@@ -15,7 +15,7 @@ use crate::{
         socket::{Socket, SocketType},
     },
     protos::{init_protocol, Direct, Dns, DynProtocol, ProtocolType, ResolvedResult},
-    Options, ServiceType,
+    Options, ServiceType, Shutdown,
 };
 
 pub struct Connection {
@@ -26,10 +26,10 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(socket: Socket, opts: Options) -> Self {
+    pub fn new(socket: Socket, opts: Options, shutdown: Shutdown) -> Self {
         let peer_addr = socket.peer_addr();
-        let inbound = Inbound::new(socket, opts.clone());
-        let outbound = Outbound::new(peer_addr, opts.clone());
+        let inbound = Inbound::new(socket, opts.clone(), shutdown.clone());
+        let outbound = Outbound::new(peer_addr, opts.clone(), shutdown);
 
         Connection {
             inbound,

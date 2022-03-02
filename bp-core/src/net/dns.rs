@@ -17,6 +17,7 @@ pub async fn init_dns_resolver(dns_server: SocketAddr) -> Result<()> {
         protocol: Protocol::Udp,
         tls_dns_name: None,
         trust_nx_responses: true,
+        bind_addr: None,
     });
 
     let dns_resolver = TokioAsyncResolver::tokio(resolver, ResolverOpts::default())?;

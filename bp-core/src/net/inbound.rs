@@ -19,23 +19,20 @@ use crate::{
     event::*,
     net::{address::Address, socket::Socket},
     protos::*,
-    Options, ServiceType,
+    Options, ServiceType, Shutdown,
 };
 
 pub struct Inbound {
     opts: Options,
-
     socket: Arc<Socket>,
-
     peer_address: SocketAddr,
-
     protocol_name: Option<String>,
-
     is_closed: Arc<AtomicBool>,
+    shutdown: Shutdown,
 }
 
 impl Inbound {
-    pub fn new(socket: Socket, opts: Options) -> Self {
+    pub fn new(socket: Socket, opts: Options, shutdown: Shutdown) -> Self {
         let socket = Arc::new(socket);
         let peer_address = socket.peer_addr();
 
@@ -45,6 +42,7 @@ impl Inbound {
             peer_address,
             protocol_name: None,
             is_closed: Arc::new(AtomicBool::new(false)),
+            shutdown,
         }
     }
 
@@ -183,6 +181,7 @@ impl Inbound {
         let service_type = self.opts.service_type();
         let socket = self.socket.clone();
         let is_closed = self.is_closed.clone();
+        let shutdown = self.shutdown.clone();
 
         tokio::spawn(async move {
             loop {
@@ -191,9 +190,17 @@ impl Inbound {
                 }
 
                 // protocol process
-                let res = match service_type {
-                    ServiceType::Client => out_proto.client_encode(&socket).await,
-                    ServiceType::Server => in_proto.server_decode(&socket).await,
+                let fut = match service_type {
+                    ServiceType::Client => out_proto.client_encode(&socket),
+                    ServiceType::Server => in_proto.server_decode(&socket),
+                };
+
+                let res = tokio::select! {
+                    v = fut => v,
+                    _ = shutdown.recv() => {
+                        // log::info!("inbound shutting down");
+                        break;
+                    },
                 };
 
                 if let Err(err) = res {

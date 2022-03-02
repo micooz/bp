@@ -4,13 +4,6 @@ version = "2.0.0-alpha.1"
 description = "bp is a set of advanced and efficient proxy tools written in pure Rust."
 edition = "2021"
 
-[features]
-profile = [
-  # "jemallocator",
-  # "jemalloc-ctl",
-  # "jemalloc-sys",
-]
-
 [dependencies]
 bp-core = { path = "../bp-core" }
 bp-monitor = { path = "../bp-monitor" }
@@ -24,7 +17,3 @@ tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros"] }
 parking_lot = "0.12.0"
 serde_yaml = "0.8.21"
 serde_json = "1.0.68"
-dhat = "0.3.0"
-# jemallocator = { version = "0.3.2", optional = true }
-# jemalloc-ctl = { version = "0.3.2", optional = true }
-# jemalloc-sys = { version = "0.3.2", optional = true, features = ["stats", "profiling", "unprefixed_malloc_on_supported_platforms"] }

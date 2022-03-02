@@ -42,12 +42,14 @@ export async function httpRequest<T>(opts: RequestOptions): Promise<Response<T>>
     throw { success: false, message };
   }
 
-  // treat as json format
-  let data;
-  try {
+  let data = null;
+
+  const type = res.headers.get('content-type');
+
+  if (type?.startsWith('application/json')) {
     data = await res.json();
-  } catch (err) {
-    console.warn(err);
+  } else {
+    data = await res.text();
   }
 
   return { success: true, data };

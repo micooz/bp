@@ -23,29 +23,23 @@ use crate::{
     global::{self, get_tls_client_config},
     net::{address::Address, dns::dns_resolve, quic::RandomEndpoint, socket::Socket},
     protos::{DynProtocol, ResolvedResult},
-    Options, ServiceType,
+    Options, ServiceType, Shutdown,
 };
 
 pub struct Outbound {
     opts: Options,
-
     socket: Option<Arc<Socket>>,
-
     socket_type: Option<SocketType>,
-
     peer_address: SocketAddr,
-
     remote_addr: Option<Address>,
-
     protocol_name: Option<String>,
-
     is_closed: Arc<AtomicBool>,
-
     is_allow_proxy: bool,
+    shutdown: Shutdown,
 }
 
 impl Outbound {
-    pub fn new(peer_address: SocketAddr, opts: Options) -> Self {
+    pub fn new(peer_address: SocketAddr, opts: Options, shutdown: Shutdown) -> Self {
         Self {
             opts,
             socket: None,
@@ -55,6 +49,7 @@ impl Outbound {
             protocol_name: None,
             is_closed: Arc::new(AtomicBool::new(false)),
             is_allow_proxy: true,
+            shutdown,
         }
     }
 
@@ -137,6 +132,7 @@ impl Outbound {
         let service_type = self.opts.service_type();
         let socket = self.socket.clone().unwrap();
         let is_closed = self.is_closed.clone();
+        let shutdown = self.shutdown.clone();
 
         tokio::spawn(async move {
             loop {
@@ -145,9 +141,17 @@ impl Outbound {
                 }
 
                 // protocol process
-                let res = match service_type {
-                    ServiceType::Client => out_proto.client_decode(&socket).await,
-                    ServiceType::Server => in_proto.server_encode(&socket).await,
+                let fut = match service_type {
+                    ServiceType::Client => out_proto.client_decode(&socket),
+                    ServiceType::Server => in_proto.server_encode(&socket),
+                };
+
+                let res = tokio::select! {
+                    v = fut => v,
+                    _ = shutdown.recv() => {
+                        // log::info!("outbound shutting down");
+                        break;
+                    },
                 };
 
                 if let Err(err) = res {

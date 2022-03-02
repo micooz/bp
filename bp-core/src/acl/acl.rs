@@ -14,7 +14,7 @@ use serde::Serialize;
 use tinytemplate::{format_unescaped, TinyTemplate};
 
 use super::rule::{Rule, RuleGroup, RulePrefix, RuleValue};
-use crate::global;
+use crate::{global, Shutdown};
 
 pub fn get_acl() -> Arc<AccessControlList> {
     global::get_acl()
@@ -87,7 +87,7 @@ impl AccessControlList {
         None
     }
 
-    pub fn watch(&self, path: &str) -> notify::Result<()> {
+    pub fn watch(&self, path: &str, shutdown: Shutdown) -> notify::Result<()> {
         // Create a channel to receive the events.
         let (tx, rx) = mpsc::channel();
 
@@ -99,15 +99,29 @@ impl AccessControlList {
         // below will be monitored for changes.
         watcher.watch(&path, RecursiveMode::NonRecursive)?;
 
+        // unwatch when shutdown
+        tokio::spawn(async move {
+            shutdown.recv().await;
+            drop(watcher);
+        });
+
         // This is a simple loop, but you may want to use more complex logic here,
         // for example to handle I/O.
         loop {
-            if let Ok(notify::DebouncedEvent::Write(_)) = rx.recv() {
-                if let Err(res) = self.load_from_file(path) {
-                    log::warn!("reload failed due to: {}", res.to_string())
+            match rx.recv() {
+                Ok(notify::DebouncedEvent::Write(_)) => {
+                    if let Err(res) = self.load_from_file(path) {
+                        log::warn!("reload failed due to: {}", res.to_string())
+                    }
                 }
+                Err(_) => {
+                    break;
+                }
+                _ => continue,
             }
         }
+
+        Ok(())
     }
 
     pub fn count(&self) -> usize {
@@ -147,7 +161,7 @@ impl AccessControlList {
             }
 
             let if_return = match rule.group {
-                RuleGroup::Allow => format!("PROXY {}", proxy_addr),
+                RuleGroup::Allow => format!("PROXY {}; DIRECT", proxy_addr),
                 RuleGroup::Deny => "DIRECT".to_string(),
             };
 

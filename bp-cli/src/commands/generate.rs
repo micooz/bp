@@ -23,7 +23,7 @@ pub async fn run(opts: GenerateOptions) {
     }
     // generate tls certificate and private key
     if opts.certificate {
-        res = generate_certificate(&opts.hostname.unwrap()).await;
+        res = generate_certificate(&opts.hostname.unwrap(), "cert.der", "key.der").await;
     }
 
     if let Err(err) = res {
@@ -68,7 +68,7 @@ pub async fn generate_config(config: &str, config_type: ConfigType) -> Result<()
     Ok(())
 }
 
-pub async fn generate_certificate(hostname: &str) -> Result<()> {
-    tls::generate_cert_and_key(vec![hostname.to_string()], "cert.der", "key.der")?;
+pub async fn generate_certificate(hostname: &str, cert_path: &str, key_path: &str) -> Result<()> {
+    tls::generate_cert_and_key(vec![hostname.to_string()], cert_path, key_path)?;
     Ok(())
 }

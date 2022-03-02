@@ -4,9 +4,13 @@ use anyhow::{Error, Result};
 use bytes::Bytes;
 use tokio::{net::UdpSocket, sync::mpsc::Sender};
 
-use crate::{constants, net::socket::Socket};
+use crate::{constants, net::socket::Socket, Shutdown};
 
-pub async fn start_udp_service(bind_addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+pub async fn start_udp_service(
+    bind_addr: SocketAddr,
+    sender: Sender<Option<Socket>>,
+    shutdown: Shutdown,
+) -> Result<()> {
     let socket = Arc::new(
         UdpSocket::bind(bind_addr)
             .await
@@ -19,7 +23,11 @@ pub async fn start_udp_service(bind_addr: SocketAddr, sender: Sender<Option<Sock
         loop {
             let socket = socket.clone();
             let mut buf = vec![0; constants::UDP_MTU];
-            let recv = socket.recv_from(&mut buf).await;
+
+            let recv = tokio::select! {
+                v = socket.recv_from(&mut buf) => v,
+                _ =  shutdown.recv() => break,
+            };
 
             if sender.is_closed() {
                 break;

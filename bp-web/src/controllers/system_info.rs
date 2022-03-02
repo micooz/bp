@@ -43,7 +43,7 @@ impl SystemInfoController {
         let body_json = serde_json::to_string(&body)?;
 
         Ok(tide::Response::builder(200)
-            .header("content-type", mime::JSON)
+            .content_type(mime::JSON)
             .body(body_json)
             .build())
     }

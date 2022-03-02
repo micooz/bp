@@ -1,11 +1,12 @@
 import { useController } from 'bizify';
-import { TabNav } from './components';
-import { Header, Control, Configuration, System } from './modules';
+import { TabNav, TabNavItem } from './components';
+import { Header, Control } from './modules';
 import { AppCtrl } from './AppModel';
 import './App.css';
 
 export default function App() {
   const vm = useController<AppCtrl>(AppCtrl);
+  const { data: vmData } = vm;
 
   return (
     <div className="App">
@@ -13,16 +14,15 @@ export default function App() {
       <Control />
       <TabNav
         className="m-3"
-        current={vm.data.currentTab}
+        current={vmData.currentTab}
         onChange={vm.handleTabChange}
-        items={vm.data.tabs}
+        items={vmData.tabs}
       >
-        <TabNav.Nav name="configuration" >
-          <Configuration />
-        </TabNav.Nav>
-        <TabNav.Nav name="system">
-          <System />
-        </TabNav.Nav>
+        {vmData.tabs.map(item => (
+          <TabNavItem key={item.name} name={item.name} >
+            <item.component />
+          </TabNavItem>
+        ))}
       </TabNav>
     </div>
   );

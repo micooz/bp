@@ -9,6 +9,7 @@ mod net;
 mod options;
 mod protos;
 mod services;
+mod shutdown;
 
 pub mod acl;
 pub mod logging;
@@ -34,3 +35,4 @@ pub use services::{
     monitor::start_monitor_service, pac::start_pac_service, quic::start_quic_service, tcp::start_tcp_service,
     tls::start_tls_service, udp::start_udp_service, ServiceInfo, Startup,
 };
+pub use shutdown::Shutdown;

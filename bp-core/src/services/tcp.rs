@@ -3,9 +3,13 @@ use std::net::SocketAddr;
 use anyhow::{Error, Result};
 use tokio::{net::TcpListener, sync::mpsc::Sender};
 
-use crate::net::socket::Socket;
+use crate::{net::socket::Socket, Shutdown};
 
-pub async fn start_tcp_service(bind_addr: SocketAddr, sender: Sender<Option<Socket>>) -> Result<()> {
+pub async fn start_tcp_service(
+    bind_addr: SocketAddr,
+    sender: Sender<Option<Socket>>,
+    shutdown: Shutdown,
+) -> Result<()> {
     let listener = TcpListener::bind(bind_addr)
         .await
         .map_err(|err| Error::msg(format!("tcp service start failed from {} due to: {}", bind_addr, err)))?;
@@ -14,7 +18,10 @@ pub async fn start_tcp_service(bind_addr: SocketAddr, sender: Sender<Option<Sock
 
     tokio::spawn(async move {
         loop {
-            let accept = listener.accept().await;
+            let accept = tokio::select! {
+                v = listener.accept() => v,
+                _ = shutdown.recv() => break,
+            };
 
             if sender.is_closed() {
                 break;

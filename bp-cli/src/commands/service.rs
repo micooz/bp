@@ -1,20 +1,22 @@
-use std::{env, future::Future, sync::Arc};
+use std::{env, future::Future, sync::Arc, time::Duration};
 
 use anyhow::{Error, Result};
 use bp_core::{
     acl::get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
     init_tls_client_config, init_tls_server_config, monitor_log, set_monitor, start_monitor_service, start_pac_service,
     start_quic_service, start_tcp_service, start_tls_service, start_udp_service, Connection, Options, ServiceInfo,
-    Socket, Startup,
+    Shutdown, Socket, Startup,
 };
 use bp_monitor::{events, Monitor};
-use tokio::sync::{mpsc, mpsc::Sender};
+use tokio::sync::mpsc;
 
 #[cfg(target_family = "unix")]
 use crate::utils::daemonize::daemonize;
 use crate::{dirs::Dirs, utils::counter::Counter};
 
-pub async fn run(mut opts: Options, startup: Sender<Startup>, shutdown: impl Future) -> Result<()> {
+type StartupSender = mpsc::Sender<Startup>;
+
+pub async fn run(mut opts: Options, startup: StartupSender, shutdown: impl Future) -> Result<()> {
     // try load bp service options from --config
     if let Some(config) = opts.config() {
         log::info!("loading configuration from {}", config);
@@ -26,16 +28,19 @@ pub async fn run(mut opts: Options, startup: Sender<Startup>, shutdown: impl Fut
     // check options
     opts.check()?;
 
+    let inner_shutdown = Shutdown::new();
+
     // bootstrap bp service
     tokio::select! {
-        res = boot(opts, startup.clone()) => {
-            if let Err(err) = res {
-                log::error!("{}", err);
-                startup.send(Startup::Fail(err)).await.unwrap();
-            }
+        Err(err) = boot(opts, startup.clone(), inner_shutdown.clone()) => {
+            log::error!("{}", err);
+            startup.send(Startup::Fail(err)).await.unwrap();
         }
         _ = shutdown => {
-            log::info!("shutting down...");
+            log::info!("gracefully shutting down...");
+            let count = inner_shutdown.broadcast();
+            log::info!("informed {} receivers, waiting for 2 seconds...", count);
+            tokio::time::sleep(Duration::from_secs(2)).await;
         }
     };
 
@@ -46,11 +51,11 @@ pub async fn run(mut opts: Options, startup: Sender<Startup>, shutdown: impl Fut
 const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
-async fn boot(opts: Options, startup: Sender<Startup>) -> Result<()> {
+async fn boot(opts: Options, startup: StartupSender, shutdown: Shutdown) -> Result<()> {
     // pre boot
     pre_boot(&opts).await?;
     // start services
-    start_services(opts.clone(), startup).await?;
+    start_services(opts.clone(), startup, shutdown).await?;
 
     Ok(())
 }
@@ -85,7 +90,7 @@ async fn pre_boot(opts: &Options) -> Result<()> {
     Ok(())
 }
 
-async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
+async fn start_services(opts: Options, startup: StartupSender, shutdown: Shutdown) -> Result<()> {
     let (sender, mut receiver) = mpsc::channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
 
     let bind_addr = opts.bind().resolve().await?;
@@ -98,30 +103,30 @@ async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
         loop {
             // server side enable --tls, start TLS service
             if opts.tls() {
-                start_tls_service(bind_addr, sender.clone()).await?;
-                start_udp_service(bind_addr, sender.clone()).await?;
+                start_tls_service(bind_addr, sender.clone(), shutdown.clone()).await?;
+                start_udp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
                 break;
             }
             // server side enable --quic, start QUIC service
             if opts.quic() {
-                start_quic_service(bind_addr, sender.clone()).await?;
+                start_quic_service(bind_addr, sender.clone(), shutdown.clone()).await?;
                 break;
             }
-            start_tcp_service(bind_addr, sender.clone()).await?;
-            start_udp_service(bind_addr, sender.clone()).await?;
+            start_tcp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
+            start_udp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
             break;
         }
     }
 
     if opts.is_client() {
-        start_tcp_service(bind_addr, sender.clone()).await?;
-        start_udp_service(bind_addr, sender).await?;
+        start_tcp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
+        start_udp_service(bind_addr, sender, shutdown.clone()).await?;
 
         // start pac service
         if opts.is_client() {
             if let Some(pac_bind) = opts.client_opts().pac_bind {
                 let pac_bind = pac_bind.resolve().await?;
-                start_pac_service(pac_bind, opts.bind().as_string()).await?;
+                start_pac_service(pac_bind, opts.bind().as_string(), shutdown.clone()).await?;
             }
         }
     }
@@ -132,7 +137,7 @@ async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
         set_monitor(monitor);
 
         let bind_addr = addr.resolve().await?;
-        start_monitor_service(bind_addr).await?;
+        start_monitor_service(bind_addr, shutdown.clone()).await?;
     }
 
     // load acl
@@ -144,12 +149,13 @@ async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
             Error::msg(msg)
         })?;
 
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(test))]
         {
             let path = path.clone();
+            let shutdown = shutdown.clone();
 
             tokio::spawn(async move {
-                acl.watch(&path).unwrap();
+                acl.watch(&path, shutdown).unwrap();
             });
         }
     }
@@ -159,7 +165,10 @@ async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
         let total_cnt = Arc::new(Counter::default());
         let live_cnt = Arc::new(Counter::default());
 
-        while let Some(socket) = receiver.recv().await {
+        while let Some(socket) = tokio::select! {
+            v = receiver.recv() => v,
+            _ = shutdown.recv() => None,
+        } {
             if socket.is_none() {
                 break;
             }
@@ -172,6 +181,7 @@ async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
 
             let socket = socket.unwrap();
             let opts = opts.clone();
+            let shutdown = shutdown.clone();
 
             // put socket to new task to create a Connection
             tokio::spawn(async move {
@@ -191,7 +201,7 @@ async fn start_services(opts: Options, startup: Sender<Startup>) -> Result<()> {
                     total_cnt: total_cnt.value(),
                 });
 
-                let mut conn = Connection::new(socket, opts);
+                let mut conn = Connection::new(socket, opts, shutdown);
 
                 if let Err(err) = conn.handle().await {
                     log::trace!("{}", err);

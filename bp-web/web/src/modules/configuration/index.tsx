@@ -21,7 +21,7 @@ export const Configuration: React.FC<{}> = () => {
   }
 
   return (
-    <div className="Configuration">
+    <div className="configuration">
       <Caption extra={<Extra vm={vm} />} description={<ErrorBlock errorInfo={vmData.errorInfo.mutate} />}>
         Configuration
       </Caption>
@@ -49,10 +49,10 @@ function Extra({ vm }: { vm: ConfigurationCtrl }) {
   if (RUN_TYPE_SERVER && (!vmData.config.tls_cert || !vmData.config.tls_key)) {
     return (
       <Button
-        loading={services.createSecurityConfig.loading}
+        loading={services.createTLSConfig.loading}
         size="small"
         type="primary"
-        onClick={vm.handleCreateCertKey}
+        onClick={vm.handleCreateTLSConfig}
       >
         Create TLS Files
       </Button>
@@ -80,7 +80,7 @@ function Content({ vm }: { vm: ConfigurationCtrl }) {
   }
 
   return (
-    <div className="Configuration-form form">
+    <div className="configuration-form form">
       <details className="details-overlay mb-2" open>
         <summary aria-haspopup="true">
           <strong>Basic</strong>

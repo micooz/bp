@@ -1,9 +1,9 @@
 import { ServiceBase } from './base';
 
-export class ConfigurationService extends ServiceBase {
+export class ConfigService extends ServiceBase {
   constructor() {
     super({
-      prefix: '/api/configuration',
+      prefix: '/api/config',
     });
   }
 
@@ -15,9 +15,13 @@ export class ConfigurationService extends ServiceBase {
     return this.post('/create');
   }
 
+  async create_tls_config() {
+    return this.post('/create_tls_config');
+  }
+
   async modify(config: any) {
     return this.post('/modify', { ...config });
   }
 }
 
-export const configurationService = new ConfigurationService();
+export const configService = new ConfigService();
