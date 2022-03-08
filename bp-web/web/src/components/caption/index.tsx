@@ -1,15 +1,17 @@
+import { classnames } from '../../utils';
+import { BaseProps } from '../common';
 import './index.css';
 
-interface CaptionProps {
+interface CaptionProps extends BaseProps {
   description?: React.ReactNode;
   extra?: React.ReactNode;
 }
 
 export const Caption: React.FC<CaptionProps> = (props) => {
-  const { description, extra, children } = props;
+  const { description, extra, children, className, style } = props;
 
   return (
-    <div className="Caption Subhead">
+    <div className={classnames('Caption Subhead', className)} style={style}>
       <div
         className="Caption-heading Subhead-heading d-flex flex-justify-between flex-items-center"
         style={{ fontSize: "16px" }}

@@ -1,7 +1,9 @@
+import React from 'react';
 import { useController } from 'bizify';
-import { Button, Caption, ErrorBlock, FormBuilder } from '../../components';
+import { Button, Caption, ErrorBlock, FormBuilder, TextArea } from '../../components';
 import { useMount } from '../../hooks';
 import { RUN_TYPE_SERVER } from '../../common';
+import { CodeIcon } from '../../icons';
 import { ConfigurationCtrl } from './model';
 import { formSchema } from './schema';
 import './index.css';
@@ -13,17 +15,24 @@ export const Configuration: React.FC<{}> = () => {
   useMount(vm.init);
 
   if (!vmData.loaded) {
-    return null;
+    return <span className="AnimatedEllipsis"></span>;
   }
 
   if (vmData.errorInfo.load) {
-    return <ErrorBlock errorInfo={vmData.errorInfo.load} />;
+    return <ErrorBlock>{vmData.errorInfo.load.message}</ErrorBlock>;
   }
 
   return (
     <div className="configuration">
-      <Caption extra={<Extra vm={vm} />} description={<ErrorBlock errorInfo={vmData.errorInfo.mutate} />}>
-        Configuration
+      <Caption
+        extra={<Extra vm={vm} />}
+        description={
+          <ErrorBlock>
+            {vmData.errorInfo.mutate?.message || vmData.errorInfo.code?.message}
+          </ErrorBlock>
+        }
+      >
+        {vmData.file_path || 'Configuration'}
       </Caption>
       <Content vm={vm} />
     </div>
@@ -60,15 +69,25 @@ function Extra({ vm }: { vm: ConfigurationCtrl }) {
   }
 
   return (
-    <Button
-      block
-      loading={services.modifyConfig.loading}
-      disabled={!vmData.isFormDirty}
-      size="small"
-      onClick={vm.handleSaveConfig}
-    >
-      {vmData.isSaveSuccess && !vmData.isFormDirty ? 'Saved!' : 'Save'}
-    </Button>
+    <div className="d-flex">
+      <Button
+        block
+        loading={services.modifyConfig.loading}
+        disabled={!vmData.isFormDirty}
+        size="small"
+        onClick={vm.handleSaveConfig}
+      >
+        {vmData.isSaveSuccess && !vmData.isFormDirty ? 'Saved!' : 'Save'}
+      </Button>
+      <Button
+        className="ml-2"
+        size="small"
+        selected={vmData.isShowCode}
+        onClick={vm.handleShowCodeClick}
+      >
+        <CodeIcon />
+      </Button>
+    </div>
   );
 }
 
@@ -77,6 +96,16 @@ function Content({ vm }: { vm: ConfigurationCtrl }) {
 
   if (!vmData.config) {
     return <Empty />;
+  }
+
+  if (vmData.isShowCode) {
+    return (
+      <TextArea
+        style={{ height: '65vh', fontFamily: 'monospace' }}
+        value={vmData.configString}
+        onChange={vm.handleConfigChange}
+      />
+    );
   }
 
   return (
@@ -110,9 +139,15 @@ function Empty() {
   return (
     <div className="blankslate">
       <h3 className="blankslate-heading">You don't seem to have configuration.</h3>
-      <p>Pull requests help you discuss potential changes before they are merged into the base branch.</p>
+      <p>Please create one before start service.</p>
       <div className="blankslate-action">
-        <button className="btn-link" type="button">Learn more</button>
+        <button
+          className="btn-link"
+          type="button"
+          onClick={() => window.open('https://github.com/micooz/bp', '_blank')}
+        >
+          Learn more
+        </button>
       </div>
     </div>
   );

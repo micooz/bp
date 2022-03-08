@@ -11,6 +11,10 @@ export class ConfigService extends ServiceBase {
     return this.get('/query');
   }
 
+  async query_acl() {
+    return this.get('/query_acl');
+  }
+
   async create() {
     return this.post('/create');
   }
@@ -19,8 +23,8 @@ export class ConfigService extends ServiceBase {
     return this.post('/create_tls_config');
   }
 
-  async modify(config: any) {
-    return this.post('/modify', { ...config });
+  async modify(params: { modify_type: 'config' | 'acl', content: string }) {
+    return this.post('/modify', { ...params });
   }
 }
 

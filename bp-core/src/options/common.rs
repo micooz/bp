@@ -16,14 +16,14 @@ pub enum Options {
 
 // implement helper functions
 impl Options {
-    pub fn try_load_from_file(&mut self, config: &str) -> Result<()> {
+    pub fn try_load_from_file(&mut self, file: &str) -> Result<()> {
         match self {
             Self::Client(_) => {
-                let file_opts = options_from_file::<ClientOptions>(config)?;
+                let file_opts = options_from_file::<ClientOptions>(file)?;
                 *self = Self::Client(file_opts);
             }
             Self::Server(_) => {
-                let file_opts = options_from_file::<ServerOptions>(config)?;
+                let file_opts = options_from_file::<ServerOptions>(file)?;
                 *self = Self::Server(file_opts);
             }
         }

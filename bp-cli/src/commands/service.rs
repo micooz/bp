@@ -16,25 +16,32 @@ use crate::{dirs::Dirs, utils::counter::Counter};
 
 type StartupSender = mpsc::Sender<Startup>;
 
-pub async fn run(mut opts: Options, startup: StartupSender, shutdown: impl Future) -> Result<()> {
+pub async fn run(mut opts: Options, startup: StartupSender, shutdown: impl Future) {
+    let fail = |err: Error| async {
+        log::error!("{}", err);
+        startup.send(Startup::Fail(err)).await.unwrap();
+    };
+
     // try load bp service options from --config
     if let Some(config) = opts.config() {
         log::info!("loading configuration from {}", config);
 
-        opts.try_load_from_file(&config)
-            .map_err(|err| Error::msg(format!("unrecognized format of --config: {}", err)))?;
+        if let Err(err) = opts.try_load_from_file(&config) {
+            return fail(err).await;
+        }
     }
 
     // check options
-    opts.check()?;
+    if let Err(err) = opts.check() {
+        return fail(err).await;
+    }
 
     let inner_shutdown = Shutdown::new();
 
     // bootstrap bp service
     tokio::select! {
         Err(err) = boot(opts, startup.clone(), inner_shutdown.clone()) => {
-            log::error!("{}", err);
-            startup.send(Startup::Fail(err)).await.unwrap();
+            fail(err).await;
         }
         _ = shutdown => {
             log::info!("gracefully shutting down...");
@@ -43,8 +50,6 @@ pub async fn run(mut opts: Options, startup: StartupSender, shutdown: impl Futur
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     };
-
-    Ok(())
 }
 
 #[allow(dead_code)]

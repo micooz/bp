@@ -1,20 +1,17 @@
 import { ControllerBaseProxy } from 'bizify';
 import React from 'react';
 import { logService } from '../../services/log.service';
-import { ErrorInfo } from '../../typings';
 
 type Data = {
-  loaded: boolean;
   log: string;
-  errorInfo: ErrorInfo | null;
+  autoRefresh: boolean;
 };
 
 export class LogCtrl extends ControllerBaseProxy<Data> {
   $data(): Data {
     return {
-      loaded: false,
       log: '',
-      errorInfo: null,
+      autoRefresh: false,
     };
   }
 
@@ -28,16 +25,27 @@ export class LogCtrl extends ControllerBaseProxy<Data> {
 
   init = async (dom: React.RefObject<HTMLTextAreaElement>) => {
     this.$dom = dom;
-    this.$timer = setInterval(this.loadContent, 2000);
     await this.loadContent();
-    // scroll textarea to bottom
+
     setTimeout(() => {
       this.scrollToBottom();
     }, 20);
   };
 
   onDestroy = () => {
-    clearInterval(this.$timer);
+    this.stopPolling();
+  };
+
+  handleAutoRefreshClick = () => {
+    const autoRefresh = !this.data.autoRefresh;
+
+    if (autoRefresh) {
+      this.startPolling();
+    } else {
+      this.stopPolling();
+    }
+
+    this.data.autoRefresh = autoRefresh;
   };
 
   handleRefresh = async () => {
@@ -54,14 +62,14 @@ export class LogCtrl extends ControllerBaseProxy<Data> {
   };
 
   private loadContent = async () => {
-    try {
-      this.data.errorInfo = null;
-      const log = await this.services.tail.execute();
-      this.data.log = log.trimEnd();
-    } catch (err: any) {
-      this.data.errorInfo = { message: err.message };
-    } finally {
-      this.data.loaded = true;
-    }
+    this.data.log = await this.services.tail.execute();
+  };
+
+  private startPolling = () => {
+    this.$timer = setInterval(this.loadContent, 2000);
+  };
+
+  private stopPolling = () => {
+    clearInterval(this.$timer);
   };
 }

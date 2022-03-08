@@ -13,15 +13,26 @@ interface TabNavProps extends BaseProps {
 }
 
 export const TabNav: React.FC<TabNavProps> = (props) => {
-  const { className, items, current, onChange, children } = props;
+  const {
+    className,
+    style,
+    items,
+    current,
+    onChange,
+    children,
+  } = props;
+
   return (
-    <React.Fragment>
-      <div className={`tabnav ${className}`}>
-        <nav className="tabnav-tabs" aria-label="Foo bar">
+    <div className={className} style={style}>
+      <div className="tabnav mb-0">
+        <nav className="tabnav-tabs" aria-label="">
           {items.map(item => (
             <a
               key={item.name}
               className="tabnav-tab"
+              style={{
+                'fontWeight': item.name === current ? '600' : 'normal',
+              }}
               href={`#${item.name}`}
               aria-current={item.name === current}
               onClick={() => onChange(item.name)}
@@ -31,7 +42,7 @@ export const TabNav: React.FC<TabNavProps> = (props) => {
           ))}
         </nav>
       </div>
-      <div className="m-3 ">
+      <div className="p-3 border border-top-0 rounded-bottom-2">
         {React.Children.map(children, (child: any) => {
           // console.log({ child });
           // if (child.type.name !== 'Nav') {
@@ -44,7 +55,7 @@ export const TabNav: React.FC<TabNavProps> = (props) => {
           return child;
         })}
       </div>
-    </React.Fragment>
+    </div>
   );
 };
 

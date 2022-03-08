@@ -20,3 +20,6 @@ async-std = { version = "1.10.0", features = ["attributes", "tokio1"] }
 log = "0.4.0"
 include_dir = "0.7.2"
 sysinfo = "0.23.2"
+
+[build-dependencies]
+cmd_lib = "1.2.4"

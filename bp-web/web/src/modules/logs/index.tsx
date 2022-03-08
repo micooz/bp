@@ -1,6 +1,6 @@
 import { useController } from 'bizify';
-import { useRef } from 'react';
-import { Button, Caption, ErrorBlock } from '../../components';
+import React, { useRef } from 'react';
+import { Button, Caption, Checkbox, ErrorBlock, TextArea } from '../../components';
 import { useMount, useUnmount } from '../../hooks';
 import { LogCtrl } from './model';
 import './index.css';
@@ -14,30 +14,38 @@ export const Logs: React.FC<{}> = () => {
 
   useUnmount(vm.onDestroy);
 
-  if (!vmData.loaded) {
-    return <span className="AnimatedEllipsis" />;
-  }
-
   return (
     <div className="logs">
       <Caption extra={
-        <Button
-          size="small"
-          loading={services.tail.loading}
-          onClick={vm.handleRefresh}
-        >
-          Refresh
-        </Button>
+        <div className="d-flex">
+          <Button
+            size="small"
+            loading={services.tail.loading}
+            onClick={vm.handleRefresh}
+          >
+            Refresh
+          </Button>
+          <Checkbox
+            name=""
+            className="ml-2"
+            checked={vmData.autoRefresh}
+            onChange={vm.handleAutoRefreshClick}
+          >
+            <h6>Auto Refresh</h6>
+          </Checkbox>
+        </div>
       }>
         bp.log
       </Caption>
-      <ErrorBlock className="mb-2" errorInfo={vmData.errorInfo} />
-      <textarea
+      <ErrorBlock className="mb-2">
+        {services.tail.error?.message}
+      </ErrorBlock>
+      <TextArea
         ref={$dom}
-        className="form-control logs-textarea"
-        style={{ height: '65vh', width: '100%' }}
+        className="logs-textarea"
+        style={{ height: '65vh' }}
         value={vmData.log}
-        readOnly
+        readonly
       />
     </div>
   );

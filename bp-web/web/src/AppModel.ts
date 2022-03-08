@@ -1,5 +1,5 @@
 import { ControllerBaseProxy } from 'bizify';
-import { Configuration, Logs, System } from './modules';
+import { Configuration, Acl, Logs, Monitor } from './modules';
 
 type Data = {
   currentTab: string;
@@ -12,8 +12,9 @@ export class AppCtrl extends ControllerBaseProxy<Data> {
       currentTab: 'configuration',
       tabs: [
         { name: 'configuration', title: 'Configuration', component: Configuration },
+        { name: 'acl', title: 'ACL', component: Acl },
         { name: 'log', title: 'Log', component: Logs },
-        { name: 'system', title: 'System', component: System },
+        { name: 'monitor', title: 'Monitor', component: Monitor },
       ],
     };
   }

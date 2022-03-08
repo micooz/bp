@@ -24,8 +24,7 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 - [x] PAC Service based on access control list
 - [x] Enhance acl, support for bp server
 - [x] Gracefully shutting down
-- [ ] Web GUI
-- [ ] Monitor Service
+- [x] Web GUI
 - [ ] Improve performance of I/O reader
 
 ## Planned Features
@@ -33,7 +32,17 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 - [ ] HTTPS Client Proxy with Authorization
 - [ ] Deploy to iOS/Android
 
-## Basic Usages
+## Web GUI (experimental)
+
+Web GUI is currently bundled into `bp-web`:
+
+```
+$ bp-web --client
+```
+
+Open the link printed on the console.
+
+## Basic Usages (CLI)
 
 Please check -h/--help first, or see [USAGE](usages).
 
@@ -85,7 +94,7 @@ $ curl --sock5-hostname 127.0.0.1:1080 cn.bing.com
 $ curl -x 127.0.0.1:1080 cn.bing.com
 ```
 
-## Advanced Usages
+## Advanced Usages (CLI)
 
 > The following guides use CLI options instead of configuration file.
 
@@ -266,13 +275,3 @@ iptables -t nat -A BP -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports
 iptables -t nat -A PREROUTING -p tcp -j BP
 iptables -t nat -A OUTPUT -p tcp -j BP
 ```
-
-## Web GUI
-
-First, start Web GUI via `bp-web`:
-
-```
-$ bp-web --config <bp_config>
-```
-
-Then, open the link displayed on the console.

@@ -1,4 +1,6 @@
-export interface CheckboxProps {
+import { BaseProps } from '../common';
+
+export interface CheckboxProps extends BaseProps {
   name: string;
   checked: boolean;
   placeholder?: string;
@@ -10,11 +12,13 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
     name,
     checked,
     placeholder,
+    className,
+    children = 'Enable',
     onChange,
   } = props;
 
   return (
-    <label className="d-flex flex-items-center" style={{ fontWeight: 'normal' }}>
+    <label className={`d-flex flex-items-center ${className}`} style={{ fontWeight: 'normal' }}>
       <input
         type="checkbox"
         placeholder={placeholder}
@@ -22,7 +26,7 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
         checked={checked}
         onChange={() => onChange?.(!checked)}
       />
-      &nbsp;Enable
+      &nbsp;{children}
     </label>
   );
 };

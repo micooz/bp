@@ -1,8 +1,10 @@
 import { classnames } from '../../utils';
+import { BaseProps } from '../common';
 
-interface ButtonProps {
+interface ButtonProps extends BaseProps {
   block?: boolean;
   disabled?: boolean;
+  selected?: boolean;
   loading?: boolean;
   size?: 'small' | 'large';
   type?: 'primary' | 'danger' | 'outline';
@@ -10,7 +12,17 @@ interface ButtonProps {
 }
 
 export const Button: React.FC<ButtonProps> = (props) => {
-  const { children, block, disabled, loading, size, type, onClick } = props;
+  const {
+    className,
+    children,
+    block,
+    disabled,
+    selected,
+    loading,
+    size,
+    type,
+    onClick,
+  } = props;
 
   const btnType = {
     '': '',
@@ -28,9 +40,11 @@ export const Button: React.FC<ButtonProps> = (props) => {
   const isDisabled = loading || disabled;
 
   return (
+    // eslint-disable-next-line jsx-a11y/role-supports-aria-props
     <button
-      className={classnames('btn', btnType, btnSize, block && 'btn-block')}
+      className={classnames('btn', btnType, btnSize, block && 'btn-block', className)}
       type="button"
+      aria-selected={selected}
       aria-disabled={isDisabled}
       onClick={isDisabled ? undefined : onClick}
     >

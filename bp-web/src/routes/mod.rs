@@ -15,8 +15,8 @@ pub fn register(app: &mut tide::Server<State>) {
     // logging
     app.at("/api/logging/tail").get(LoggingController::tail);
 
-    // system
-    app.at("/api/system/info").get(SystemInfoController::info);
+    // monitor
+    app.at("/api/monitor/system/info").get(SystemInfoController::info);
 
     // service
     app.at("/api/service/query").get(ServiceController::query);

@@ -5,7 +5,7 @@ import { FormSelect } from './form-select';
 export interface FormItem {
   name: string;
   key: string;
-  type: 'text' | 'boolean' | 'number' | 'select';
+  type: 'text' | 'password' | 'boolean' | 'number' | 'select';
   required?: boolean;
   required_if?: string | string[];
   placeholder?: string;
@@ -55,8 +55,6 @@ const FormItemComp: React.FC<FormItemProps> = (props) => {
     placeholder,
     description,
     options,
-    min,
-    max,
   } = item;
 
   let isRequired = required;
@@ -70,9 +68,12 @@ const FormItemComp: React.FC<FormItemProps> = (props) => {
 
   switch (type) {
     case 'text':
+    case 'number':
+    case 'password':
       return (
         <FormInput
           name={name}
+          type={type}
           placeholder={placeholder}
           description={description}
           required={isRequired}
@@ -88,20 +89,6 @@ const FormItemComp: React.FC<FormItemProps> = (props) => {
           description={description}
           required={isRequired}
           checked={data[key]}
-          onChange={onChange}
-        />
-      );
-    case 'number':
-      return (
-        <FormInput
-          numeric
-          min={min}
-          max={max}
-          name={name}
-          placeholder={placeholder}
-          description={description}
-          required={isRequired}
-          value={data[key]}
           onChange={onChange}
         />
       );

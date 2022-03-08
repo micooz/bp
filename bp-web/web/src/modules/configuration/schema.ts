@@ -33,7 +33,7 @@ const ClientSchema: FormSchema = {
     {
       name: 'key',
       key: 'key',
-      type: 'text',
+      type: 'password',
       required_if: 'server_bind',
       description: 'Symmetric encryption key, required if --server-bind is set [default: <empty>]',
     },
@@ -54,6 +54,22 @@ const ClientSchema: FormSchema = {
         },
       ],
     },
+    {
+      name: 'acl',
+      key: 'acl',
+      type: 'text',
+      required_if: 'pac_bind',
+      description: 'Check ACL before proxy, pass a file path [default: <empty>]',
+    },
+    {
+      name: 'pac_bind',
+      key: 'pac_bind',
+      type: 'text',
+      placeholder: 'host:port',
+      description: 'Start a PAC server at the same time, requires --acl [default: <empty>]',
+    },
+  ],
+  advanced: [
     {
       name: 'tls',
       key: 'tls',
@@ -81,28 +97,12 @@ const ClientSchema: FormSchema = {
       required_if: ['tls', 'quic'],
       description: 'Certificate for QUIC or TLS [default: <empty>]',
     },
-  ],
-  advanced: [
     {
       name: 'dns_server',
       key: 'dns_server',
       type: 'text',
       placeholder: 'host:port',
       description: 'DNS server address',
-    },
-    {
-      name: 'acl',
-      key: 'acl',
-      type: 'text',
-      required_if: 'pac_bind',
-      description: 'Check ACL before proxy, pass a file path [default: <empty>]',
-    },
-    {
-      name: 'pac_bind',
-      key: 'pac_bind',
-      type: 'text',
-      placeholder: 'host:port',
-      description: 'Start a PAC server at the same time, requires --acl [default: <empty>]',
     },
   ],
 };
@@ -120,7 +120,7 @@ const ServerSchema: FormSchema = {
     {
       name: 'key',
       key: 'key',
-      type: 'text',
+      type: 'password',
       required_if: 'server_bind',
       description: 'Symmetric encryption key, required if --server-bind is set [default: <empty>]',
     },
@@ -141,6 +141,8 @@ const ServerSchema: FormSchema = {
         },
       ],
     },
+  ],
+  advanced: [
     {
       name: 'tls',
       key: 'tls',
@@ -167,8 +169,6 @@ const ServerSchema: FormSchema = {
       required_if: ['tls', 'quic'],
       description: 'Private key file for QUIC or TLS [default: <empty>]',
     },
-  ],
-  advanced: [
     {
       name: 'dns_server',
       key: 'dns_server',
