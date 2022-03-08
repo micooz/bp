@@ -2,10 +2,6 @@
   position: relative;
 }
 
-.input-block {
-  width: 100% !important;
-}
-
 .input-password input {
   padding-right: 35px;
 }
