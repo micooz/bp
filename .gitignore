@@ -4,3 +4,5 @@ target
 dhat
 /log4rs.yaml
 /logs
+/config.json
+/acl.txt
