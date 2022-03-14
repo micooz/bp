@@ -4,6 +4,8 @@ use std::{env, fs};
 use cmd_lib::{run_cmd, run_fun};
 
 fn main() {
+    println!("cargo:rerun-if-changed=web/src");
+
     let npm = run_fun!(which npm).unwrap();
 
     if npm.is_empty() {
@@ -17,6 +19,4 @@ fn main() {
     }
 
     run_cmd!(npm run build).unwrap();
-
-    println!("cargo:rerun-if-changed=web/src");
 }

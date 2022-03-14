@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bp_core::{Address, ClientOptions, Options, Startup};
+use bp_core::{Address, ClientOptions, Options, ServiceProtocol, Startup};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -32,7 +32,8 @@ pub async fn http_request_via_client(client_config: &str, remote_addr: Address) 
     });
 
     let startup = rx.recv().await.unwrap();
-    let proxy_addr = startup.info().bind_addr;
+    let tcp_service = startup.get(ServiceProtocol::Tcp).unwrap();
+    let proxy_addr = format!("{}:{}", tcp_service.bind_host, tcp_service.bind_port);
     let remote_addr = remote_addr.clone();
 
     log::info!("making connection to bp client {}", proxy_addr);

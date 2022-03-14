@@ -1,0 +1,6 @@
+.control-body {
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: auto;
+  padding: 8px 0;
+}

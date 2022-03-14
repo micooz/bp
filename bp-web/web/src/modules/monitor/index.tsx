@@ -11,14 +11,16 @@ export const Monitor: React.FC<{}> = () => {
 
   return (
     <div className="monitor">
-      <ErrorBlock>{services.querySystemInfo.error?.message}</ErrorBlock>
+      <ErrorBlock className="mb-3">{services.querySystemInfo.error?.message}</ErrorBlock>
 
       <div className="monitor-system mb-3">
-        <Caption extra={
-          <Button loading={services.querySystemInfo.loading} size="small" onClick={vm.refresh}>
-            Refresh
-          </Button>
-        }>
+        <Caption
+          extra={
+            <Button loading={services.querySystemInfo.loading} size="small" onClick={vm.refresh}>
+              Refresh
+            </Button>
+          }
+        >
           System Info
         </Caption>
         <Table rows={vmData.systemInfoRows} />

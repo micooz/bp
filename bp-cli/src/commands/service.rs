@@ -5,7 +5,7 @@ use bp_core::{
     acl::get_acl, init_dns_resolver, init_quic_endpoint_pool, init_quinn_client_config, init_quinn_server_config,
     init_tls_client_config, init_tls_server_config, monitor_log, set_monitor, start_monitor_service, start_pac_service,
     start_quic_service, start_tcp_service, start_tls_service, start_udp_service, Connection, Options, ServiceInfo,
-    Shutdown, Socket, Startup,
+    ServiceProtocol, Shutdown, Socket, Startup,
 };
 use bp_monitor::{events, Monitor};
 use tokio::sync::mpsc;
@@ -98,28 +98,44 @@ async fn pre_boot(opts: &Options) -> Result<()> {
 async fn start_services(opts: Options, startup: StartupSender, shutdown: Shutdown) -> Result<()> {
     let (sender, mut receiver) = mpsc::channel::<Option<Socket>>(SERVICE_CONNECTION_THRESHOLD);
 
+    let mut services = vec![];
+
     let bind_addr = opts.bind().resolve().await?;
     let bind_ip = bind_addr.ip().to_string();
     let bind_host = opts.bind().host();
     let bind_port = opts.bind().port();
 
+    macro_rules! add_service {
+        ($protocol:expr) => {{
+            services.push(ServiceInfo {
+                protocol: $protocol,
+                bind_addr: bind_addr.clone(),
+                bind_host: bind_host.clone(),
+                bind_ip: bind_ip.clone(),
+                bind_port,
+            });
+        }};
+    }
+
     if opts.is_server() {
-        #[allow(clippy::never_loop)]
-        loop {
-            // server side enable --tls, start TLS service
-            if opts.tls() {
-                start_tls_service(bind_addr, sender.clone(), shutdown.clone()).await?;
-                start_udp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
-                break;
-            }
-            // server side enable --quic, start QUIC service
-            if opts.quic() {
-                start_quic_service(bind_addr, sender.clone(), shutdown.clone()).await?;
-                break;
-            }
+        // server side enable --tls, start TLS service
+        if opts.tls() {
+            start_tls_service(bind_addr, sender.clone(), shutdown.clone()).await?;
+            start_udp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
+            add_service!(ServiceProtocol::Tls);
+            add_service!(ServiceProtocol::Udp);
+        }
+        // server side enable --quic, start QUIC service
+        else if opts.quic() {
+            start_quic_service(bind_addr, sender.clone(), shutdown.clone()).await?;
+            add_service!(ServiceProtocol::Quic);
+        }
+        // others
+        else {
             start_tcp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
             start_udp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
-            break;
+            add_service!(ServiceProtocol::Tcp);
+            add_service!(ServiceProtocol::Udp);
         }
     }
 
@@ -127,12 +143,21 @@ async fn start_services(opts: Options, startup: StartupSender, shutdown: Shutdow
         start_tcp_service(bind_addr, sender.clone(), shutdown.clone()).await?;
         start_udp_service(bind_addr, sender, shutdown.clone()).await?;
 
+        add_service!(ServiceProtocol::Tcp);
+        add_service!(ServiceProtocol::Udp);
+
         // start pac service
-        if opts.is_client() {
-            if let Some(pac_bind) = opts.client_opts().pac_bind {
-                let pac_bind = pac_bind.resolve().await?;
-                start_pac_service(pac_bind, opts.bind().as_string(), shutdown.clone()).await?;
-            }
+        if let Some(addr) = opts.client_opts().pac_bind {
+            let bind_addr = addr.resolve().await?;
+            start_pac_service(bind_addr, opts.bind().as_string(), shutdown.clone()).await?;
+
+            services.push(ServiceInfo {
+                protocol: ServiceProtocol::Pac,
+                bind_addr,
+                bind_host: addr.host(),
+                bind_ip: bind_addr.ip().to_string(),
+                bind_port: bind_addr.port(),
+            });
         }
     }
 
@@ -143,6 +168,14 @@ async fn start_services(opts: Options, startup: StartupSender, shutdown: Shutdow
 
         let bind_addr = addr.resolve().await?;
         start_monitor_service(bind_addr, shutdown.clone()).await?;
+
+        services.push(ServiceInfo {
+            protocol: ServiceProtocol::Monitor,
+            bind_addr,
+            bind_host: addr.host(),
+            bind_ip: bind_addr.ip().to_string(),
+            bind_port: bind_addr.port(),
+        });
     }
 
     // load acl
@@ -232,15 +265,7 @@ async fn start_services(opts: Options, startup: StartupSender, shutdown: Shutdow
         }
     });
 
-    startup
-        .send(Startup::Success(ServiceInfo {
-            bind_addr,
-            bind_ip,
-            bind_host,
-            bind_port,
-        }))
-        .await
-        .unwrap();
+    startup.send(Startup::Success(services)).await.unwrap();
 
     handle.await.unwrap();
 

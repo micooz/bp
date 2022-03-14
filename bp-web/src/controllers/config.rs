@@ -1,17 +1,19 @@
-use std::{fs, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use bp_cli::{commands::generate, options::generate::ConfigType};
 use bp_core::{ClientOptions, Options, ServerOptions};
 use parking_lot::Mutex;
 use serde::Deserialize;
-use serde_json::{from_str, json, Error, Value};
+use serde_json::{from_str, json, Value};
 use tide::http::mime;
+use tokio::fs;
 
 use crate::{
-    constants::{DEFAULT_ACL_FILE, DEFAULT_CERT_FILE, DEFAULT_CONFIG_FILE, DEFAULT_PRIV_KEY_FILE},
+    constants::{DEFAULT_ACL_FILE, DEFAULT_CERT_FILE, DEFAULT_PRIV_KEY_FILE},
     options::RunType,
     state::State,
+    utils::finder::find_config_path,
 };
 
 pub struct ConfigController;
@@ -26,7 +28,9 @@ impl ConfigController {
             "metadata": null,
         });
 
-        let file = tokio::fs::read_to_string(DEFAULT_CONFIG_FILE).await;
+        let file_path = find_config_path();
+        let file = fs::read_to_string(&file_path).await;
+
         if file.is_err() {
             return Ok(tide::Response::builder(200)
                 .body(resp_empty)
@@ -35,7 +39,8 @@ impl ConfigController {
         }
 
         // parse
-        let config: Result<Value, Error> = from_str(&file.unwrap());
+        let config: Result<Value, serde_json::Error> = from_str(&file.unwrap());
+
         if config.is_err() {
             return Ok(tide::Response::builder(200)
                 .body(resp_empty)
@@ -54,7 +59,7 @@ impl ConfigController {
         }
 
         let resp = json!({
-            "file_path": DEFAULT_CONFIG_FILE,
+            "file_path": file_path,
             "config": *config.lock(),
             "metadata": null, // TODO: "metadata": Cli::metadata(),
         });
@@ -68,7 +73,7 @@ impl ConfigController {
 
         if let Ok(config) = Self::get_config(req.state()) {
             if let Some(acl) = config.acl() {
-                let file = tokio::fs::read_to_string(&acl).await;
+                let file = fs::read_to_string(&acl).await;
                 content = file.unwrap_or_else(|_| "".to_string());
                 file_path = acl;
             }
@@ -88,7 +93,8 @@ impl ConfigController {
             RunType::Server => ConfigType::Server,
         };
 
-        generate::generate_config(DEFAULT_CONFIG_FILE, config_type).await?;
+        let config_path = find_config_path();
+        generate::generate_config(&config_path, config_type).await?;
 
         Self::query(req).await
     }
@@ -130,29 +136,33 @@ impl ConfigController {
         let config = config.unwrap();
 
         let acl_file = config.acl().unwrap_or_else(|| DEFAULT_ACL_FILE.to_string());
+        let config_file = find_config_path();
 
         let file = match modify_type.as_str() {
-            "config" => DEFAULT_CONFIG_FILE,
+            "config" => config_file.as_str(),
             "acl" => acl_file.as_str(),
             _ => return Ok(tide::Response::builder(403).build()),
         };
 
-        tokio::fs::write(file, content).await?;
+        fs::write(file, content).await?;
 
         Ok(tide::Response::builder(200).build())
     }
 
     fn get_config(state: &State) -> Result<Options> {
+        let path = find_config_path();
+
         if state.opts.client {
             let mut opts = Options::Client(ClientOptions::default());
-            opts.try_load_from_file(DEFAULT_CONFIG_FILE)?;
+            opts.try_load_from_file(path.as_str())?;
             return Ok(opts);
         }
         if state.opts.server {
             let mut opts = Options::Server(ServerOptions::default());
-            opts.try_load_from_file(DEFAULT_CONFIG_FILE)?;
+            opts.try_load_from_file(path.as_str())?;
             return Ok(opts);
         }
+
         unreachable!()
     }
 
@@ -160,7 +170,7 @@ impl ConfigController {
         let mut config = config.lock();
         let file = config[field].as_str().unwrap_or("");
         // file not found
-        if fs::metadata(file).is_err() {
+        if std::fs::metadata(file).is_err() {
             // clear this field
             config[field] = Value::Null;
         }

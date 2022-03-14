@@ -1,3 +1,4 @@
+import { ServiceInfo } from '../typings';
 import { ServiceBase } from './base';
 
 export class ServiceService extends ServiceBase {
@@ -7,15 +8,15 @@ export class ServiceService extends ServiceBase {
     });
   }
 
-  async query() {
-    return this.get('/query');
+  async query(): Promise<ServiceInfo[]> {
+    return this.get('/query') as any;
   }
 
-  async start() {
-    return this.post('/start');
+  async start(): Promise<ServiceInfo[]> {
+    return this.post('/start') as any;
   }
 
-  async stop() {
+  async stop(): Promise<void> {
     return this.post('/stop');
   }
 }

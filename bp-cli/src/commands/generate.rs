@@ -31,8 +31,8 @@ pub async fn run(opts: GenerateOptions) {
     }
 }
 
-pub async fn generate_config(config: &str, config_type: ConfigType) -> Result<()> {
-    let ext = Path::new(config)
+pub async fn generate_config(path: &str, config_type: ConfigType) -> Result<()> {
+    let ext = Path::new(path)
         .extension()
         .map(|v| v.to_str().unwrap())
         .unwrap_or("json");
@@ -63,7 +63,7 @@ pub async fn generate_config(config: &str, config_type: ConfigType) -> Result<()
         }
     };
 
-    fs::write(config, content).await?;
+    fs::write(path, content).await?;
 
     Ok(())
 }

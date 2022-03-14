@@ -8,7 +8,7 @@ use serde_json::json;
 use tide::http::mime;
 use tokio::sync::mpsc::channel;
 
-use crate::{constants::DEFAULT_CONFIG_FILE, options::RunType, state::State};
+use crate::{options::RunType, state::State, utils::finder::find_config_path};
 
 lazy_static! {
     static ref SERVICE_HANDLE: ServiceHandle = Default::default();
@@ -22,20 +22,21 @@ impl ServiceController {
 
         Ok(tide::Response::builder(200)
             .content_type(mime::JSON)
-            .body(json!({ "service_info": info }))
+            .body(json!(info))
             .build())
     }
 
     pub async fn start(req: tide::Request<State>) -> tide::Result {
         let state = req.state();
+        let config_path = find_config_path();
 
         let opts = match state.opts.run_type() {
             RunType::Client => Options::Client(ClientOptions {
-                config: Some(DEFAULT_CONFIG_FILE.to_string()),
+                config: Some(config_path),
                 ..Default::default()
             }),
             RunType::Server => Options::Server(ServerOptions {
-                config: Some(DEFAULT_CONFIG_FILE.to_string()),
+                config: Some(config_path),
                 ..Default::default()
             }),
         };

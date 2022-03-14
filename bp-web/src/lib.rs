@@ -1,3 +1,5 @@
+#![feature(path_try_exists)]
+
 mod constants;
 mod controllers;
 mod options;

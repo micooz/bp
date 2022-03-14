@@ -16,6 +16,7 @@ export const Logs: React.FC<{}> = () => {
 
   return (
     <div className="logs">
+      <ErrorBlock className="mb-3">{services.tail.error?.message}</ErrorBlock>
       <Caption extra={
         <div className="d-flex">
           <Button
@@ -37,9 +38,6 @@ export const Logs: React.FC<{}> = () => {
       }>
         bp.log
       </Caption>
-      <ErrorBlock className="mb-2">
-        {services.tail.error?.message}
-      </ErrorBlock>
       <TextArea
         ref={$dom}
         className="logs-textarea"
