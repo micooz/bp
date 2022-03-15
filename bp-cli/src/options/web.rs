@@ -1,5 +1,4 @@
 use anyhow::{Error, Result};
-use clap::Parser;
 
 // use crate::constants::DEFAULT_BIND_ADDRESS;
 
@@ -17,9 +16,8 @@ impl ToString for RunType {
     }
 }
 
-#[derive(Parser, Debug, Clone)]
-#[clap(name = "bp-web", version, about)]
-pub struct Options {
+#[derive(clap::Args, Debug, Clone, Default)]
+pub struct WebOptions {
     /// Run as client [default: false]
     #[clap(long, short)]
     pub client: bool,
@@ -33,7 +31,7 @@ pub struct Options {
     pub bind: Option<String>,
 }
 
-impl Options {
+impl WebOptions {
     pub fn check(&self) -> Result<()> {
         if !self.client && !self.server {
             return Err(Error::msg("--client or --server must be set one."));

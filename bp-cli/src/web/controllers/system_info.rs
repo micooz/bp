@@ -2,7 +2,7 @@ use serde::Serialize;
 use sysinfo::{RefreshKind, System, SystemExt};
 use tide::http::mime;
 
-use crate::state::State;
+use crate::web::state::State;
 
 pub struct SystemInfoController;
 

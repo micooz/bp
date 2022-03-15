@@ -50,6 +50,10 @@ impl Startup {
         }
     }
 
+    pub fn first(&self) -> Option<ServiceInfo> {
+        self.services().first().map(|v| v.clone())
+    }
+
     pub fn get(&self, protocol: ServiceProtocol) -> Option<ServiceInfo> {
         self.services().into_iter().find(|item| item.protocol == protocol)
     }

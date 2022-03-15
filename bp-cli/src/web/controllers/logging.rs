@@ -6,7 +6,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
 };
 
-use crate::{constants::DEFAULT_LOG_FILE, state::State, utils::compress::gzip};
+use crate::web::{constants::DEFAULT_LOG_FILE, state::State, utils::compress::gzip};
 
 pub struct LoggingController;
 

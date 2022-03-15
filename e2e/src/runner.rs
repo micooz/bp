@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, str::FromStr, sync::Mutex};
 
 use bp_cli::commands::service;
-use bp_core::{Address, ClientOptions, Options, ServerOptions, ServiceInfo, ServiceProtocol, Startup};
+use bp_core::{Address, ClientOptions, Options, ServerOptions, ServiceInfo, Startup};
 use tokio::sync::mpsc;
 
 use crate::http_server::{run_http_mock_server, HttpServerContext};
@@ -86,5 +86,6 @@ async fn run_single(opts: Options) -> ServiceInfo {
     });
 
     let startup = startup_receiver.recv().await.unwrap();
-    startup.get(ServiceProtocol::Tcp).unwrap()
+
+    startup.first().unwrap()
 }

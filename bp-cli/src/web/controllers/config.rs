@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use bp_cli::{commands::generate, options::generate::ConfigType};
 use bp_core::{ClientOptions, Options, ServerOptions};
 use parking_lot::Mutex;
 use serde::Deserialize;
@@ -10,10 +9,13 @@ use tide::http::mime;
 use tokio::fs;
 
 use crate::{
-    constants::{DEFAULT_ACL_FILE, DEFAULT_CERT_FILE, DEFAULT_PRIV_KEY_FILE},
-    options::RunType,
-    state::State,
-    utils::finder::find_config_path,
+    commands::generate,
+    options::{generate::ConfigType, web::RunType},
+    web::{
+        constants::{DEFAULT_ACL_FILE, DEFAULT_CERT_FILE, DEFAULT_PRIV_KEY_FILE},
+        state::State,
+        utils::finder::find_config_path,
+    },
 };
 
 pub struct ConfigController;

@@ -54,4 +54,4 @@ OPTIONS:
             Convert udp to tcp requires --server-bind to be set if true [default: false]
 
         --with-basic-auth <WITH_BASIC_AUTH>
-            Basic authorization required for HTTP Proxy, e,g. "user:password" [default: <empty>]
+            Basic authorization required for HTTP Proxy, e,g. "user:pass" [default: <empty>]

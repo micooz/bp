@@ -1,7 +1,7 @@
+#![feature(path_try_exists)]
+
 pub mod commands;
 pub mod dirs;
 pub mod options;
 pub mod utils;
-
-// #[cfg(feature = "profile")]
-// pub mod profile;
+pub mod web;

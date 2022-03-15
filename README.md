@@ -34,13 +34,13 @@ bp is a set of advanced and efficient proxy tools written in pure Rust.
 
 ## Web GUI (experimental)
 
-Web GUI is currently bundled into `bp-web`:
+Start bp client gui via:
 
 ```
-$ bp-web --client
+$ bp web --client
 ```
 
-Open the link printed on the console.
+Then open the link printed on the console.
 
 ## Basic Usages (CLI)
 
@@ -153,11 +153,18 @@ $ bp client --acl /path/to/acl.txt
 $ bp server --acl /path/to/acl.txt
 ```
 
-**White List Example**
+**Black List Example**
 
 ```
 example.com
 example1.com
+```
+
+**White List Example**
+
+```
+[Allow]
+example.com
 ```
 
 Or add `[Deny]` and `[Allow]` pair:
@@ -167,16 +174,6 @@ Or add `[Deny]` and `[Allow]` pair:
 *:*
 
 [Allow]
-example.com
-```
-
-**Black List Example**
-
-```
-[Allow]
-*:*
-
-[Deny]
 example.com
 ```
 

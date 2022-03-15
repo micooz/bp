@@ -1,4 +1,4 @@
-use std::{env, future::Future, sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use anyhow::{Error, Result};
 use bp_core::{
@@ -10,8 +10,6 @@ use bp_core::{
 use bp_monitor::{events, Monitor};
 use tokio::sync::mpsc;
 
-#[cfg(target_family = "unix")]
-use crate::utils::daemonize::daemonize;
 use crate::{dirs::Dirs, utils::counter::Counter};
 
 type StartupSender = mpsc::Sender<Startup>;
@@ -52,8 +50,6 @@ pub async fn run(mut opts: Options, startup: StartupSender, shutdown: impl Futur
     };
 }
 
-#[allow(dead_code)]
-const ENV_DISABLE_DAEMONIZE: &str = "DISABLE_DAEMONIZE";
 const SERVICE_CONNECTION_THRESHOLD: usize = 1024;
 
 async fn boot(opts: Options, startup: StartupSender, shutdown: Shutdown) -> Result<()> {
@@ -70,13 +66,6 @@ async fn pre_boot(opts: &Options) -> Result<()> {
     Dirs::init()?;
 
     log::info!("log files are stored at logs/bp.log");
-
-    // daemonize
-    // #[cfg(target_family = "unix")]
-    // if opts.daemonize && !env::vars().any(|(k, _)| k == ENV_DISABLE_DAEMONIZE) {
-    //     daemonize_self()?;
-    //     return Ok(());
-    // }
 
     // dns server
     init_dns_resolver(opts.dns_server().as_socket_addr()).await?;
@@ -299,37 +288,6 @@ fn init_tls_configs(opts: &Options) -> Result<()> {
             }
         }
     }
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn daemonize_self() -> Result<()> {
-    log::info!(
-        "start daemonize, stdout/stderr will be redirected to {}",
-        Dirs::run().to_str().unwrap()
-    );
-
-    // NOTE: must read before daemonize() call
-    let bin_path = env::current_exe().unwrap();
-    let work_dir = env::current_dir().unwrap();
-
-    daemonize().map_err(|err| Error::msg(format!("fail to daemonize due to: {}", err)))?;
-
-    log::info!("spawning a new child process before exit");
-
-    let mut command = std::process::Command::new(bin_path);
-    command.current_dir(work_dir);
-    command.env(ENV_DISABLE_DAEMONIZE, "1");
-
-    for (index, arg) in env::args().enumerate() {
-        if index == 0 {
-            continue;
-        }
-        command.arg(arg);
-    }
-
-    command.spawn()?;
 
     Ok(())
 }

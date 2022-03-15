@@ -42,8 +42,6 @@ impl AccessControlList {
         let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
         let content = self.serialize();
 
-        dbg!(&content);
-
         file.write_all(content.as_bytes())?;
         file.flush()?;
 

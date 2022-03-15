@@ -1,6 +1,4 @@
-use bp_cli::dirs::Dirs;
-
-use crate::constants::DEFAULT_CONFIG_FILE;
+use crate::{dirs::Dirs, web::constants::DEFAULT_CONFIG_FILE};
 
 pub fn find_config_path() -> String {
     let mut path = Dirs::root();

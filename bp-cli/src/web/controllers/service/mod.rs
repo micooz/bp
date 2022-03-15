@@ -1,6 +1,5 @@
 mod handle;
 
-use bp_cli::commands::service;
 use bp_core::{ClientOptions, Options, ServerOptions, Startup};
 use handle::ServiceHandle;
 use lazy_static::lazy_static;
@@ -8,7 +7,11 @@ use serde_json::json;
 use tide::http::mime;
 use tokio::sync::mpsc::channel;
 
-use crate::{options::RunType, state::State, utils::finder::find_config_path};
+use crate::{
+    commands::service,
+    options::web::RunType,
+    web::{state::State, utils::finder::find_config_path},
+};
 
 lazy_static! {
     static ref SERVICE_HANDLE: ServiceHandle = Default::default();

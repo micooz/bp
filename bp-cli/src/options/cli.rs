@@ -1,7 +1,7 @@
 use bp_core::{ClientOptions, Options, ServerOptions};
 use clap::{Parser, Subcommand};
 
-use super::{generate::GenerateOptions, test::TestOptions};
+use super::{generate::GenerateOptions, test::TestOptions, web::WebOptions};
 
 #[derive(Parser)]
 #[clap(name = "bp", version, about)]
@@ -54,4 +54,7 @@ pub enum Command {
 
     /// Run testing utils
     Test(TestOptions),
+
+    /// Run web gui
+    Web(WebOptions),
 }

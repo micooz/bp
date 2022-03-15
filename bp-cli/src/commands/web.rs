@@ -1,8 +1,10 @@
-use bp_cli::utils::exit::{exit, ExitError};
+use crate::{
+    options::web::WebOptions,
+    utils::exit::{exit, ExitError},
+    web::{constants::DEFAULT_BIND_ADDRESS, routes, state::State},
+};
 
-use crate::{constants::DEFAULT_BIND_ADDRESS, routes, state::State, Options};
-
-pub async fn run(opts: Options) {
+pub async fn run(opts: WebOptions) {
     if let Err(err) = opts.check() {
         log::error!("{}", err);
         exit(ExitError::ArgumentsError);
@@ -12,7 +14,7 @@ pub async fn run(opts: Options) {
     }
 }
 
-async fn bootstrap(opts: Options) -> tide::Result<()> {
+async fn bootstrap(opts: WebOptions) -> tide::Result<()> {
     let bind_addr = opts.bind.clone().unwrap_or_else(|| DEFAULT_BIND_ADDRESS.to_string());
 
     // init shared state

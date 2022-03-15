@@ -1,7 +1,7 @@
 use include_dir::{include_dir, Dir};
 use tide::http::{headers, mime};
 
-use crate::{state::State, utils::compress};
+use crate::web::{state::State, utils::compress};
 
 static WEB_BUILD_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/web/build");
 

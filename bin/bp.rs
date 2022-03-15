@@ -1,5 +1,5 @@
 use bp_cli::{
-    commands::{generate, service, test},
+    commands::{generate, service, test, web},
     options::cli::{Cli, Command},
 };
 use bp_core::{logging, Startup};
@@ -28,6 +28,10 @@ async fn main() {
         // $ bp test [OPTIONS]
         Command::Test(opts) => {
             test::run(opts).await;
+        }
+        // $ bp web [OPTIONS]
+        Command::Web(opts) => {
+            web::run(opts).await;
         }
     }
 }
