@@ -32,6 +32,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install dependencies for web gui
+        uses: bahmutov/npm-install@v1
+        with:
+          working-directory: bp-cli/web
+
       - name: Install cross
         run: cargo install cross
 
