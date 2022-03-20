@@ -19,8 +19,8 @@ export class ConfigService extends ServiceBase {
     return this.post('/create');
   }
 
-  async create_tls_config() {
-    return this.post('/create_tls_config');
+  async create_tls_config(hostname: string) {
+    return this.post('/create_tls_config', { hostname });
   }
 
   async modify(params: { modify_type: 'config' | 'acl', content: string }) {

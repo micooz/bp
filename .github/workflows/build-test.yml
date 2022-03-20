@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies for web gui
         uses: bahmutov/npm-install@v1
         with:
-          working-directory: bp-cli/web
+          working-directory: bp-web
 
       - uses: actions/cache@v2
         with:

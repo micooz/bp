@@ -1,9 +1,18 @@
 use super::{
+    common::state::State,
     controllers::{AssetsController, ConfigController, LoggingController, ServiceController, SystemInfoController},
-    state::State,
+    middlewares::crypto::CryptoMiddleware,
 };
+use crate::options::web::CryptoMethod;
 
 pub fn register(app: &mut tide::Server<State>) {
+    let state = app.state();
+
+    // apply middleware
+    if !matches!(state.opts.crypto, CryptoMethod::None) {
+        app.with(CryptoMiddleware::default());
+    }
+
     // configuration
     app.at("/api/config/query").get(ConfigController::query);
     app.at("/api/config/query_acl").get(ConfigController::query_acl);

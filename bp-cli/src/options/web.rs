@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::{Error, Result};
 
 // use crate::constants::DEFAULT_BIND_ADDRESS;
@@ -16,6 +18,39 @@ impl ToString for RunType {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum CryptoMethod {
+    None,
+    Base64,
+}
+
+impl FromStr for CryptoMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let v = match s.to_lowercase().as_str() {
+            "base64" => Self::Base64,
+            _ => Self::None,
+        };
+        Ok(v)
+    }
+}
+
+impl ToString for CryptoMethod {
+    fn to_string(&self) -> String {
+        match self {
+            CryptoMethod::None => "".into(),
+            CryptoMethod::Base64 => "base64".into(),
+        }
+    }
+}
+
+impl Default for CryptoMethod {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 #[derive(clap::Args, Debug, Clone, Default)]
 pub struct WebOptions {
     /// Run as client [default: false]
@@ -29,6 +64,10 @@ pub struct WebOptions {
     /// Web server launch address [default: 127.0.0.1:8080]
     #[clap(long)]
     pub bind: Option<String>,
+
+    /// Apply encryption/decryption for all response/request [default: '']
+    #[clap(long, default_value = "")]
+    pub crypto: CryptoMethod,
 }
 
 impl WebOptions {

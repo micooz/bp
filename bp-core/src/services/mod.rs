@@ -51,7 +51,7 @@ impl Startup {
     }
 
     pub fn first(&self) -> Option<ServiceInfo> {
-        self.services().first().map(|v| v.clone())
+        self.services().first().cloned()
     }
 
     pub fn get(&self, protocol: ServiceProtocol) -> Option<ServiceInfo> {

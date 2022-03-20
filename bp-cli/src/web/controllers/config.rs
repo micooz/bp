@@ -5,15 +5,14 @@ use bp_core::{ClientOptions, Options, ServerOptions};
 use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
-use tide::http::mime;
 use tokio::fs;
 
 use crate::{
     commands::generate,
     options::{generate::ConfigType, web::RunType},
     web::{
-        constants::{DEFAULT_ACL_FILE, DEFAULT_CERT_FILE, DEFAULT_PRIV_KEY_FILE},
-        state::State,
+        common::{response::Response, state::State},
+        constants::{DEFAULT_ACL_FILE, DEFAULT_CERT_FILE, DEFAULT_CONFIG_FILE, DEFAULT_PRIV_KEY_FILE},
         utils::finder::find_config_path,
     },
 };
@@ -34,20 +33,14 @@ impl ConfigController {
         let file = fs::read_to_string(&file_path).await;
 
         if file.is_err() {
-            return Ok(tide::Response::builder(200)
-                .body(resp_empty)
-                .content_type(mime::JSON)
-                .build());
+            return Response::success(resp_empty);
         }
 
         // parse
         let config: Result<Value, serde_json::Error> = from_str(&file.unwrap());
 
         if config.is_err() {
-            return Ok(tide::Response::builder(200)
-                .body(resp_empty)
-                .content_type(mime::JSON)
-                .build());
+            return Response::success(resp_empty);
         }
 
         let config = Arc::new(Mutex::new(config.unwrap()));
@@ -66,7 +59,7 @@ impl ConfigController {
             "metadata": null, // TODO: "metadata": Cli::metadata(),
         });
 
-        Ok(tide::Response::builder(200).body(resp).content_type(mime::JSON).build())
+        Response::success(resp)
     }
 
     pub async fn query_acl(req: tide::Request<State>) -> tide::Result {
@@ -81,10 +74,7 @@ impl ConfigController {
             }
         }
 
-        Ok(tide::Response::builder(200)
-            .body(json!({ "file_path": file_path, "content": content }))
-            .content_type(mime::JSON)
-            .build())
+        Response::success(json!({ "file_path": file_path, "content": content }))
     }
 
     pub async fn create(req: tide::Request<State>) -> tide::Result {
@@ -95,8 +85,7 @@ impl ConfigController {
             RunType::Server => ConfigType::Server,
         };
 
-        let config_path = find_config_path();
-        generate::generate_config(&config_path, config_type).await?;
+        generate::generate_config(DEFAULT_CONFIG_FILE, config_type).await?;
 
         Self::query(req).await
     }
@@ -111,7 +100,7 @@ impl ConfigController {
 
         generate::generate_certificate(&hostname, DEFAULT_CERT_FILE, DEFAULT_PRIV_KEY_FILE).await?;
 
-        Ok(tide::Response::builder(200).build())
+        Response::success(Value::Null)
     }
 
     pub async fn modify(mut req: tide::Request<State>) -> tide::Result {
@@ -124,15 +113,13 @@ impl ConfigController {
         let Params { modify_type, content } = req.body_json::<Params>().await?;
 
         if content.is_empty() {
-            return Ok(tide::Response::builder(403)
-                .body("content cannot be empty".to_string())
-                .build());
+            return Response::error(403, "content cannot be empty");
         }
 
         let config = Self::get_config(req.state());
 
         if config.is_err() {
-            return Ok(tide::Response::builder(403).build());
+            return Response::error(403, "");
         }
 
         let config = config.unwrap();
@@ -143,12 +130,12 @@ impl ConfigController {
         let file = match modify_type.as_str() {
             "config" => config_file.as_str(),
             "acl" => acl_file.as_str(),
-            _ => return Ok(tide::Response::builder(403).build()),
+            _ => return Response::error(403, ""),
         };
 
         fs::write(file, content).await?;
 
-        Ok(tide::Response::builder(200).build())
+        Response::success(Value::Null)
     }
 
     fn get_config(state: &State) -> Result<Options> {

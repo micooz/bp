@@ -16,7 +16,7 @@ export class ServiceService extends ServiceBase {
     return this.post('/start') as any;
   }
 
-  async stop(): Promise<void> {
+  async stop() {
     return this.post('/stop');
   }
 }

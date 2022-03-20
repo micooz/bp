@@ -1,7 +1,7 @@
 use crate::{
     options::web::WebOptions,
     utils::exit::{exit, ExitError},
-    web::{constants::DEFAULT_BIND_ADDRESS, routes, state::State},
+    web::{common::state::State, constants::DEFAULT_BIND_ADDRESS, routes},
 };
 
 pub async fn run(opts: WebOptions) {

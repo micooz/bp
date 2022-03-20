@@ -4,13 +4,15 @@ use bp_core::{ClientOptions, Options, ServerOptions, Startup};
 use handle::ServiceHandle;
 use lazy_static::lazy_static;
 use serde_json::json;
-use tide::http::mime;
 use tokio::sync::mpsc::channel;
 
 use crate::{
     commands::service,
     options::web::RunType,
-    web::{state::State, utils::finder::find_config_path},
+    web::{
+        common::{response::Response, state::State},
+        utils::finder::find_config_path,
+    },
 };
 
 lazy_static! {
@@ -23,10 +25,7 @@ impl ServiceController {
     pub async fn query(_req: tide::Request<State>) -> tide::Result {
         let info = SERVICE_HANDLE.info();
 
-        Ok(tide::Response::builder(200)
-            .content_type(mime::JSON)
-            .body(json!(info))
-            .build())
+        Response::success(json!(info))
     }
 
     pub async fn start(req: tide::Request<State>) -> tide::Result {
@@ -55,7 +54,7 @@ impl ServiceController {
         let startup = startup_receiver.recv().await.unwrap();
 
         match startup {
-            Startup::Fail(err) => Ok(tide::Response::builder(500).body(err.to_string()).build()),
+            Startup::Fail(err) => Response::error(500, err.to_string().as_str()),
             Startup::Success(info) => {
                 SERVICE_HANDLE.set(Some((shutdown_sender, info)));
                 Self::query(req).await
@@ -65,11 +64,11 @@ impl ServiceController {
 
     pub async fn stop(_req: tide::Request<State>) -> tide::Result {
         if !SERVICE_HANDLE.running() {
-            return Ok(tide::Response::builder(500).body("service is not running").build());
+            return Response::error(500, "service is not running");
         }
 
         SERVICE_HANDLE.abort().await;
 
-        Ok(tide::Response::builder(200).build())
+        Response::success(serde_json::Value::Null)
     }
 }

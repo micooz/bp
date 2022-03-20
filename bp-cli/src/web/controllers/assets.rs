@@ -1,9 +1,9 @@
 use include_dir::{include_dir, Dir};
 use tide::http::{headers, mime};
 
-use crate::web::{state::State, utils::compress};
+use crate::web::{common::state::State, utils::compress};
 
-static WEB_BUILD_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/web/build");
+static WEB_BUILD_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../bp-web/build");
 
 pub struct AssetsController;
 
@@ -14,11 +14,16 @@ impl AssetsController {
         let index_html = WEB_BUILD_DIR.get_file("index.html").unwrap();
         let index_html_content = index_html.contents_utf8().unwrap();
 
-        // replace __RUN_TYPE__ in index.html
-        let index_html_content = index_html_content.replace("%RUN_TYPE%", &state.opts.run_type().to_string());
+        // replace placeholders in index.html
+        let index_html_content = index_html_content
+            .replace("%REACT_APP_VERSION%", env!("CARGO_PKG_VERSION"))
+            // TODO: find a way to obtain rustc version
+            .replace("%REACT_APP_RUST_VERSION%", "")
+            .replace("%REACT_APP_RUN_TYPE%", &state.opts.run_type().to_string())
+            .replace("%REACT_APP_CRYPTO_METHOD%", &state.opts.crypto.to_string());
 
         Ok(tide::Response::builder(200)
-            .body(index_html_content)
+            .body(index_html_content.as_bytes())
             .header(headers::CACHE_CONTROL, "no-store")
             .content_type(mime::HTML)
             .build())

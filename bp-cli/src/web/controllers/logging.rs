@@ -1,12 +1,15 @@
 use std::io::SeekFrom;
 
-use tide::http::mime;
 use tokio::{
     fs,
     io::{AsyncReadExt, AsyncSeekExt},
 };
 
-use crate::web::{constants::DEFAULT_LOG_FILE, state::State, utils::compress::gzip};
+use crate::web::{
+    common::{response::Response, state::State},
+    constants::DEFAULT_LOG_FILE,
+    utils::compress::gzip,
+};
 
 pub struct LoggingController;
 
@@ -60,11 +63,7 @@ impl LoggingController {
         content_seg.reverse();
 
         let full_content = content_seg.join("");
-
-        let res = tide::Response::builder(200)
-            .content_type(mime::PLAIN)
-            .body(full_content)
-            .build();
+        let res = Response::plain(200, full_content);
 
         gzip(&req, res)
     }

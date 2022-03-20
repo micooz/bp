@@ -4,7 +4,7 @@ use std::{env, fs};
 use cmd_lib::{run_cmd, run_fun};
 
 fn main() {
-    println!("cargo:rerun-if-changed=web/src");
+    println!("cargo:rerun-if-changed=../bp-web/src");
 
     let npm = run_fun!(which npm).unwrap();
 
@@ -12,7 +12,7 @@ fn main() {
         panic!("please install Node.js before build bp-web");
     }
 
-    env::set_current_dir("web").unwrap();
+    env::set_current_dir("../bp-web").unwrap();
 
     if !fs::try_exists("node_modules").unwrap() {
         run_cmd!(npm install).unwrap();

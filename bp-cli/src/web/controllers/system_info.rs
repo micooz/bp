@@ -1,8 +1,7 @@
 use serde::Serialize;
 use sysinfo::{RefreshKind, System, SystemExt};
-use tide::http::mime;
 
-use crate::web::state::State;
+use crate::web::common::{response::Response, state::State};
 
 pub struct SystemInfoController;
 
@@ -40,11 +39,8 @@ impl SystemInfoController {
             ),
         };
 
-        let body_json = serde_json::to_string(&body)?;
+        let json = serde_json::to_string(&body)?;
 
-        Ok(tide::Response::builder(200)
-            .content_type(mime::JSON)
-            .body(body_json)
-            .build())
+        Response::success(serde_json::from_str(&json).unwrap())
     }
 }
