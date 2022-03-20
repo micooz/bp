@@ -7,7 +7,6 @@ USAGE:
 OPTIONS:
         --bind <BIND>        Web server launch address [default: 127.0.0.1:8080]
     -c, --client             Run as client [default: false]
-        --crypto <CRYPTO>    Apply encryption/decryption for all response/request [default: '']
-                             [default: ]
+        --crypto <CRYPTO>    Apply encryption/decryption for all response/request [default: none]
     -h, --help               Print help information
     -s, --server             Run as server [default: false]

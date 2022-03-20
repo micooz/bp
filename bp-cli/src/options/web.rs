@@ -65,8 +65,8 @@ pub struct WebOptions {
     #[clap(long)]
     pub bind: Option<String>,
 
-    /// Apply encryption/decryption for all response/request [default: '']
-    #[clap(long, default_value = "")]
+    /// Apply encryption/decryption for all response/request
+    #[clap(long, default_value = "none")]
     pub crypto: CryptoMethod,
 }
 

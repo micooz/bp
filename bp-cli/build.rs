@@ -6,10 +6,11 @@ use cmd_lib::{run_cmd, run_fun};
 fn main() {
     println!("cargo:rerun-if-changed=../bp-web/src");
 
-    let npm = run_fun!(which npm).unwrap();
+    let npm = run_fun!(which npm).unwrap_or_else(|_| "".to_string());
 
     if npm.is_empty() {
-        panic!("please install Node.js before build bp-web");
+        eprintln!("[ERROR] please install Node.js before build bp-web");
+        return;
     }
 
     env::set_current_dir("../bp-web").unwrap();
