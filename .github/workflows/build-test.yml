@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install dependencies for web gui
+      - name: Install dependencies for bp-web
         uses: bahmutov/npm-install@v1
         with:
           working-directory: bp-web
