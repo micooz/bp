@@ -1,0 +1,93 @@
+name: Deploy WEB GUI (Manually)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Remote Host to deploy'
+        required: true
+      port:
+        description: 'SSH Port'
+        default: '22'
+        required: true
+      username:
+        description: 'SSH username'
+        required: true
+      password:
+        description: 'SSH password'
+        required: true
+      version:
+        description: 'Asset version to deploy'
+        default: 'v2.0.0-alpha.2'
+        required: true
+      arch:
+        description: 'Asset binary architecture (Rust format)'
+        default: 'x86_64-unknown-linux-gnu'
+        required: true
+      bind:
+        description: 'Web server bind address'
+        default: '0.0.0.0:8080'
+        required: false
+      crypto:
+        description: 'Web server crypto method'
+        default: 'base64'
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ github.event.inputs.host }}
+      PORT: ${{ github.event.inputs.port }}
+      USERNAME: ${{ github.event.inputs.username }}
+      PASSWORD: ${{ github.event.inputs.password }}
+      VERSION: ${{ github.event.inputs.version }}
+      ASSET_FILE: bp-${{ github.event.inputs.version }}.${{ github.event.inputs.arch }}.tar.xz
+      DEPLOY_PATH: /home/${{ github.event.inputs.username }}/.bp/deploy/${{ github.event.inputs.version }}
+      SERVER_BIND: ${{ github.event.inputs.bind }}
+      CRYPTO_METHOD: ${{ github.event.inputs.crypto }}
+    steps:
+      - name: Download Asset
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: "tags/${{ env.VERSION }}"
+          file: "${{ env.ASSET_FILE }}"
+          target: "${{ env.ASSET_FILE }}"
+
+      - name: Send Asset to Remote Host
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.HOST }}
+          port: ${{ env.PORT }}
+          username: ${{ env.USERNAME }}
+          password: ${{ env.PASSWORD }}
+          source: "${{ env.ASSET_FILE }}"
+          target: "${{ env.DEPLOY_PATH }}"
+
+      - name: Run Deploy Scripts
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.HOST }}
+          port: ${{ env.PORT }}
+          username: ${{ env.USERNAME }}
+          password: ${{ env.PASSWORD }}
+          script_stop: true
+          script: |
+            TAR_FILE=${{ env.DEPLOY_PATH }}/${{ env.ASSET_FILE }}
+            BIN_FILE=${{ env.DEPLOY_PATH }}/bp
+            SERVER_BIND=${{ env.SERVER_BIND }}
+            CRYPTO_METHOD=${{ env.CRYPTO_METHOD }}
+
+            echo "> Extract $TAR_FILE"
+            tar -xf $TAR_FILE -C ${{ env.DEPLOY_PATH }}
+
+            cd .bp/
+
+            echo "Stop bp process"
+            pm2 delete bp || true
+
+            echo "Start bp service"
+            pm2 start $BIN_FILE -- web --server --bind $SERVER_BIND --crypto $CRYPTO_METHOD
+
+            echo "> All Done."
