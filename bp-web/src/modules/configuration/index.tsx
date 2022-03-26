@@ -112,7 +112,7 @@ function Content({ vm }: { vm: ConfigurationCtrl }) {
     <div className="configuration-form form">
       <details className="details-overlay mb-2" open>
         <summary aria-haspopup="true">
-          <strong>Basic</strong>
+          Basic
         </summary>
         <FormBuilder
           schema={formSchema.basic}
@@ -121,9 +121,9 @@ function Content({ vm }: { vm: ConfigurationCtrl }) {
         />
       </details>
 
-      <details className="details-overlay">
+      <details className="details-overlay" open>
         <summary aria-haspopup="true">
-          <strong>Advanced</strong>
+          Advanced
         </summary>
         <FormBuilder
           schema={formSchema.advanced}

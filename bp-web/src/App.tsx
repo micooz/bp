@@ -1,6 +1,6 @@
 import { useController } from 'bizify';
 import { Caption, TabNav, TabNavItem } from './components';
-import { Header, Control } from './modules';
+import { Header, Control, Footer } from './modules';
 import { AppCtrl } from './AppModel';
 import './App.css';
 
@@ -29,6 +29,7 @@ export default function App() {
           ))}
         </TabNav>
       </div>
+      <Footer />
     </div>
   );
 }

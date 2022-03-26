@@ -46,6 +46,10 @@ pub struct ClientOptions {
     #[clap(long)]
     pub pac_bind: Option<Address>,
 
+    /// Proxy target used by PAC file, requires --pac-bind [default: --bind]
+    #[clap(long)]
+    pub pac_proxy: Option<Address>,
+
     /// Symmetric encryption key, required if --server-bind is set [default: <empty>]
     #[clap(short, long)]
     pub key: Option<String>,
@@ -104,6 +108,7 @@ impl Default for ClientOptions {
             with_basic_auth: None,
             server_bind: None,
             pac_bind: None,
+            pac_proxy: None,
             key: None,
             encryption: get_default_encryption(),
             acl: None,
@@ -131,6 +136,10 @@ impl ClientOptions {
 
         if self.pac_bind.is_some() && self.acl.is_none() {
             return Err(Error::msg("--pac-bind requires --acl to be set."));
+        }
+
+        if self.pac_proxy.is_some() && self.pac_bind.is_none() {
+            return Err(Error::msg("--pac-proxy requires --pac-bind to be set."));
         }
 
         if self.udp_over_tcp && self.server_bind.is_none() {

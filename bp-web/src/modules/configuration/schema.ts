@@ -65,8 +65,16 @@ const ClientSchema: FormSchema = {
       name: 'pac_bind',
       key: 'pac_bind',
       type: 'text',
+      required_if: 'pac_proxy',
       placeholder: 'host:port',
       description: 'Start a PAC server at the same time, requires --acl [default: <empty>]',
+    },
+    {
+      name: 'pac_proxy',
+      key: 'pac_proxy',
+      type: 'text',
+      placeholder: 'host:port',
+      description: 'Proxy target used by PAC file, requires --pac-bind [default: --bind]',
     },
   ],
   advanced: [

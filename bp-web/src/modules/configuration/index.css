@@ -5,3 +5,9 @@
 .configuration-form .details-overlay[open]>summary::before {
   content: none;
 }
+
+.configuration-form details summary {
+  padding: 4px 0 4px 8px;
+  font-weight: bold;
+  background-color: #f6f8fa;
+}

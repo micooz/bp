@@ -32,6 +32,9 @@ OPTIONS:
         --pac-bind <PAC_BIND>
             Start a PAC server at the same time, requires --acl [default: <empty>]
 
+        --pac-proxy <PAC_PROXY>
+            Proxy target used by PAC file, requires --pac-bind [default: --bind]
+
         --pin-dest-addr <PIN_DEST_ADDR>
             Redirect all incoming data to this destination, for testing [default: <empty>]
 

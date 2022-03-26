@@ -25,7 +25,7 @@ export const Control: React.FC<{}> = () => {
         className="mb-3"
         extra={
           <Button
-            type="primary"
+            type={vmData.online ? 'danger' : 'primary'}
             size="small"
             disabled={!!services.query.error || services.query.loading}
             loading={services.start.loading || services.stop.loading}

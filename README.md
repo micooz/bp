@@ -113,7 +113,7 @@ $ bp client
 This feature is **Client Only**.
 
 ```
-$ bp client --acl /path/to/acl.txt --pac-bind <host:port>
+$ bp client --acl /path/to/acl.txt --pac-bind <host:port> --pac-proxy <host:port>
 ```
 
 **Caveats**

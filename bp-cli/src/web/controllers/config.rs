@@ -116,21 +116,21 @@ impl ConfigController {
             return Response::error(403, "content cannot be empty");
         }
 
-        let config = Self::get_config(req.state());
-
-        if config.is_err() {
-            return Response::error(403, "");
-        }
-
-        let config = config.unwrap();
-
-        let acl_file = config.acl().unwrap_or_else(|| DEFAULT_ACL_FILE.to_string());
-        let config_file = find_config_path();
-
         let file = match modify_type.as_str() {
-            "config" => config_file.as_str(),
-            "acl" => acl_file.as_str(),
-            _ => return Response::error(403, ""),
+            "config" => find_config_path(),
+            "acl" => {
+                let config = Self::get_config(req.state());
+
+                if let Err(err) = config {
+                    return Response::error(403, &err.to_string());
+                }
+
+                let config = config.unwrap();
+                let acl_file = config.acl().unwrap_or_else(|| DEFAULT_ACL_FILE.to_string());
+
+                acl_file
+            }
+            _ => return Response::error(403, "modify_type is not support"),
         };
 
         fs::write(file, content).await?;

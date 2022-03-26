@@ -135,10 +135,16 @@ async fn start_services(opts: Options, startup: StartupSender, shutdown: Shutdow
         add_service!(ServiceProtocol::Tcp);
         add_service!(ServiceProtocol::Udp);
 
+        let opts = opts.client_opts();
+
         // start pac service
-        if let Some(addr) = opts.client_opts().pac_bind {
+        if let Some(addr) = opts.pac_bind.clone() {
             let bind_addr = addr.resolve().await?;
-            start_pac_service(bind_addr, opts.bind().as_string(), shutdown.clone()).await?;
+
+            // fallback pac proxy target to --bind
+            let pac_proxy = opts.pac_proxy.unwrap_or(opts.bind);
+
+            start_pac_service(bind_addr, pac_proxy.to_string(), shutdown.clone()).await?;
 
             services.push(ServiceInfo {
                 protocol: ServiceProtocol::Pac,

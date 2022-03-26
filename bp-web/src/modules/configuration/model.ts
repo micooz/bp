@@ -62,7 +62,7 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
       this.data.config = config;
       this.data.configString = this.stringify();
     } catch (err: any) {
-      this.data.errorInfo.load = { message: err.errorMessage };
+      this.data.errorInfo.load = { message: err.message };
     } finally {
       this.data.loaded = true;
     }
@@ -87,6 +87,9 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
     if (value === undefined) {
       normalized = null;
     }
+    if (value === '') {
+      normalized = undefined;
+    }
     this.data.config[key] = normalized;
     this.data.configString = this.stringify();
     this.data.isFormDirty = true;
@@ -103,7 +106,7 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
       this.data.config = config;
       this.data.configString = this.stringify();
     } catch (err: any) {
-      this.data.errorInfo.mutate = { message: err.errorMessage };
+      this.data.errorInfo.mutate = { message: err.message };
     }
   };
 
@@ -116,7 +119,7 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
 
       this.init();
     } catch (err: any) {
-      this.data.errorInfo.mutate = { message: err.errorMessage };
+      this.data.errorInfo.mutate = { message: err.message };
     }
   };
 
@@ -133,7 +136,8 @@ export class ConfigurationCtrl extends ControllerBaseProxy<Data> {
       this.data.isSaveSuccess = true;
       this.data.isFormDirty = false;
     } catch (err: any) {
-      this.data.errorInfo.mutate = { message: err.errorMessage };
+      console.log(err);
+      this.data.errorInfo.mutate = { message: err.message };
     }
   };
 

@@ -27,8 +27,8 @@ export class ServiceBase {
     return this.http<T>('POST', path, data);
   }
 
-  private async http<T>(method: 'GET' | 'POST', path: string, data: any): Promise<string | T> {
-    const res: string | Response<T> = await httpRequest({
+  private async http<T>(method: 'GET' | 'POST', path: string, data: any): Promise<T> {
+    const res: Response<T> = await httpRequest({
       method,
       url: `${this.prefix}${path}`.replace(/\/\//g, '/'),
       data,
@@ -36,11 +36,11 @@ export class ServiceBase {
     });
 
     if (typeof res === 'string') {
-      return res;
+      return res as any;
     }
 
     if (res.success === false) {
-      throw res;
+      throw Error(res.errorMessage);
     }
 
     return res.data;

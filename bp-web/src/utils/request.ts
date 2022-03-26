@@ -7,7 +7,7 @@ export interface RequestOptions {
   crypto?: ICrypto;
 }
 
-export async function httpRequest(opts: RequestOptions) {
+export async function httpRequest(opts: RequestOptions): Promise<any> {
   let url = opts.url;
   let args: RequestInit = {};
 
@@ -57,7 +57,7 @@ export async function httpRequest(opts: RequestOptions) {
   }
 
   if (type?.includes('json')) {
-    return JSON.parse(data);
+    data = JSON.parse(data);
   }
 
   return data;

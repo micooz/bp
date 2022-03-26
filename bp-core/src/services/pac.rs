@@ -11,7 +11,7 @@ use crate::{global, Shutdown};
 
 const PAC_PATH: &str = "/proxy.pac";
 
-pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String, shutdown: Shutdown) -> Result<()> {
+pub async fn start_pac_service(bind_addr: SocketAddr, pac_proxy: String, shutdown: Shutdown) -> Result<()> {
     let listener = TcpListener::bind(bind_addr)
         .await
         .map_err(|err| Error::msg(format!("pac service start failed from {} due to: {}", bind_addr, err)))?;
@@ -39,10 +39,10 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String, shutdo
 
             let (stream, peer_addr) = accept.unwrap();
 
-            let proxy_addr = proxy_addr.clone();
+            let pac_proxy = pac_proxy.clone();
 
             tokio::spawn(async move {
-                if let Err(err) = handle_pac_request(stream, peer_addr, &proxy_addr).await {
+                if let Err(err) = handle_pac_request(stream, peer_addr, &pac_proxy).await {
                     log::error!("[{}] fail to process request due to: {:?}", peer_addr, err);
                 }
             });
@@ -52,7 +52,7 @@ pub async fn start_pac_service(bind_addr: SocketAddr, proxy_addr: String, shutdo
     Ok(())
 }
 
-async fn handle_pac_request(mut stream: TcpStream, peer_addr: SocketAddr, proxy_addr: &str) -> Result<()> {
+async fn handle_pac_request(mut stream: TcpStream, peer_addr: SocketAddr, pac_proxy: &str) -> Result<()> {
     let mut buf = BytesMut::with_capacity(1024);
 
     loop {
@@ -90,7 +90,7 @@ async fn handle_pac_request(mut stream: TcpStream, peer_addr: SocketAddr, proxy_
 
         // response pac content
         let acl = global::get_acl();
-        let acl_content = acl.to_pac(proxy_addr)?;
+        let acl_content = acl.to_pac(pac_proxy)?;
 
         let headers = b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ns-proxy-autoconfig\r\n\r\n";
         stream.write_all(headers).await?;
