@@ -126,9 +126,7 @@ impl ConfigController {
                 }
 
                 let config = config.unwrap();
-                let acl_file = config.acl().unwrap_or_else(|| DEFAULT_ACL_FILE.to_string());
-
-                acl_file
+                config.acl().unwrap_or_else(|| DEFAULT_ACL_FILE.to_string())
             }
             _ => return Response::error(403, "modify_type is not support"),
         };
