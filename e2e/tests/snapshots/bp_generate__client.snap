@@ -2,13 +2,13 @@
 source: e2e/tests/bp_generate.rs
 assertion_line: 26
 expression: "fs::read_file(config_path_client).await"
-
 ---
 {
   "bind": "127.0.0.1:1080",
   "with_basic_auth": null,
   "server_bind": "__some_where__:3000",
   "pac_bind": null,
+  "pac_proxy": null,
   "key": "__some_key__",
   "encryption": "erp",
   "acl": null,
