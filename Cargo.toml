@@ -27,7 +27,7 @@ members = [
 bp-cli = { path = "./bp-cli" }
 bp-core = { path = "./bp-core" }
 log = "0.4.0"
-clap = { version = "3.0.0", default-features = false, features = ["std", "derive"] }
+clap = { version = "3.1.17", default-features = false, features = ["std", "derive"] }
 tokio = { version = "1.8.2", features = ["rt-multi-thread", "macros", "signal"] }
 
 [profile.release]
