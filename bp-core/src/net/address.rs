@@ -42,7 +42,7 @@ impl TryInto<AddressType> for u8 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum Host {
     Ip(IpAddr),
     Name(String),
@@ -65,7 +65,7 @@ impl ToString for Host {
 // +------+----------+----------+
 // |  1   | Variable |    2     |
 // +------+----------+----------+
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Address {
     host: Host,
     port: u16,

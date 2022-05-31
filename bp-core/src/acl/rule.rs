@@ -73,7 +73,7 @@ impl From<&str> for RuleValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RulePrefix {
     Exact,
     Fuzzy,
@@ -97,7 +97,7 @@ impl Default for RulePrefix {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuleGroup {
     Allow,
     Deny,

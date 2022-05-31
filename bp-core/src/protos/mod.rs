@@ -78,7 +78,7 @@ dyn_clone::clone_trait_object!(Protocol);
 
 pub type DynProtocol = Box<dyn Protocol + Send + Sync + 'static>;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncryptionMethod {
     Plain,
     EncryptRandomPadding,

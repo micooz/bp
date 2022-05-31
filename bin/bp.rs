@@ -23,7 +23,7 @@ async fn main() {
             let shutdown = tokio::signal::ctrl_c();
             let (startup_sender, _startup_receiver) = mpsc::channel::<Startup>(1);
 
-            let _ = service::run(opts, startup_sender, shutdown).await;
+            service::run(opts, startup_sender, shutdown).await;
         }
         // $ bp test [OPTIONS]
         Command::Test(opts) => {

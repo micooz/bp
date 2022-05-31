@@ -9,7 +9,7 @@ pub mod tcp;
 pub mod tls;
 pub mod udp;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceProtocol {
     Tcp,
     Udp,

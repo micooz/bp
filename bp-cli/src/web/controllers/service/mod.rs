@@ -47,7 +47,7 @@ impl ServiceController {
         let (shutdown_sender, mut shutdown_receiver) = channel::<()>(1);
 
         tokio::spawn(async move {
-            let _ = service::run(opts, startup_sender, shutdown_receiver.recv()).await;
+            service::run(opts, startup_sender, shutdown_receiver.recv()).await;
             SERVICE_HANDLE.set(None);
         });
 
