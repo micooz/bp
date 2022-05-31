@@ -1,2 +1,2 @@
-# [target.aarch64-unknown-linux-musl]
-# linker = "/usr/local/opt/llvm/bin/ld.lld"
+[target.aarch64-unknown-linux-musl]
+#linker = "/usr/local/opt/llvm/bin/ld.lld"
