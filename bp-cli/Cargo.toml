@@ -27,7 +27,7 @@ async-compression = { version = "0.3.12", features = ["futures-io", "gzip"]}
 async-std = { version = "1.10.0", features = ["attributes", "tokio1"] }
 
 include_dir = "0.7.2"
-sysinfo = "0.23.2"
+sysinfo = "0.24.1"
 
 [build-dependencies]
 cmd_lib = "1.2.4"
