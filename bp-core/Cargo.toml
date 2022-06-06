@@ -7,7 +7,7 @@ edition = "2021"
 bp-monitor = { path = "../bp-monitor" }
 
 ### framework
-async-trait = "0.1.50"
+async-trait = "0.1.56"
 anyhow = "1.0.44"
 dyn-clone = "1.0.4"
 lazy_static = "1.4.0"
