@@ -1,6 +1,6 @@
 [package]
 name = "bp-cli"
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.3"
 description = "bp is a set of advanced and efficient proxy tools written in pure Rust."
 edition = "2021"
 

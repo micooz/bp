@@ -18,7 +18,7 @@ on:
         required: true
       version:
         description: 'Asset version to deploy'
-        default: 'v2.0.0-alpha.2'
+        default: 'v2.0.0-alpha.3'
         required: true
       arch:
         description: 'Asset binary architecture (Rust format)'
@@ -26,7 +26,7 @@ on:
         required: true
       bind:
         description: 'Web server bind address'
-        default: '0.0.0.0:8080'
+        default: '127.0.0.1:8080'
         required: false
       crypto:
         description: 'Web server crypto method'

@@ -177,10 +177,15 @@ impl Connection {
         }
 
         let acl = global::get_acl();
+
+        if acl.count() == 0 {
+            return true;
+        }
+
         let rule = acl.try_match(&addr.host(), Some(addr.port()));
 
         if rule.is_none() {
-            return true;
+            return false;
         }
 
         let rule = rule.unwrap();
