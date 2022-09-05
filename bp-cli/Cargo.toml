@@ -8,7 +8,7 @@ edition = "2021"
 bp-core = { path = "../bp-core" }
 bp-monitor = { path = "../bp-monitor" }
 
-anyhow = "1.0.44"
+anyhow = "1.0.64"
 parking_lot = "0.12.0"
 lazy_static = "1.4.0"
 log = "0.4.0"
