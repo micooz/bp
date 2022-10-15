@@ -29,7 +29,7 @@ httparse = "1.4.1"
 url = "2.2.2"
 
 ### cryoto
-chacha20poly1305 = "0.9.0"
+chacha20poly1305 = "0.10.1"
 hkdf = "0.12.0"
 rand = { version = "0.8.4", features = ["std_rng"] }
 rcgen = "0.9.0"
