@@ -77,7 +77,7 @@ impl Connection {
                     // TODO: close connection on client side?
                     self.outbound.set_socket_type(SocketType::Tcp);
                     self.outbound.set_allow_proxy(false);
-                    out_proto = Box::new(Direct::default());
+                    out_proto = Box::<Direct>::default();
                 }
                 ServiceType::Server => {
                     // close connection
@@ -203,7 +203,7 @@ impl Connection {
             return Box::new(Dns::new(self.opts.dns_server()));
         }
 
-        Box::new(Direct::default())
+        Box::<Direct>::default()
     }
 
     /// handle events from inbound and outbound

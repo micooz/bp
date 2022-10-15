@@ -113,7 +113,7 @@ impl Protocol for Socks {
         let mut n = 0usize;
 
         // TODO: now only support METHOD_NO_AUTH
-        while n < n_methods as usize {
+        while n < n_methods {
             if buf[n] == METHOD_NO_AUTH {
                 method = Some(METHOD_NO_AUTH);
                 break;

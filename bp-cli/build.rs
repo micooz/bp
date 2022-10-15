@@ -1,4 +1,4 @@
-#![feature(path_try_exists)]
+#![feature(fs_try_exists)]
 use std::{env, fs};
 
 use cmd_lib::{run_cmd, run_fun};

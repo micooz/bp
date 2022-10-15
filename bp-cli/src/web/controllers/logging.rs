@@ -30,7 +30,7 @@ impl LoggingController {
         let mut content_seg = Vec::with_capacity(TAIL_N);
 
         loop {
-            if line_count >= TAIL_N as usize {
+            if line_count >= TAIL_N {
                 break;
             }
 

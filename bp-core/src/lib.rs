@@ -1,5 +1,5 @@
 #![feature(slice_group_by)]
-#![feature(path_try_exists)]
+#![feature(fs_try_exists)]
 
 mod constants;
 mod event;

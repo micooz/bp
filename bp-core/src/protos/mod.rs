@@ -148,7 +148,7 @@ impl<'de> Deserialize<'de> for EncryptionMethod {
 
 pub fn init_protocol(encryption: EncryptionMethod, key: String, service_type: ServiceType) -> DynProtocol {
     match encryption {
-        EncryptionMethod::Plain => Box::new(Plain::default()),
+        EncryptionMethod::Plain => Box::<Plain>::default(),
         EncryptionMethod::EncryptRandomPadding => Box::new(Erp::new(key, service_type)),
     }
 }

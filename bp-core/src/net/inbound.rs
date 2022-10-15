@@ -58,7 +58,7 @@ impl Inbound {
 
     async fn try_resolve(&mut self) -> Result<DynProtocol> {
         fn direct(addr: &Address) -> DynProtocol {
-            let mut direct = Box::new(Direct::default());
+            let mut direct = Box::<Direct>::default();
 
             direct.set_resolved_result(ResolvedResult {
                 protocol: ProtocolType::Direct,
@@ -92,7 +92,7 @@ impl Inbound {
             let mut try_list: Vec<DynProtocol> = vec![
                 Box::new(Socks::new(Some(self.opts.bind()))),
                 Box::new(Http::new(self.opts.client_opts().with_basic_auth)),
-                Box::new(Https::default()),
+                Box::<Https>::default()
             ];
 
             if self.socket.is_udp() {

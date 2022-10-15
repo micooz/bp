@@ -1,4 +1,4 @@
-#![feature(path_try_exists)]
+#![feature(fs_try_exists)]
 #![feature(option_result_contains)]
 
 pub mod commands;

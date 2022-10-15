@@ -10,7 +10,7 @@ use tide::{
 };
 
 pub fn gzip<State: Clone + Send + Sync + 'static>(req: &Request<State>, mut res: Response) -> tide::Result {
-    let accepts = AcceptEncoding::from_headers(&req)?;
+    let accepts = AcceptEncoding::from_headers(req)?;
 
     // skip HEAD and no accepts headers requests
     if req.method() == Method::Head || accepts.is_none() {

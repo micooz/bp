@@ -95,7 +95,7 @@ impl AccessControlList {
 
         // Add a path to be watched. All files and directories at that path and
         // below will be monitored for changes.
-        watcher.watch(&path, RecursiveMode::NonRecursive)?;
+        watcher.watch(path, RecursiveMode::NonRecursive)?;
 
         // unwatch when shutdown
         tokio::spawn(async move {
@@ -241,7 +241,7 @@ impl AccessControlList {
             };
 
             // skip prefix
-            let skip_n = if prefix != RulePrefix::Exact { 1 } else { 0 };
+            let skip_n = usize::from(prefix != RulePrefix::Exact);
             let chars = item.chars().skip(skip_n);
 
             // to string
