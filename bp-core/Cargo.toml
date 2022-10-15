@@ -41,7 +41,7 @@ log4rs = { version = "1.0.0", features = ["gzip"] }
 
 ### others
 base64 = "0.13.0"
-clap = { version = "3.0.0", default-features = false, features = ["std", "derive", "cargo"] }
+clap = { version = "4.0.15", default-features = false, features = ["std", "derive", "cargo"] }
 notify = "4.0.0"
 serde_yaml = "0.8.21"
 serde_json = "1.0.68"
