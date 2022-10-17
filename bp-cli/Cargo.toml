@@ -26,7 +26,7 @@ tide = "0.16.0"
 async-compression = { version = "0.3.12", features = ["futures-io", "gzip"]}
 async-std = { version = "1.10.0", features = ["attributes", "tokio1"] }
 
-include_dir = "0.7.2"
+include_dir = "0.7.3"
 sysinfo = "0.23.2"
 
 [build-dependencies]
